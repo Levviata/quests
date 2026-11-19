@@ -7,6 +7,7 @@ package com.levviata.reflib.impl.net;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import io.netty.buffer.ByteBuf;
@@ -20,27 +21,39 @@ import com.levviata.reflib.api.net.ReflibMessage;
 
 /**
  * Internal: the transport-independent half of a channel. Maps message classes to one-byte ids, encodes and
- * decodes payloads and enforces direction and size rules. It has no dependency on the network stack so it
- * can be unit-tested.
+ * decodes payloads, splits large payloads into fragments, and enforces direction and size rules. It has no
+ * dependency on the network stack so it can be unit-tested.
  */
 public final class MessageRegistry {
 
-    /** Conservative cap on a single payload (vanilla limits serverbound custom payloads to 32 KiB). */
-    public static final int MAX_PAYLOAD_BYTES = 30_000;
+    /** Largest message (after encoding) a channel will send or accept. Larger data must be split by the caller. */
+    public static final int MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
+
+    /** Payload bytes per network frame (vanilla limits custom payloads to 32 KiB; leave room for headers). */
+    public static final int MAX_FRAGMENT_BYTES = 28_000;
+
+    public static final int MAX_FRAGMENTS = (MAX_MESSAGE_BYTES + MAX_FRAGMENT_BYTES - 1) / MAX_FRAGMENT_BYTES;
 
     private record Entry(Class<? extends ReflibMessage> type, Side receiver,
                          ReflibChannel.Handler<ReflibMessage> handler, Constructor<? extends ReflibMessage> ctor) {}
 
     private final String name;
+    private final String protocolVersion;
     private final List<Entry> entries = new ArrayList<>();
+    private boolean frozen;
+    private int signature;
 
-    public MessageRegistry(String name) {
+    public MessageRegistry(String name, String protocolVersion) {
         this.name = name;
+        this.protocolVersion = protocolVersion;
     }
 
     @SuppressWarnings("unchecked")
     public synchronized <M extends ReflibMessage> void register(Class<M> type, Side receiver,
                                                                 ReflibChannel.Handler<M> handler) {
+        if (frozen) {
+            throw new IllegalStateException("Channel '" + name + "' is already in use; register all messages first");
+        }
         if (entries.size() >= 255) {
             throw new IllegalStateException("Channel '" + name + "' supports at most 255 message types");
         }
@@ -57,6 +70,22 @@ public final class MessageRegistry {
             throw new IllegalArgumentException(type.getName() + " needs a no-argument constructor", ex);
         }
         entries.add(new Entry(type, receiver, (ReflibChannel.Handler<ReflibMessage>) handler, ctor));
+    }
+
+    /**
+     * A hash of the protocol version and the ordered registered message types and directions. Both ends must
+     * agree; frames carrying a different value are dropped with a clear log line. Freezes the registry.
+     */
+    public synchronized int signature() {
+        if (!frozen) {
+            frozen = true;
+            StringBuilder sb = new StringBuilder(protocolVersion);
+            for (Entry e : entries) {
+                sb.append('|').append(e.type.getName()).append('>').append(e.receiver);
+            }
+            signature = sb.toString().hashCode();
+        }
+        return signature;
     }
 
     public synchronized int idOf(Class<? extends ReflibMessage> type) {
@@ -77,9 +106,9 @@ public final class MessageRegistry {
         ByteBuf raw = Unpooled.buffer();
         try {
             message.write(new PacketBuffer(raw));
-            if (raw.readableBytes() > MAX_PAYLOAD_BYTES) {
+            if (raw.readableBytes() > MAX_MESSAGE_BYTES) {
                 throw new IllegalArgumentException(message.getClass().getName() + " encodes to " + raw.readableBytes()
-                        + " bytes, above the limit of " + MAX_PAYLOAD_BYTES + "; split it into several messages");
+                        + " bytes, above the limit of " + MAX_MESSAGE_BYTES + "; split it into several messages");
             }
             byte[] out = new byte[raw.readableBytes()];
             raw.readBytes(out);
@@ -87,6 +116,19 @@ public final class MessageRegistry {
         } finally {
             raw.release();
         }
+    }
+
+    /** Split an encoded payload into network-sized fragments (one fragment if it already fits). */
+    public static List<byte[]> split(byte[] payload) {
+        List<byte[]> out = new ArrayList<>();
+        if (payload.length <= MAX_FRAGMENT_BYTES) {
+            out.add(payload);
+            return out;
+        }
+        for (int from = 0; from < payload.length; from += MAX_FRAGMENT_BYTES) {
+            out.add(Arrays.copyOfRange(payload, from, Math.min(payload.length, from + MAX_FRAGMENT_BYTES)));
+        }
+        return out;
     }
 
     /**
@@ -106,8 +148,8 @@ public final class MessageRegistry {
             throw new IllegalArgumentException(entry.type.getName() + " is addressed to " + entry.receiver
                     + " but arrived on " + arrivedOn);
         }
-        if (payload.length > MAX_PAYLOAD_BYTES) {
-            throw new IllegalArgumentException("Payload of " + payload.length + " bytes exceeds " + MAX_PAYLOAD_BYTES);
+        if (payload.length > MAX_MESSAGE_BYTES) {
+            throw new IllegalArgumentException("Payload of " + payload.length + " bytes exceeds " + MAX_MESSAGE_BYTES);
         }
         ByteBuf raw = Unpooled.wrappedBuffer(payload);
         try {

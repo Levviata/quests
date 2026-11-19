@@ -7,31 +7,53 @@ package com.levviata.reflib.impl.net;
 
 import io.netty.buffer.ByteBuf;
 
+import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-/** Internal wire frame: one id byte followed by the raw payload. Public only for the network layer. */
+/**
+ * Internal wire frame. Header: message id (1 byte), channel signature (int), transfer id, fragment index and
+ * fragment count (varints); the rest is this fragment's payload. Public only for the network layer.
+ */
 public final class Envelope implements IMessage {
 
     public int id;
+    public int signature;
+    public int transfer;
+    public int index;
+    public int count = 1;
     public byte[] payload = new byte[0];
 
     public Envelope() {}
 
-    public Envelope(int id, byte[] payload) {
+    public Envelope(int id, int signature, int transfer, int index, int count, byte[] payload) {
         this.id = id;
+        this.signature = signature;
+        this.transfer = transfer;
+        this.index = index;
+        this.count = count;
         this.payload = payload;
     }
 
     @Override
     public void fromBytes(ByteBuf buf) {
-        id = buf.readUnsignedByte();
-        payload = new byte[buf.readableBytes()];
-        buf.readBytes(payload);
+        PacketBuffer pb = new PacketBuffer(buf);
+        id = pb.readUnsignedByte();
+        signature = pb.readInt();
+        transfer = pb.readVarInt();
+        index = pb.readVarInt();
+        count = pb.readVarInt();
+        payload = new byte[pb.readableBytes()];
+        pb.readBytes(payload);
     }
 
     @Override
     public void toBytes(ByteBuf buf) {
-        buf.writeByte(id);
-        buf.writeBytes(payload);
+        PacketBuffer pb = new PacketBuffer(buf);
+        pb.writeByte(id);
+        pb.writeInt(signature);
+        pb.writeVarInt(transfer);
+        pb.writeVarInt(index);
+        pb.writeVarInt(count);
+        pb.writeBytes(payload);
     }
 }
