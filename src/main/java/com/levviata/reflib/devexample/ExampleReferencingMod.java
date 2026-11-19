@@ -19,6 +19,7 @@ import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
 import net.minecraftforge.fml.relauncher.Side;
 
 import com.levviata.reflib.api.ReflibApi;
+import com.levviata.reflib.api.assets.SuppliedAssets;
 import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflib.api.data.DataUpgrader;
 import com.levviata.reflib.api.data.NbtBridge;
@@ -58,6 +59,9 @@ public class ExampleReferencingMod {
         if (event.getSide() == Side.CLIENT) {
             ClientHook.init(channel);
         }
+
+        // 2b. assets from a jar the player supplies (here a tiny synthetic test jar placed by the developer)
+        SuppliedAssets.declare(ID, "Reflib test assets", "dev only: made by the test setup", "reflibtestassets");
 
         // 3. an optional integration that must NOT run (the target mod does not exist)
         Integrations.register("definitely_not_installed", "*", () -> () -> optionalIntegrationRan.set(true));
@@ -122,6 +126,12 @@ public class ExampleReferencingMod {
             }
             if (channel == null) {
                 return "channel missing";
+            }
+            if (SuppliedAssets.isPresent(ID)) {
+                byte[] lang = SuppliedAssets.read("reflibtestassets", "lang/en_us.json");
+                if (lang == null || SuppliedAssets.read("minecraft", "textures/gui/should_not_leak.png") != null) {
+                    return "supplied assets read wrong";
+                }
             }
             return null;
         } catch (Throwable t) {

@@ -84,8 +84,34 @@ final class ClientSide {
                 || !(event.getEntity() instanceof EntityPlayerSP)) {
             return;
         }
+        checkSuppliedAssets();
         LOGGER.info("REFLIB-NET: client sending ping #42");
         channel.sendToServer(new PingMessage(42));
+    }
+
+    /** Verifies that the supplied test jar is visible through the normal resource and language systems. */
+    private static void checkSuppliedAssets() {
+        Minecraft mc = Minecraft.getMinecraft();
+        String hello = net.minecraft.client.resources.I18n.format("reflibtest.hello");
+        String multi = net.minecraft.client.resources.I18n.format("reflibtest.multi");
+        boolean textureOk;
+        try {
+            textureOk = mc.getResourceManager()
+                    .getResource(new net.minecraft.util.ResourceLocation("reflibtestassets", "textures/gui/test.png"))
+                    .getInputStream().read() == 0x89;
+        } catch (java.io.IOException ex) {
+            textureOk = false;
+        }
+        boolean leak;
+        try {
+            mc.getResourceManager().getResource(new net.minecraft.util.ResourceLocation("minecraft", "textures/gui/should_not_leak.png"));
+            leak = true;
+        } catch (java.io.IOException ex) {
+            leak = false;
+        }
+        boolean ok = "Hello from a supplied jar".equals(hello) && "one two".equals(multi) && textureOk && !leak;
+        LOGGER.info("REFLIB-ASSETS: {} (lang='{}', multi='{}', texture={}, minecraftLeak={})",
+                ok ? "PASS" : "FAIL", hello, multi, textureOk, leak);
     }
 
     /** Called when the server's reply arrives on the client thread. */
