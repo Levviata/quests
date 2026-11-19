@@ -154,3 +154,12 @@ Realistic early: model, tasks (item, checkmark, XP, kill, advancement, dimension
 | Platform split (common + loaders) | Not needed: single loader. Keep model code free of Minecraft types anyway (unit-testable) |
 
 **Residual unknowns (not learned, by design):** exact wire formats, exact file schema, GUI layout and behaviours beyond what the docs state. These are ours to design.
+
+## 8. Revision during Phase 5 (user decisions, 2026-11-19)
+
+The user clarified that the goal is a "port" in the ArchaicLib sense that works with the original upstream jars, and decided:
+
+1. **Assets from player-supplied upstream jars.** Reverses D7. reflib gains a loader that reads textures (and text converted from the 1.21 JSON language format to 1.12.2 `.lang`) from the player's own FTB Quests / FTB Library / FTB Teams jars placed in a game-folder directory. We ship no FTB assets; without the jars the mod falls back to its own placeholder art. Upstream *code* is never loaded (it targets 1.21 and cannot run on 1.12.2), so the mod's logic stays our own. Licensing note unchanged: this is a distribution model, not a legal clearance (all three projects are All Rights Reserved).
+2. **Import of upstream quest files.** Reverses Q3a. Requires the upstream file schema; the user approved reading source for **schema-level facts only** (layout, field names, types, meaning). Our parser is our own; the schema is documented in our own words in `docs/upstream-quest-format.md`.
+
+Consequences for the plan: new step **M0b** (asset loader) before the model; the model uses string ids so upstream's ids fit; the file codec in M1 reads upstream layout first and can write it back; the earlier "own schema" is replaced by "upstream-compatible schema" wherever the two would differ.
