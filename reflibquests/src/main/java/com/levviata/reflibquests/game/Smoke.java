@@ -36,6 +36,15 @@ public final class Smoke {
             if (ItemResolver.resolve(qs.book().task("t_log").params().get("item"), qs.idMap()) == null) {
                 return "oak_log did not resolve through the id map";
             }
+            java.util.List<String> table = BuiltinCheck.problems();
+            if (!table.isEmpty()) {
+                for (String line : table) {
+                    com.levviata.reflibquests.ReflibQuestsMod.LOGGER.error("ID TABLE: {}", line);
+                }
+                return table.size() + " built-in id table entr(ies) do not match the game; first: " + table.get(0);
+            }
+            com.levviata.reflibquests.ReflibQuestsMod.LOGGER.info("ID TABLE: {} item and {} entity entries match the 1.12.2 registries",
+                    com.levviata.reflibquests.io.BuiltinIdMap.items().size(), com.levviata.reflibquests.io.BuiltinIdMap.entities().size());
             UUID team = UUID.randomUUID();
             TeamProgress p = qs.progressOf(team);
             qs.apply(p, qs.engine().setTaskProgress(p, "t_dirt", 3, 1000L));

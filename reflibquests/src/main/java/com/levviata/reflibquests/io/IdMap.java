@@ -31,10 +31,21 @@ public final class IdMap {
     private final Map<String, String> items = new HashMap<>();
     private final Map<String, String> entities = new HashMap<>();
 
+    /** Only the entries in {@code data}. */
     public static IdMap from(DataNode.Compound data) {
         IdMap m = new IdMap();
         fill(m.items, data.getCompound("items"));
         fill(m.entities, data.getCompound("entities"));
+        return m;
+    }
+
+    /** The built-in table ({@link BuiltinIdMap}) with the entries of {@code overrides} on top; overrides win. */
+    public static IdMap withBuiltin(DataNode.Compound overrides) {
+        IdMap m = new IdMap();
+        m.items.putAll(BuiltinIdMap.items());
+        m.entities.putAll(BuiltinIdMap.entities());
+        fill(m.items, overrides.getCompound("items"));
+        fill(m.entities, overrides.getCompound("entities"));
         return m;
     }
 

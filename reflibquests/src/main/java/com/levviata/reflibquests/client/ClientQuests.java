@@ -27,7 +27,7 @@ import com.levviata.reflibquests.model.TeamProgress;
 public final class ClientQuests {
 
     private static QuestBook book;
-    private static IdMap idMap = IdMap.from(DataNode.Compound.empty());
+    private static IdMap idMap = IdMap.withBuiltin(DataNode.Compound.empty());
     private static ProgressEngine engine;
     private static TeamProgress progress;
     private static int bookVersion;
@@ -38,7 +38,7 @@ public final class ClientQuests {
         try {
             BookCodec.Decoded d = BookCodec.read(Gz.unpack(packed));
             book = d.book();
-            idMap = IdMap.from(d.idMap());
+            idMap = IdMap.withBuiltin(d.idMap());
             engine = new ProgressEngine(book);
             bookVersion++;
             ReflibQuestsMod.LOGGER.info("Quest book synced: {} chapters, {} quests ({} bytes packed)",
@@ -89,6 +89,6 @@ public final class ClientQuests {
         book = null;
         progress = null;
         engine = null;
-        idMap = IdMap.from(DataNode.Compound.empty());
+        idMap = IdMap.withBuiltin(DataNode.Compound.empty());
     }
 }

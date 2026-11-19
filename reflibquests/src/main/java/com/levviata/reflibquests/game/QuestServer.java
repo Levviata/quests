@@ -60,7 +60,7 @@ public final class QuestServer {
     private final File configDir;
     private QuestBook book = new QuestBook();
     private ProgressEngine engine = new ProgressEngine(book);
-    private IdMap idMap = IdMap.from(DataNode.Compound.empty());
+    private IdMap idMap = IdMap.withBuiltin(DataNode.Compound.empty());
     private DataNode.Compound idMapRaw = DataNode.Compound.empty();
     private byte[] bookBytes = new byte[0];
     private final Map<UUID, TeamProgress> teams = new LinkedHashMap<>();
@@ -140,11 +140,11 @@ public final class QuestServer {
     public void reload() {
         Path mapFile = configDir.toPath().resolve("id_map.snbt");
         idMapRaw = DataNode.Compound.empty();
-        idMap = IdMap.from(idMapRaw);
+        idMap = IdMap.withBuiltin(idMapRaw);
         if (Files.exists(mapFile)) {
             try {
                 idMapRaw = DataFiles.read(mapFile);
-                idMap = IdMap.from(idMapRaw);
+                idMap = IdMap.withBuiltin(idMapRaw);
                 ReflibQuestsMod.LOGGER.info("Loaded {} id mappings", idMap.size());
             } catch (IOException ex) {
                 ReflibQuestsMod.LOGGER.error("Cannot read {}: {}", mapFile, ex.getMessage());
