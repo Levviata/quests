@@ -1,0 +1,12 @@
+[{
+	"modid": "reflibquests",
+	"name": "Reflib Quests",
+	"version": "0.1.0",
+	"mcversion": "1.12.2",
+	"description": "An independent quest mod for 1.12.2 built on reflib. Not affiliated with any other quest mod.",
+	"authorList": ["Levviata"],
+	"credits": "",
+	"url": "",
+	"updateJSON": "",
+	"logoFile": ""
+}]

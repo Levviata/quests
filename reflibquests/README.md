@@ -2,17 +2,20 @@
 
 A quest mod for Minecraft 1.12.2 (Cleanroom) built on reflib. It is an **independent implementation** inspired by FTB Quests; it contains none of that mod's code, and it is not affiliated with or endorsed by FTB. LGPL-2.1-only.
 
-## Status (milestone M1 of Phase 5)
+## Status (milestones M1-M2 of Phase 5)
 
 | Part | State |
 |---|---|
-| Quest model (`model`): chapters, quests, tasks, rewards, reward tables, dependencies, visibility, sequential tasks, repeatables, linear/flexible progression, per-team progress, reward claiming | Done and unit-tested (19 tests). Pure Java, no Minecraft types |
-| Importer (`io.UpstreamImporter`): reads upstream quest folders, latest `.json5` generation and the older `.snbt` generation, including translations | Done and unit-tested (5 tests) with hand-written sample folders. **Not yet tried on a real quest pack** |
-| Item/entity/dimension id mapping 1.21 to 1.12.2 | Not started (imported ids are kept as written) |
-| Exporter (write quest folders back) | Not started |
-| Server side: task detection, reward granting, persistence, commands | Not started |
-| Sync and questbook screen | Not started |
-| Assets from player-supplied upstream jars | Not started (reflib loader planned) |
+| Quest model (`model`): chapters, quests, tasks, rewards, reward tables, dependencies, visibility, sequential tasks, repeatables, linear/flexible progression, per-team progress, reward claiming, progress save format | Done, unit-tested (19 + 6 tests). Pure Java, no Minecraft types |
+| Importer (`io.UpstreamImporter`): upstream quest folders, latest `.json5` and older `.snbt`, translations | Done, unit-tested (5 tests) on hand-written sample folders. **Not yet tried on a real quest pack** |
+| Id map (`config/reflibquests/id_map.snbt`): newer item/entity names to 1.12.2 names, with item metadata | Done, unit-tested. **No built-in table yet**: only entries you add resolve; unmapped 1.21 names make a task inert (listed by `/rquests problems`) |
+| Server (`game`): load, per-team progress saved in the world, autosave, task detection, rewards, auto-claim, notifications, Forge events (`api.QuestEvents`), `/rquests` commands | Done. **Verified in game** (dedicated-server smoke test; singleplayer by the user on a hand-written sample pack: item, xp, kill, checkmark, consuming item with id map, choice/random rewards, command reward, auto-claim, persistence across rejoin) |
+| Task types detected | item, checkmark, xp, kill, advancement, dimension, location, custom. **Advancement, dimension and location are implemented but were not exercised in game.** Not supported (imported, shown, never progress): stat, observation, biome, structure, fluid, energy, interaction, game stage |
+| Reward types granted | item, xp, xp_levels, command, toast (chat message), advancement, custom, random, all_table, choice. **Advancement and all_table rewards were not exercised in game.** Not supported: loot, currency, game stage |
+| Multiplayer (two real players, teams, sync) | Not tested. Singleplayer integrated server only. No client sync yet |
+| Sync and questbook screen | Not started (everything is chat commands for now) |
+| Assets from player-supplied upstream jars (reflib loader exists) | Not yet used by this mod |
+| Exporter (write quest folders back), editor, party teams | Not started |
 
 Format reference: `../docs/upstream-quest-format.md`. Build and test: `./gradlew :reflibquests:build`.
 
