@@ -35,19 +35,58 @@ public abstract class ReflibScreen extends GuiScreen {
         root = buildRoot(width, height);
     }
 
+    private int lastDragX;
+    private int lastDragY;
+
+    /** Override to draw a different backdrop; the default dims the world like vanilla screens. */
+    protected void drawBackdrop() {
+        drawDefaultBackground();
+    }
+
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        drawDefaultBackground();
+        drawBackdrop();
         if (root != null) {
             root.draw(mouseX, mouseY, partialTicks);
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
+        if (root != null) {
+            java.util.List<String> tip = root.tooltipAt(mouseX, mouseY);
+            if (tip != null && !tip.isEmpty()) {
+                drawHoveringText(tip, mouseX, mouseY);
+            }
+        }
     }
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        lastDragX = mouseX;
+        lastDragY = mouseY;
         if (root == null || !root.mouseClicked(mouseX, mouseY, mouseButton)) {
             super.mouseClicked(mouseX, mouseY, mouseButton);
+        }
+    }
+
+    @Override
+    protected void mouseClickMove(int mouseX, int mouseY, int clickedMouseButton, long timeSinceLastClick) {
+        if (root != null) {
+            root.mouseDragged(mouseX, mouseY, clickedMouseButton, mouseX - lastDragX, mouseY - lastDragY);
+        }
+        lastDragX = mouseX;
+        lastDragY = mouseY;
+    }
+
+    @Override
+    protected void mouseReleased(int mouseX, int mouseY, int state) {
+        if (root == null || !root.mouseReleased(mouseX, mouseY, state)) {
+            super.mouseReleased(mouseX, mouseY, state);
+        }
+    }
+
+    @Override
+    protected void keyTyped(char typedChar, int keyCode) throws IOException {
+        if (root == null || !root.keyTyped(typedChar, keyCode)) {
+            super.keyTyped(typedChar, keyCode);
         }
     }
 

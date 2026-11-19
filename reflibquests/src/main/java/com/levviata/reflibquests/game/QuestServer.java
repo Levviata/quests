@@ -30,7 +30,10 @@ import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflib.api.team.Teams;
 import com.levviata.reflibquests.ReflibQuestsMod;
 import com.levviata.reflibquests.api.QuestEvents;
+import com.levviata.reflibquests.io.BookCodec;
+import com.levviata.reflibquests.io.Gz;
 import com.levviata.reflibquests.io.IdMap;
+import com.levviata.reflibquests.net.QuestNet;
 import com.levviata.reflibquests.io.UpstreamImporter;
 import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.Definitions.Reward;
@@ -58,8 +61,12 @@ public final class QuestServer {
     private QuestBook book = new QuestBook();
     private ProgressEngine engine = new ProgressEngine(book);
     private IdMap idMap = IdMap.from(DataNode.Compound.empty());
+    private DataNode.Compound idMapRaw = DataNode.Compound.empty();
+    private byte[] bookBytes = new byte[0];
     private final Map<UUID, TeamProgress> teams = new LinkedHashMap<>();
     private final Set<UUID> dirty = new HashSet<>();
+    /** teams whose progress must be re-sent to their online members at the end of this tick */
+    private final Set<UUID> syncDirty = new HashSet<>();
     private final RewardGranter rewards = new RewardGranter(this);
     private final TaskTracker tracker = new TaskTracker(this);
     private final List<String> inertTasks = new ArrayList<>();
@@ -121,10 +128,12 @@ public final class QuestServer {
     /** (Re)read definitions and the id map; progress already in memory is kept. */
     public void reload() {
         Path mapFile = configDir.toPath().resolve("id_map.snbt");
-        idMap = IdMap.from(DataNode.Compound.empty());
+        idMapRaw = DataNode.Compound.empty();
+        idMap = IdMap.from(idMapRaw);
         if (Files.exists(mapFile)) {
             try {
-                idMap = IdMap.from(DataFiles.read(mapFile));
+                idMapRaw = DataFiles.read(mapFile);
+                idMap = IdMap.from(idMapRaw);
                 ReflibQuestsMod.LOGGER.info("Loaded {} id mappings", idMap.size());
             } catch (IOException ex) {
                 ReflibQuestsMod.LOGGER.error("Cannot read {}: {}", mapFile, ex.getMessage());
@@ -146,6 +155,72 @@ public final class QuestServer {
         }
         tracker.rebuild();
         findInertTasks();
+        bookBytes = Gz.pack(BookCodec.write(book, idMapRaw));
+        for (EntityPlayerMP p : server.getPlayerList().getPlayers()) {
+            syncPlayer(p);
+        }
+    }
+
+    // ------------------------------------------------------------ sync to clients
+
+    /** Send the whole book and the player's team progress (on join and after a reload). */
+    public void syncPlayer(EntityPlayerMP player) {
+        QuestNet.sendBook(player, bookBytes);
+        QuestNet.sendProgress(player, Gz.pack(ProgressCodec.write(progressOf(player))));
+    }
+
+    private void flushSync() {
+        if (syncDirty.isEmpty()) {
+            return;
+        }
+        for (UUID team : new ArrayList<>(syncDirty)) {
+            byte[] packed = Gz.pack(ProgressCodec.write(progressOf(team)));
+            for (EntityPlayerMP p : onlineMembers(team)) {
+                QuestNet.sendProgress(p, packed);
+            }
+        }
+        syncDirty.clear();
+    }
+
+    @Nullable
+    public Reward findReward(String id) {
+        for (Quest q : book.allQuests()) {
+            for (Reward r : q.rewards) {
+                if (r.id().equals(id)) {
+                    return r;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** A client asked to claim a reward. The server re-checks everything. */
+    public void handleClaim(EntityPlayerMP player, String rewardId, int choice) {
+        Reward reward = findReward(rewardId);
+        if (reward == null) {
+            return;
+        }
+        switch (claim(player, reward, choice, false)) {
+            case NEEDS_CHOICE:
+                player.sendMessage(new TextComponentString("[Quests] Pick one of the options."));
+                break;
+            case UNSUPPORTED:
+                player.sendMessage(new TextComponentString("[Quests] This reward type is not supported yet; it stays unclaimed."));
+                break;
+            case FAILED:
+                player.sendMessage(new TextComponentString("[Quests] You cannot claim that reward now."));
+                break;
+            default:
+                break;
+        }
+    }
+
+    public void handleCheck(EntityPlayerMP player, String taskId) {
+        player.sendMessage(new TextComponentString("[Quests] " + tracker.check(player, taskId)));
+    }
+
+    public void handleSubmit(EntityPlayerMP player, String taskId) {
+        player.sendMessage(new TextComponentString("[Quests] " + tracker.submit(player, taskId)));
     }
 
     private void findInertTasks() {
@@ -204,6 +279,7 @@ public final class QuestServer {
 
     public void markDirty(UUID teamId) {
         dirty.add(teamId);
+        syncDirty.add(teamId);
     }
 
     public void saveDirty() {
@@ -332,6 +408,7 @@ public final class QuestServer {
 
     /** Called every server tick. */
     public void tick(int serverTick) {
+        flushSync();
         if (serverTick % 600 == 0) {
             saveDirty();
         }

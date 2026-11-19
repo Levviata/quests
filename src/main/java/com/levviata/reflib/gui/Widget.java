@@ -90,11 +90,85 @@ public abstract class Widget {
         return onScroll(mouseX, mouseY, delta);
     }
 
+    /**
+     * The pointer moved with a button held. Delivered to the widget that consumed the press, then up its
+     * children if it does not. {@code dx}/{@code dy} are the movement since the last call.
+     *
+     * @return true if consumed
+     */
+    public boolean mouseDragged(int mouseX, int mouseY, int button, int dx, int dy) {
+        if (!visible) {
+            return false;
+        }
+        for (int i = children.size() - 1; i >= 0; i--) {
+            if (children.get(i).mouseDragged(mouseX, mouseY, button, dx, dy)) {
+                return true;
+            }
+        }
+        return onDrag(mouseX, mouseY, button, dx, dy);
+    }
+
+    /** @return true if consumed */
+    public boolean mouseReleased(int mouseX, int mouseY, int button) {
+        if (!visible) {
+            return false;
+        }
+        for (int i = children.size() - 1; i >= 0; i--) {
+            if (children.get(i).mouseReleased(mouseX, mouseY, button)) {
+                return true;
+            }
+        }
+        return onRelease(mouseX, mouseY, button);
+    }
+
+    /** @return true if the key was consumed (so the screen does not also handle it, e.g. Escape) */
+    public boolean keyTyped(char typed, int keyCode) {
+        if (!visible) {
+            return false;
+        }
+        for (int i = children.size() - 1; i >= 0; i--) {
+            if (children.get(i).keyTyped(typed, keyCode)) {
+                return true;
+            }
+        }
+        return onKey(typed, keyCode);
+    }
+
+    /** @return tooltip lines for the pointer position, or null for none */
+    public java.util.List<String> tooltipAt(int mouseX, int mouseY) {
+        if (!visible || !bounds.contains(mouseX, mouseY)) {
+            return null;
+        }
+        for (int i = children.size() - 1; i >= 0; i--) {
+            java.util.List<String> t = children.get(i).tooltipAt(mouseX, mouseY);
+            if (t != null) {
+                return t;
+            }
+        }
+        return tooltip(mouseX, mouseY);
+    }
+
     protected boolean onClick(int mouseX, int mouseY, int button) {
         return false;
     }
 
     protected boolean onScroll(int mouseX, int mouseY, int delta) {
         return false;
+    }
+
+    protected boolean onDrag(int mouseX, int mouseY, int button, int dx, int dy) {
+        return false;
+    }
+
+    protected boolean onRelease(int mouseX, int mouseY, int button) {
+        return false;
+    }
+
+    protected boolean onKey(char typed, int keyCode) {
+        return false;
+    }
+
+    protected java.util.List<String> tooltip(int mouseX, int mouseY) {
+        return null;
     }
 }

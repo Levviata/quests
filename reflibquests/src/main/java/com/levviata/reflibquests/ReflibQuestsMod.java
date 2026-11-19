@@ -41,7 +41,11 @@ public class ReflibQuestsMod {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         ReflibProjects.register(ID, VERSION, 2);
+        com.levviata.reflibquests.net.QuestNet.init();
         MinecraftForge.EVENT_BUS.register(this);
+        if (event.getSide() == Side.CLIENT) {
+            com.levviata.reflibquests.client.ClientBootstrap.init();
+        }
         LOGGER.info("Reflib Quests {} loaded", VERSION);
     }
 
@@ -68,6 +72,14 @@ public class ReflibQuestsMod {
     @Mod.EventHandler
     public void serverStopping(FMLServerStoppingEvent event) {
         QuestServer.stop();
+    }
+
+    @SubscribeEvent
+    public void onLogin(net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent event) {
+        QuestServer qs = QuestServer.get();
+        if (qs != null && event.player instanceof EntityPlayerMP) {
+            qs.syncPlayer((EntityPlayerMP) event.player);
+        }
     }
 
     @SubscribeEvent
