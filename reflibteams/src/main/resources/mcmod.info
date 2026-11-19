@@ -1,0 +1,12 @@
+[{
+	"modid": "reflibteams",
+	"name": "Reflib Teams",
+	"version": "0.1.0",
+	"mcversion": "1.12.2",
+	"description": "Party teams for reflib-based mods. Server side only; clients do not need it.",
+	"authorList": ["Levviata"],
+	"credits": "",
+	"url": "",
+	"updateJSON": "",
+	"logoFile": ""
+}]

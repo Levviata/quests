@@ -12,3 +12,4 @@ plugins {
 }
 
 include 'reflibquests'
+include 'reflibteams'

@@ -34,6 +34,8 @@ repositories {
 dependencies {
     implementation cleanroom.userdev(cleanroom_version)
     implementation project(':')
+    // development runs only: party teams so shared progress can be tried; the mod itself needs no such dependency
+    runtimeOnly project(':reflibteams')
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
 }

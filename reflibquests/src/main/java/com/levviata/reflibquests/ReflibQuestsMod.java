@@ -40,7 +40,7 @@ public class ReflibQuestsMod {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        ReflibProjects.register(ID, VERSION, 2);
+        ReflibProjects.register(ID, VERSION, 3);
         com.levviata.reflibquests.net.QuestNet.init();
         MinecraftForge.EVENT_BUS.register(this);
         if (event.getSide() == Side.CLIENT) {

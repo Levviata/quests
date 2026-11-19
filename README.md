@@ -15,6 +15,7 @@ Reflib contains no gameplay content and no code or assets from any other mod. Ea
 | `api.integration` | Lazy optional integrations: the integration class is loaded only if the target mod is present in a matching version |
 | `gui` (client only) | Small widget tree: `ReflibScreen`, `Widgets.Panel/Label/Button/ScrollPanel`, pure `Rect` and `ScrollModel` |
 | `api.assets` | `SuppliedAssets`: use assets from jars the player supplies (folder `reflib-supplied/`): resource pack on the client, JSON-to-`.lang` conversion, `declare`/`missing`/`read`/`alias`, one-time missing-jar notice |
+| `api.team` | (see above) `Teams` now also lets mods listen for team changes (`addListener`, `notifyChanged`); a provider such as reflibteams calls `notifyChanged` |
 | `api.sync` | `DirtyTracker`: per-recipient changed keys for snapshot-then-delta sync |
 | `impl.*` | Internals. Do not import. A test enforces that the example project does not |
 

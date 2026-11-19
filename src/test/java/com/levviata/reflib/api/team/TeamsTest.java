@@ -28,6 +28,23 @@ class TeamsTest {
     }
 
     @Test
+    void listenersAreNotifiedAndCanBeRemovedAndOneFailureDoesNotStopOthers() {
+        java.util.List<UUID> seen = new java.util.ArrayList<>();
+        Teams.ChangeListener failing = p -> {
+            throw new IllegalStateException("boom");
+        };
+        Teams.ChangeListener recording = seen::add;
+        Teams.addListener(failing);
+        Teams.addListener(recording);
+        UUID p = UUID.randomUUID();
+        Teams.notifyChanged(p);
+        assertEquals(java.util.List.of(p), seen);
+        Teams.removeListener(recording);
+        Teams.notifyChanged(UUID.randomUUID());
+        assertEquals(1, seen.size());
+    }
+
+    @Test
     void secondReplacementIsRefused() {
         TeamProvider custom = new SoloTeamProvider();
         Teams.install(custom);

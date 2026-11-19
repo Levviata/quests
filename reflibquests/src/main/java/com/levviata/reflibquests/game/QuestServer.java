@@ -71,8 +71,17 @@ public final class QuestServer {
     private final TaskTracker tracker = new TaskTracker(this);
     private final List<String> inertTasks = new ArrayList<>();
 
+    /** When a player's team changes (party joined or left), show them their new team's progress. */
+    private final Teams.ChangeListener teamListener;
+
     private QuestServer(MinecraftServer server) {
         this.server = server;
+        this.teamListener = player -> server.addScheduledTask(() -> {
+            EntityPlayerMP p = server.getPlayerList().getPlayerByUUID(player);
+            if (p != null) {
+                QuestNet.sendProgress(p, Gz.pack(ProgressCodec.write(progressOf(p))));
+            }
+        });
         this.configDir = new File(server.getDataDirectory(), "config/reflibquests");
     }
 
@@ -83,11 +92,13 @@ public final class QuestServer {
 
     public static void start(MinecraftServer server) {
         instance = new QuestServer(server);
+        Teams.addListener(instance.teamListener);
         instance.reload();
     }
 
     public static void stop() {
         if (instance != null) {
+            Teams.removeListener(instance.teamListener);
             instance.saveAll();
             instance = null;
         }

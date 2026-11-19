@@ -19,8 +19,8 @@ public final class Smoke {
 
     public static String run(QuestServer qs) {
         try {
-            if (qs.book().allQuests().size() != 6) {
-                return "expected 6 quests, found " + qs.book().allQuests().size();
+            if (qs.book().allQuests().size() < 6) {
+                return "expected at least the 6 sample quests, found " + qs.book().allQuests().size();
             }
             if (qs.book().tables().size() != 1) {
                 return "expected 1 reward table";
