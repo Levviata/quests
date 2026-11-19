@@ -25,8 +25,10 @@ import java.util.Map;
  *
  * Strings must be quoted (single or double quotes; escapes: backslash followed by one of
  * {@code " ' \ n r t}, or by {@code u} and four hex digits);
- * keys may be bare ({@code [A-Za-z0-9_.+-]+}) or quoted. This is an independent format, not a
- * parser for any other mod's files.
+ * keys may be bare ({@code [A-Za-z0-9_.+-]+}) or quoted. This is an independent format. When reading it also
+ * accepts, so that JSON5 and older SNBT-style files load: block comments, {@code null} (the entry is treated
+ * as absent), hexadecimal integers, and typed suffixes ({@code b} and {@code s} for small integers, {@code f}
+ * for a float).
  */
 public final class Snbt {
 
@@ -80,6 +82,12 @@ public final class Snbt {
                     while (pos < s.length() && s.charAt(pos) != '\n') {
                         pos++;
                     }
+                } else if (c == '/' && pos + 1 < s.length() && s.charAt(pos + 1) == '*') {
+                    int end = s.indexOf("*/", pos + 2);
+                    if (end < 0) {
+                        throw error("Unterminated block comment");
+                    }
+                    pos = end + 2;
                 } else {
                     break;
                 }
@@ -117,6 +125,13 @@ public final class Snbt {
                 expect(':');
                 skipSpace();
                 DataNode value = readValue();
+                if (value == null) {
+                    if (map.containsKey(key)) {
+                        throw error("Duplicate key '" + key + "'");
+                    }
+                    skipComma();
+                    continue; // null means "absent"
+                }
                 if (map.put(key, value) != null) {
                     throw error("Duplicate key '" + key + "'");
                 }
@@ -136,7 +151,10 @@ public final class Snbt {
                     pos++;
                     return new DataNode.Lst(items);
                 }
-                items.add(readValue());
+                DataNode item = readValue();
+                if (item != null) {
+                    items.add(item);
+                }
                 skipComma();
             }
         }
@@ -232,7 +250,23 @@ public final class Snbt {
             if (t.equals("false")) {
                 return new DataNode.Bool(false);
             }
+            if (t.equals("null")) {
+                return null;
+            }
             try {
+                // hexadecimal (JSON5) and legacy typed suffixes: b/s = small integer, f = float
+                if (t.matches("[+-]?0[xX][0-9a-fA-F]+")) {
+                    boolean neg = t.startsWith("-");
+                    long v = Long.parseLong(t.replaceFirst("^[+-]?0[xX]", ""), 16);
+                    v = neg ? -v : v;
+                    return v >= Integer.MIN_VALUE && v <= Integer.MAX_VALUE ? new DataNode.Int((int) v) : new DataNode.Lng(v);
+                }
+                if (t.matches("[+-]?\\d+[bBsS]")) {
+                    return new DataNode.Int(Integer.parseInt(t.substring(0, t.length() - 1).replace("+", "")));
+                }
+                if (t.matches("[+-]?\\d+(\\.\\d+)?([eE][+-]?\\d+)?[fF]")) {
+                    return new DataNode.Dbl(Double.parseDouble(t.substring(0, t.length() - 1)));
+                }
                 if (t.matches("[+-]?\\d+")) {
                     long v = Long.parseLong(t.startsWith("+") ? t.substring(1) : t);
                     return v >= Integer.MIN_VALUE && v <= Integer.MAX_VALUE

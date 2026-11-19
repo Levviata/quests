@@ -49,6 +49,36 @@ class SnbtTest {
     }
 
     @Test
+    void acceptsJson5AndLegacySnbtSyntax() {
+        DataNode.Compound c = Snbt.parse("""
+                /* block
+                   comment */
+                {
+                  "quoted": 1,
+                  hex: 0xFF,
+                  neg_hex: -0x10,
+                  plus: +5,
+                  flag: 1b
+                  small: 3s
+                  f: 1.5f
+                  gone: null
+                  list: [1, null, 2,],
+                }
+                """);
+        assertEquals(255, c.getInt("hex", 0));
+        assertEquals(-16, c.getInt("neg_hex", 0));
+        assertEquals(5, c.getInt("plus", 0));
+        assertTrue(c.getBool("flag", false));
+        assertEquals(3, c.getInt("small", 0));
+        assertEquals(1.5, c.getDouble("f", 0));
+        assertFalse(c.has("gone"));
+        assertEquals(List.of(new DataNode.Int(1), new DataNode.Int(2)), c.getList("list"));
+        assertThrows(SnbtException.class, () -> Snbt.parse("/* open { a: 1 }"));
+        assertEquals(2, Snbt.parse("{ a: null, a: 2 }").getInt("a", 0), "null is absent, so a later value is not a duplicate");
+        assertThrows(SnbtException.class, () -> Snbt.parse("{ a: 1, a: null }"));
+    }
+
+    @Test
     void commentsAndOptionalCommas() {
         DataNode.Compound c = Snbt.parse("# header\n{ a: 1 // trailing\n b: 2, c: 3, }");
         assertEquals(3, c.entries().size());

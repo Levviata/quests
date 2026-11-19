@@ -121,8 +121,13 @@ public sealed interface DataNode {
             return n instanceof Lng l ? l.value() : fallback;
         }
 
+        /** Accepts {@code Bool}, and the integers 0 and 1 (older files write booleans as bytes). */
         public boolean getBool(String key, boolean fallback) {
-            return get(key) instanceof Bool b ? b.value() : fallback;
+            DataNode n = get(key);
+            if (n instanceof Bool b) {
+                return b.value();
+            }
+            return n instanceof Int i && (i.value() == 0 || i.value() == 1) ? i.value() == 1 : fallback;
         }
 
         public List<DataNode> getList(String key) {
