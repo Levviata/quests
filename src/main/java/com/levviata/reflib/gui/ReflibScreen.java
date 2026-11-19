@@ -15,8 +15,12 @@ import org.lwjgl.input.Mouse;
 
 /**
  * A {@link GuiScreen} that hosts a {@link Widget} tree and routes input to it. Subclass, build the tree in
- * {@link #buildRoot(int, int)} (called on init and resize) and open with
+ * {@link #buildRoot(int, int)} and open with
  * {@code Minecraft.getMinecraft().displayGuiScreen(new MyScreen())}.
+ *
+ * <p>Important: the whole tree is rebuilt every time the window is resized (vanilla calls {@code initGui} again).
+ * Keep state in fields of your screen and build widgets from it; widget-internal state (scroll offset, text) is
+ * lost on resize.
  */
 @SideOnly(Side.CLIENT)
 public abstract class ReflibScreen extends GuiScreen {

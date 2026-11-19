@@ -50,10 +50,14 @@ public class ExampleReferencingMod {
 
         // 2. typed messages: one channel per project
         channel = ReflibChannel.create(ID)
-                .register(PingMessage.class, Side.SERVER, (msg, ctx) ->
-                        LOGGER.info("Server got ping #{} from {}", msg.counter, ctx.sender()))
-                .register(PongMessage.class, Side.CLIENT, (msg, ctx) ->
-                        LOGGER.info("Client got pong '{}'", msg.text));
+                .register(PingMessage.class, Side.SERVER, (msg, ctx) -> {
+                    LOGGER.info("Server got ping #{} from {}", msg.counter, ctx.sender());
+                    channel.sendTo(new PongMessage("pong " + msg.counter), ctx.sender());
+                })
+                .register(PongMessage.class, Side.CLIENT, (msg, ctx) -> ClientHook.pong(msg.text));
+        if (event.getSide() == Side.CLIENT) {
+            ClientHook.init(channel);
+        }
 
         // 3. an optional integration that must NOT run (the target mod does not exist)
         Integrations.register("definitely_not_installed", "*", () -> () -> optionalIntegrationRan.set(true));

@@ -60,9 +60,9 @@ DataNode.Compound upgraded = new DataUpgrader(1).step(0, c -> c.with("name", c.g
 | Build on Cleanroom 0.7.14-alpha / Java 25 | Verified (`./gradlew build` passes) |
 | Snbt, DataNode, DataUpgrader, NbtBridge, ReflibProjects, Teams, Integrations (logic), MessageRegistry (encode/decode/rules), ScrollModel/Rect, api/impl boundary | Unit-tested (39 tests) |
 | In-game dedicated server smoke test | **Passed** (Cleanroom 0.7.14-alpha, Java 25): reflib and `reflibexample` load, project registry, channel registration, Snbt/NBT round trips, upgrader, default teams, and "integration for an absent mod does not run" all verified in the real game. The log also shows an unrelated `LinkageError` from the server console (jline) that does not affect the test |
-| `ReflibChannel` on a real connection (client <-> server round trip) | **Untested**: registry logic is unit-tested, wire path is not |
+| `ReflibChannel` on a real connection (client <-> server round trip) | **Verified in game** (integrated server, 2026-11-19): client ping reached the server, reply came back, handlers ran on the main threads. Dedicated-server-with-remote-client not tested |
 | Large messages | Limited to 30,000 bytes per message; no chunking yet. Whether Forge splits larger packets is unverified |
-| GUI toolkit (`gui`) | **Compiles only; never rendered.** `ScrollPanel` clipping uses raw GL scissor and only translates direct children |
+| GUI toolkit (`gui`) | **Partly verified by the user in game**: the demo screen opened and rendered. Fixed after testing: the example's `/reflibgui` command (the chat screen closed the new screen) and a state reset on window resize (the tree is rebuilt on resize by design; documented on `ReflibScreen`). After the fixes the user re-tested in game (2026-11-19) and reported everything worked: `/reflibgui`, counter kept across resize, list scrolling and clipping, buttons. Only manually observed, not automated; one platform/GUI scale only. `ScrollPanel` only translates direct children |
 | Protocol-version handshake | Not implemented (messages must be registered in the same order on both sides) |
 | Config helpers | Not implemented (Forge `@Config` suffices) |
 | RetroFuturaGradle | Not used: the repo's Cleanroom template builds with CleanroomGradle 0.22.0, and RetroFuturaGradle's Cleanroom support is unverified |
