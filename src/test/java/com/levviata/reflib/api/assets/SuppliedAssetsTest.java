@@ -113,6 +113,23 @@ class SuppliedAssetsTest {
     }
 
     @Test
+    void optionalRequirementsAreNotReportedAsMissingButCanBeListed() throws IOException {
+        SuppliedAssets.init(game.toFile());
+        SuppliedAssets.Requirement opt = SuppliedAssets.declareOptional("p", "Art", "w", "art");
+        assertFalse(opt.isPresent());
+        assertTrue(opt.optional());
+        assertTrue(SuppliedAssets.missing().isEmpty(), "no player notice for optional assets");
+        assertEquals(1, SuppliedAssets.missingOptional().size());
+        jar("art.jar", "assets/art/a.png", "x");
+        SuppliedAssets.init(game.toFile());
+        assertTrue(SuppliedAssets.isPresent("p"));
+        assertTrue(SuppliedAssets.missingOptional().isEmpty());
+        SuppliedAssets.declare("q", "Needed", "w", "needed");
+        assertEquals(1, SuppliedAssets.missing().size());
+        assertThrows(IllegalArgumentException.class, () -> SuppliedAssets.declareOptional("r", "X", "w"));
+    }
+
+    @Test
     void declareNeedsADomain() {
         assertThrows(IllegalArgumentException.class, () -> SuppliedAssets.declare("p", "X", "w"));
     }

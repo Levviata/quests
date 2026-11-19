@@ -330,13 +330,27 @@ final class QuestBookWidget extends Widget {
             int y = (int) Math.round(sy);
             int s = Math.max(4, (int) Math.round(size));
             boolean selected = q.id.equals(selectedQuest);
-            rect(x - 1, y - 1, s + 2, s + 2, selected ? 0xFFFFFFFF : 0xFF000000);
-            rect(x, y, s, s, colorOf(state));
-            if (q.optional) {
-                rect(x, y, s, 2, 0xFF9999AA);
+            String shape = QuestArt.shapeName(q);
+            if (QuestArt.hasShape(shape)) {
+                // art from the player's own FTB Quests jar: the shape tinted by state, with its outline on top
+                QuestArt.quad(QuestArt.shapeTexture(shape, "background"), x, y, s, s, colorOf(state));
+                QuestArt.quad(QuestArt.shapeTexture(shape, "outline"), x, y, s, s, selected ? 0xFFFFFFFF : 0xFF20202A);
+                if (q.optional) {
+                    rect(x + s / 4, y, s / 2, 2, 0xFF9999AA);
+                }
+            } else {
+                rect(x - 1, y - 1, s + 2, s + 2, selected ? 0xFFFFFFFF : 0xFF000000);
+                rect(x, y, s, s, colorOf(state));
+                if (q.optional) {
+                    rect(x, y, s, 2, 0xFF9999AA);
+                }
             }
             // icons keep one fixed size at every zoom level; they are simply left out when the node is too small
             ItemStack icon = QuestText.iconOf(q);
+            if (state == State.LOCKED && s >= 14 && QuestArt.available() && QuestArt.has("textures/gui/quest_locked.png")) {
+                int lock = Math.max(6, s / 3);
+                QuestArt.quad(QuestArt.guiTexture("quest_locked"), x + s - lock - 1, y + 1, lock, lock, 0xFFFFFFFF);
+            }
             if (icon != null && s >= 6) {
                 // the icon is always the same fraction of its square, so it grows and shrinks with the zoom
                 float scale = s * ICON_FRACTION / 16f;

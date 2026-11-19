@@ -52,7 +52,7 @@ public final class SuppliedAssets {
 
     /** What a project expects from the player. {@code jar} is null when nothing matching was found. */
     public record Requirement(String projectId, String displayName, String whereToGet, List<String> domains,
-                              @Nullable File jar) {
+                              @Nullable File jar, boolean optional) {
         public boolean isPresent() {
             return jar != null;
         }
@@ -98,7 +98,7 @@ public final class SuppliedAssets {
         }
         // re-resolve requirements declared before a re-scan
         for (Requirement r : new ArrayList<>(REQUIREMENTS.values())) {
-            REQUIREMENTS.put(r.projectId(), resolve(r.projectId(), r.displayName(), r.whereToGet(), r.domains()));
+            REQUIREMENTS.put(r.projectId(), resolve(r.projectId(), r.displayName(), r.whereToGet(), r.domains(), r.optional()));
         }
     }
 
@@ -130,7 +130,24 @@ public final class SuppliedAssets {
         if (domains.length == 0) {
             throw new IllegalArgumentException("declare at least one asset domain");
         }
-        Requirement r = resolve(projectId, displayName, whereToGet, Arrays.asList(domains));
+        return declare(projectId, displayName, whereToGet, false, domains);
+    }
+
+    /**
+     * Like {@link #declare} for assets a project can do without (it falls back to its own art). Players are not
+     * shown the missing-jar notice for these; check {@link #isPresent} and {@link #missingOptional()}.
+     */
+    public static synchronized Requirement declareOptional(String projectId, String displayName, String whereToGet,
+                                                           String... domains) {
+        if (domains.length == 0) {
+            throw new IllegalArgumentException("declare at least one asset domain");
+        }
+        return declare(projectId, displayName, whereToGet, true, domains);
+    }
+
+    private static Requirement declare(String projectId, String displayName, String whereToGet, boolean optional,
+                                       String[] domains) {
+        Requirement r = resolve(projectId, displayName, whereToGet, Arrays.asList(domains), optional);
         REQUIREMENTS.put(projectId, r);
         if (r.isPresent()) {
             LOGGER.info("[{}] using supplied assets from {}", projectId, r.jar().getName());
@@ -141,7 +158,8 @@ public final class SuppliedAssets {
         return r;
     }
 
-    private static Requirement resolve(String projectId, String displayName, String whereToGet, List<String> domains) {
+    private static Requirement resolve(String projectId, String displayName, String whereToGet, List<String> domains,
+                                       boolean optional) {
         Set<String> want = new HashSet<>();
         for (String d : domains) {
             want.add(d.toLowerCase(Locale.ROOT));
@@ -152,7 +170,7 @@ public final class SuppliedAssets {
                 found = idx.file(); // later files (by name) win, so a newer version name overrides an older one
             }
         }
-        return new Requirement(projectId, displayName, whereToGet, List.copyOf(domains), found);
+        return new Requirement(projectId, displayName, whereToGet, List.copyOf(domains), found, optional);
     }
 
     public static boolean isPresent(String projectId) {
@@ -160,11 +178,20 @@ public final class SuppliedAssets {
         return r != null && r.isPresent();
     }
 
-    /** @return the requirements whose jar was not found */
+    /** @return the required (non-optional) requirements whose jar was not found; these trigger the player notice */
     public static List<Requirement> missing() {
+        return missing(false);
+    }
+
+    /** @return the optional requirements whose jar was not found */
+    public static List<Requirement> missingOptional() {
+        return missing(true);
+    }
+
+    private static List<Requirement> missing(boolean optional) {
         List<Requirement> out = new ArrayList<>();
         for (Requirement r : REQUIREMENTS.values()) {
-            if (!r.isPresent()) {
+            if (!r.isPresent() && r.optional() == optional) {
                 out.add(r);
             }
         }

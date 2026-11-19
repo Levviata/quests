@@ -40,7 +40,9 @@ public class ReflibQuestsMod {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        ReflibProjects.register(ID, VERSION, 3);
+        ReflibProjects.register(ID, VERSION, 4);
+        com.levviata.reflib.api.assets.SuppliedAssets.declareOptional(ID, "FTB Quests 1.20 or newer (art for the quest map)",
+                "https://www.curseforge.com/minecraft/mc-mods/ftb-quests-forge", "ftbquests");
         com.levviata.reflibquests.net.QuestNet.init();
         MinecraftForge.EVENT_BUS.register(this);
         if (event.getSide() == Side.CLIENT) {

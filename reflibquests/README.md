@@ -2,7 +2,11 @@
 
 A quest mod for Minecraft 1.12.2 (Cleanroom) built on reflib. It is an **independent implementation** inspired by FTB Quests; it contains none of that mod's code, and it is not affiliated with or endorsed by FTB. LGPL-2.1-only.
 
-## Status (milestones M1-M3 of Phase 5)
+## Using the upstream art (optional)
+
+Put the FTB Quests jar of your choice (1.20 or newer, any loader) into `<game folder>/reflib-supplied/`. Nothing else is needed; the quest map then uses its shapes and lock icon. Without it the mod works with plain squares.
+
+## Status (milestones M1-M3 of Phase 5, plus follow-ups)
 
 | Part | State |
 |---|---|
@@ -15,7 +19,7 @@ A quest mod for Minecraft 1.12.2 (Cleanroom) built on reflib. It is an **indepen
 | Sync (`net.QuestNet`): quest book sent on join and after reload (compressed, chunked by reflib), team progress snapshot after each change (at most once per tick), claim/check/hand-in actions from the client re-validated on the server | Done. **Verified with a dedicated server and two real clients** (localhost, 2026-11-19): both received the 1506-quest book (30 KB packed, more than one network frame) intact, both reconnected and received it again, and the server saved two separate per-player progress files (one player's completed quest did not appear in the other's file). Unit-tested wire codec (5 tests). **Not tested:** shared team progress (no party teams yet), a client on another machine, build-mismatch handling between real jars, many players. Progress is re-sent as a full snapshot, not as differences. All quest data, including hidden quests, is sent to every client |
 | Questbook screen (`client`): chapter list, pannable/zoomable map with dependency lines and state colours, detail panel with tasks, progress bars, check / hand in / claim / choice buttons; opens with J or `/rqbook` | Built and used by the user in game. Problems the user reported were fixed and then confirmed fine by the user on screen, including in the two-client session: icons overlapping the detail panel, choppy dragging (now follows the frame rate), icons not scaling with the quest square (now proportional, 72% of the square). Limits: squares only (shapes ignored), no chapter images or quest links, detail panel does not scroll, placeholder art |
 | Shared team progress with party teams (`reflibteams`, separate mod) | Verified with two real clients: the party's progress is stored under the party's team and used by both members; membership changes re-send the new team's progress. The user confirmed on screen that the second member's book showed the shared progress. Not tested: three or more players, kicks and disbands while online, restart persistence of parties during play |
-| Assets from player-supplied upstream jars (reflib loader exists) | Not yet used by this mod |
+| Art from a player-supplied FTB Quests jar (`reflib-supplied/` folder, reflib `SuppliedAssets`): quest shapes (circle, square, diamond, hexagon, octagon, pentagon, heart, gear, rsquare, none) drawn as tinted background plus outline, and the locked icon | Done. Optional: without the jar, or for a shape the jar lacks, plain coloured squares are drawn and no notice is shown. **Verified in game with the real `ftb-quests-neoforge-26.1.2.10.jar` supplied by the user** (looks right to the user); the jar is not part of this repository and nothing from it is copied. Only shapes and the lock icon are used so far; other upstream textures (GUI buttons, backgrounds, chapter images) are not. Licence: that mod is All Rights Reserved; this is a distribution model, not a clearance |
 | Exporter (write quest folders back), editor, party teams | Not started |
 
 Format reference: `../docs/upstream-quest-format.md`. Build and test: `./gradlew :reflibquests:build`.
