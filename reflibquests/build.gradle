@@ -42,7 +42,7 @@ cleanroom {
     runs {
         client {
             configure {
-                username = 'Developer'
+                username = project.findProperty('mc_username') ?: 'Developer'
                 jvmArgs extra_jvm_args.tokenize()
             }
         }
