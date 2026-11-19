@@ -31,6 +31,7 @@ public final class ClientQuests {
     private static ProgressEngine engine;
     private static TeamProgress progress;
     private static int bookVersion;
+    private static java.util.List<String> pins = java.util.List.of();
 
     private ClientQuests() {}
 
@@ -55,6 +56,15 @@ public final class ClientQuests {
         } catch (IllegalArgumentException ex) {
             ReflibQuestsMod.LOGGER.error("Could not read quest progress from the server: {}", ex.getMessage());
         }
+    }
+
+    public static void onPins(java.util.List<String> ids) {
+        pins = java.util.List.copyOf(ids);
+    }
+
+    /** Ids of the quests this player pinned, in the order pinned. */
+    public static java.util.List<String> pins() {
+        return pins;
     }
 
     public static boolean ready() {
@@ -89,6 +99,7 @@ public final class ClientQuests {
         book = null;
         progress = null;
         engine = null;
+        pins = java.util.List.of();
         idMap = IdMap.withBuiltin(DataNode.Compound.empty());
     }
 }

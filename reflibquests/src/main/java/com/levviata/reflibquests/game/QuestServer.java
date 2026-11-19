@@ -38,6 +38,7 @@ import com.levviata.reflibquests.io.UpstreamImporter;
 import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.Definitions.Reward;
 import com.levviata.reflibquests.model.Definitions.Task;
+import com.levviata.reflibquests.model.PinStore;
 import com.levviata.reflibquests.model.ProgressCodec;
 import com.levviata.reflibquests.model.ProgressEngine;
 import com.levviata.reflibquests.model.ProgressEvent;
@@ -63,6 +64,7 @@ public final class QuestServer {
     private IdMap idMap = IdMap.withBuiltin(DataNode.Compound.empty());
     private DataNode.Compound idMapRaw = DataNode.Compound.empty();
     private byte[] bookBytes = new byte[0];
+    private PinStore pins = new PinStore();
     private final Map<UUID, TeamProgress> teams = new LinkedHashMap<>();
     private final Set<UUID> dirty = new HashSet<>();
     /** teams whose progress must be re-sent to their online members at the end of this tick */
@@ -93,6 +95,7 @@ public final class QuestServer {
     public static void start(MinecraftServer server) {
         instance = new QuestServer(server);
         Teams.addListener(instance.teamListener);
+        instance.loadPins();
         instance.reload();
     }
 
@@ -167,6 +170,7 @@ public final class QuestServer {
         tracker.rebuild();
         findInertTasks();
         bookBytes = Gz.pack(BookCodec.write(book, idMapRaw));
+        pins.prune(book);
         for (EntityPlayerMP p : server.getPlayerList().getPlayers()) {
             syncPlayer(p);
         }
@@ -178,6 +182,38 @@ public final class QuestServer {
     public void syncPlayer(EntityPlayerMP player) {
         QuestNet.sendBook(player, bookBytes);
         QuestNet.sendProgress(player, Gz.pack(ProgressCodec.write(progressOf(player))));
+        QuestNet.sendPins(player, pins.pinsOf(player.getUniqueID()));
+    }
+
+    /** A client asked to pin or unpin a quest. */
+    public void handleTogglePin(EntityPlayerMP player, String questId) {
+        if (book.quest(questId) == null) {
+            return;
+        }
+        if (pins.toggle(player.getUniqueID(), questId) == PinStore.Result.FULL) {
+            player.sendMessage(new TextComponentString("[Quests] You can pin at most " + PinStore.MAX_PER_PLAYER + " quests."));
+        }
+        QuestNet.sendPins(player, pins.pinsOf(player.getUniqueID()));
+    }
+
+    private void loadPins() {
+        Path file = dataDir().toPath().resolve("pins.snbt");
+        if (Files.exists(file)) {
+            try {
+                pins = PinStore.fromData(DataFiles.read(file));
+            } catch (IOException | IllegalArgumentException ex) {
+                ReflibQuestsMod.LOGGER.error("Cannot read {}; starting with no pins (the file is left untouched): {}", file, ex.getMessage());
+            }
+        }
+    }
+
+    private void savePins() {
+        try {
+            DataFiles.write(dataDir().toPath().resolve("pins.snbt"), pins.toData());
+            pins.clearDirty();
+        } catch (IOException ex) {
+            ReflibQuestsMod.LOGGER.error("Cannot save pins: {}", ex.getMessage());
+        }
     }
 
     private void flushSync() {
@@ -316,6 +352,9 @@ public final class QuestServer {
     public void saveDirty() {
         for (UUID id : new ArrayList<>(dirty)) {
             save(id);
+        }
+        if (pins.isDirty()) {
+            savePins();
         }
     }
 

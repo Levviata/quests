@@ -57,7 +57,14 @@ public final class QuestNet {
                     if (qs != null && c.sender() != null) {
                         qs.handleClaimAll(c.sender());
                     }
-                });
+                })
+                .register(TogglePin.class, Side.SERVER, (m, c) -> {
+                    QuestServer qs = QuestServer.get();
+                    if (qs != null && c.sender() != null) {
+                        qs.handleTogglePin(c.sender(), m.questId);
+                    }
+                })
+                .register(SyncPins.class, Side.CLIENT, (m, c) -> ClientQuests.onPins(m.ids));
     }
 
     public static void sendBook(EntityPlayerMP player, byte[] packed) {
@@ -82,6 +89,14 @@ public final class QuestNet {
 
     public static void claimAll() {
         channel.sendToServer(new ClaimAll());
+    }
+
+    public static void togglePin(String questId) {
+        channel.sendToServer(new TogglePin(questId));
+    }
+
+    public static void sendPins(EntityPlayerMP player, java.util.List<String> ids) {
+        channel.sendTo(new SyncPins(ids), player);
     }
 
     private static void writeBlob(PacketBuffer buf, byte[] data) {
@@ -186,6 +201,58 @@ public final class QuestNet {
         @Override
         public void read(PacketBuffer buf) {
             taskId = buf.readString(256);
+        }
+    }
+
+    /** Client to server: pin or unpin a quest for tracking. */
+    public static final class TogglePin implements ReflibMessage {
+        String questId = "";
+
+        public TogglePin() {}
+
+        TogglePin(String questId) {
+            this.questId = questId;
+        }
+
+        @Override
+        public void write(PacketBuffer buf) {
+            buf.writeString(questId);
+        }
+
+        @Override
+        public void read(PacketBuffer buf) {
+            questId = buf.readString(256);
+        }
+    }
+
+    /** Server to client: the receiving player's pinned quests, in the order pinned. */
+    public static final class SyncPins implements ReflibMessage {
+        java.util.List<String> ids = new java.util.ArrayList<>();
+
+        public SyncPins() {}
+
+        SyncPins(java.util.List<String> ids) {
+            this.ids = new java.util.ArrayList<>(ids);
+        }
+
+        @Override
+        public void write(PacketBuffer buf) {
+            buf.writeVarInt(ids.size());
+            for (String id : ids) {
+                buf.writeString(id);
+            }
+        }
+
+        @Override
+        public void read(PacketBuffer buf) {
+            int n = buf.readVarInt();
+            if (n < 0 || n > 64) {
+                throw new IllegalArgumentException("bad pin count " + n);
+            }
+            ids = new java.util.ArrayList<>(n);
+            for (int i = 0; i < n; i++) {
+                ids.add(buf.readString(256));
+            }
         }
     }
 

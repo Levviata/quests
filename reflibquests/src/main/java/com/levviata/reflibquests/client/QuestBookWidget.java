@@ -21,6 +21,10 @@ import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.util.ChatAllowedCharacters;
+
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
@@ -36,6 +40,7 @@ import com.levviata.reflibquests.model.Definitions.WeightedReward;
 import com.levviata.reflibquests.model.ProgressEngine;
 import com.levviata.reflibquests.model.QuestBook;
 import com.levviata.reflibquests.model.QuestRules;
+import com.levviata.reflibquests.model.QuestSearch;
 import com.levviata.reflibquests.model.TeamProgress;
 import com.levviata.reflibquests.net.QuestNet;
 
@@ -63,6 +68,12 @@ final class QuestBookWidget extends Widget {
     private static int stateVersion = -1;
     private static final Map<String, ViewTransform> VIEWS = new HashMap<>();
     private static int listScroll;
+    private static boolean searching;
+    private static final StringBuilder QUERY = new StringBuilder();
+    private static String cachedQuery = null;
+    private static int cachedBookVersion = -1;
+    private static TeamProgress cachedProgress;
+    private static List<QuestSearch.Result> results = List.of();
 
     private record Hit(Rect rect, Runnable action, String tip) {}
 
@@ -224,6 +235,10 @@ final class QuestBookWidget extends Widget {
             drawDetail(fr, book, engine, p);
             unscissor();
         }
+        if (searching) {
+            GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
+            drawSearchResults(fr, book, p, mouseX, mouseY);
+        }
     }
 
     /**
@@ -255,6 +270,66 @@ final class QuestBookWidget extends Widget {
         movedDistance += Math.abs(dx) + Math.abs(dy);
         if (movedDistance > 4) {
             moved = true;
+        }
+    }
+
+    private static void toggleSearch() {
+        searching = !searching;
+        if (searching) {
+            QUERY.setLength(0);
+            cachedQuery = null;
+        }
+    }
+
+    private void refreshResults(QuestBook book, TeamProgress p) {
+        String q = QUERY.toString();
+        if (!q.equals(cachedQuery) || cachedBookVersion != ClientQuests.bookVersion() || cachedProgress != p) {
+            cachedQuery = q;
+            cachedBookVersion = ClientQuests.bookVersion();
+            cachedProgress = p;
+            results = QuestSearch.search(book, p, q, 10);
+        }
+    }
+
+    /** Jump to a search result: open its chapter, centre the map on it and select it. */
+    private void pickResult(QuestSearch.Result r) {
+        QuestBook book = ClientQuests.book();
+        Chapter c = book == null ? null : book.chapter(r.chapterId());
+        Quest q = book == null ? null : book.quest(r.questId());
+        if (c == null || q == null) {
+            return;
+        }
+        chapterId = c.id;
+        selectedQuest = q.id;
+        Rect map = mapRect();
+        viewFor(c, map).centerOn(q.x * GRID, q.y * GRID, map.x() + (map.width() - DETAIL_W) / 2.0, map.y() + map.height() / 2.0);
+        searching = false;
+    }
+
+    private void drawSearchResults(FontRenderer fr, QuestBook book, TeamProgress p, int mouseX, int mouseY) {
+        refreshResults(book, p);
+        int x = bounds.x() + 4;
+        int y = bounds.y() + HEADER;
+        int w = Math.min(300, bounds.width() - 8);
+        if (results.isEmpty()) {
+            if (QUERY.length() > 0) {
+                Gui.drawRect(x, y, x + w, y + 14, 0xF0050508);
+                fr.drawStringWithShadow("No quests found", x + 4, y + 3, 0x888888);
+            }
+            return;
+        }
+        Gui.drawRect(x, y, x + w, y + results.size() * 14 + 2, 0xF0050508);
+        int row = y + 1;
+        for (QuestSearch.Result r : results) {
+            Rect rr = new Rect(x + 1, row, w - 2, 14);
+            boolean hover = rr.contains(mouseX, mouseY);
+            Gui.drawRect(rr.x(), rr.y(), rr.x() + rr.width(), rr.y() + rr.height(), hover ? 0xFF3A4A6A : 0x00000000);
+            String chapter = r.chapterTitle();
+            int cw = fr.getStringWidth(chapter);
+            fr.drawStringWithShadow(fr.trimStringToWidth(r.title(), w - cw - 20), x + 5, row + 3, 0xFFFFFF);
+            fr.drawStringWithShadow(chapter, x + w - cw - 5, row + 3, 0x777788);
+            hits.add(new Hit(rr, () -> pickResult(r), null));
+            row += 14;
         }
     }
 
@@ -309,9 +384,18 @@ final class QuestBookWidget extends Widget {
                 }
             }
         }
-        fr.drawStringWithShadow("Quest book  " + done + "/" + total, bounds.x() + 6, bounds.y() + 7, 0xDDDDDD);
+        if (searching) {
+            boolean caret = (System.currentTimeMillis() / 500) % 2 == 0;
+            int fieldW = Math.min(260, bounds.width() - 140);
+            Gui.drawRect(bounds.x() + 4, bounds.y() + 3, bounds.x() + 4 + fieldW, bounds.y() + 19, 0xFF050508);
+            fr.drawStringWithShadow(fr.trimStringToWidth("Search: " + QUERY + (caret ? "_" : ""), fieldW - 8, true),
+                    bounds.x() + 8, bounds.y() + 7, 0xFFFFFF);
+        } else {
+            fr.drawStringWithShadow("Quest book  " + done + "/" + total, bounds.x() + 6, bounds.y() + 7, 0xDDDDDD);
+        }
         int x = bounds.x() + bounds.width() - 4;
         x = iconButton(x, bounds.y() + 3, "close", "X", "Close", () -> mc().displayGuiScreen(null), mouseX, mouseY);
+        x = iconButton(x, bounds.y() + 3, "search", "Find", "Search (Ctrl+F)", QuestBookWidget::toggleSearch, mouseX, mouseY);
         UUID me = mc().player == null ? null : mc().player.getUniqueID();
         if (anyClaimable(book, engine, p, me)) {
             iconButton(x, bounds.y() + 3, "collect_rewards", "Claim all", "Claim all rewards", QuestNet::claimAll, mouseX, mouseY);
@@ -425,6 +509,9 @@ final class QuestBookWidget extends Widget {
                     QuestArt.quad(QuestArt.guiTexture("check_gray"), x + s - badge, y + s - badge, badge, badge, 0xFFFFFFFF);
                 }
                 UUID me = mc().player == null ? null : mc().player.getUniqueID();
+                if (ClientQuests.pins().contains(q.id) && QuestArt.has("textures/gui/pin.png")) {
+                    QuestArt.quad(QuestArt.guiTexture("pin"), x - badge / 3, y - badge / 3, badge, badge, 0xFFFFFFFF);
+                }
                 if (claimable(engine, p, me, q) && QuestArt.has("textures/gui/alert.png")) {
                     QuestArt.quad(QuestArt.guiTexture("alert"), x + s - badge, y - badge / 3, badge, badge, 0xFFFFFFFF);
                 }
@@ -465,7 +552,8 @@ final class QuestBookWidget extends Widget {
         int y = r.y() + 8;
         boolean details = QuestRules.detailsVisible(book, p, q);
         State state = stateOf(book, engine, p, q);
-        fr.drawStringWithShadow(fr.trimStringToWidth(QuestText.title(q), w), x, y, 0xFFD060);
+        fr.drawStringWithShadow(fr.trimStringToWidth(QuestText.title(q), w - 22), x, y, 0xFFD060);
+        drawPinButton(fr, q, r.x() + r.width() - 26, r.y() + 4);
         y += 12;
         if (!q.subtitle.isEmpty() && details) {
             fr.drawStringWithShadow(fr.trimStringToWidth(q.subtitle, w), x, y, 0xAAAAAA);
@@ -540,6 +628,22 @@ final class QuestBookWidget extends Widget {
             }
             y += 3;
         }
+    }
+
+    private void drawPinButton(FontRenderer fr, Quest q, int x, int y) {
+        boolean pinned = ClientQuests.pins().contains(q.id);
+        boolean art = QuestArt.available() && QuestArt.has("textures/gui/pin.png");
+        int w = art ? 16 : fr.getStringWidth(pinned ? "Unpin" : "Pin") + 8;
+        Rect r = new Rect(art ? x : x - w + 16, y, w, 16);
+        boolean hover = r.contains(lastMouseX, lastMouseY);
+        Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), hover ? 0xFF4A4A68 : pinned ? 0xFF5A4A1A : 0xFF2A2A3A);
+        if (art) {
+            QuestArt.quad(QuestArt.guiTexture("pin"), r.x(), r.y(), 16, 16, pinned ? 0xFFFFFFFF : 0x99FFFFFF);
+        } else {
+            fr.drawStringWithShadow(pinned ? "Unpin" : "Pin", r.x() + 4, r.y() + 4, 0xFFFFFF);
+        }
+        final String id = q.id;
+        hits.add(new Hit(r, () -> QuestNet.togglePin(id), pinned ? "Stop tracking" : "Track this quest on screen"));
     }
 
     private static boolean consumes(QuestBook book, Task t) {
@@ -679,6 +783,26 @@ final class QuestBookWidget extends Widget {
 
     @Override
     protected boolean onKey(char typed, int keyCode) {
-        return false;
+        if (keyCode == Keyboard.KEY_F && GuiScreen.isCtrlKeyDown()) {
+            toggleSearch();
+            return true;
+        }
+        if (!searching) {
+            return false;
+        }
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            searching = false;
+        } else if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
+            if (!results.isEmpty()) {
+                pickResult(results.get(0));
+            }
+        } else if (keyCode == Keyboard.KEY_BACK) {
+            if (QUERY.length() > 0) {
+                QUERY.setLength(QUERY.length() - 1);
+            }
+        } else if (ChatAllowedCharacters.isAllowedCharacter(typed) && QUERY.length() < 48) {
+            QUERY.append(typed);
+        }
+        return true; // typing goes to the search box, not to the game
     }
 }
