@@ -196,17 +196,7 @@ public final class QuestCommand extends CommandBase {
     }
 
     private void claimAll(QuestServer qs, EntityPlayerMP player, ICommandSender sender) {
-        TeamProgress team = qs.progressOf(player);
-        int claimed = 0;
-        for (Quest q : qs.book().allQuests()) {
-            for (Reward r : q.rewards) {
-                if (!r.type().equals("choice") && qs.engine().canClaim(team, player.getUniqueID(), r)
-                        && qs.claim(player, r, -1, true) == RewardGranter.Result.GRANTED) {
-                    claimed++;
-                }
-            }
-        }
-        say(sender, claimed + " reward(s) claimed.");
+        say(sender, qs.claimAll(player) + " reward(s) claimed.");
     }
 
     private void report(ICommandSender sender, RewardGranter.Result result, Reward reward) {

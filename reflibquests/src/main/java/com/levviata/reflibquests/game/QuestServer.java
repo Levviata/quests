@@ -226,6 +226,26 @@ public final class QuestServer {
         }
     }
 
+    /** Claim every reward the player can claim right now, except choices (those need a decision). @return how many */
+    public int claimAll(EntityPlayerMP player) {
+        TeamProgress team = progressOf(player);
+        int claimed = 0;
+        for (Quest q : book.allQuests()) {
+            for (Reward r : q.rewards) {
+                if (!r.type().equals("choice") && engine.canClaim(team, player.getUniqueID(), r)
+                        && claim(player, r, -1, true) == RewardGranter.Result.GRANTED) {
+                    claimed++;
+                }
+            }
+        }
+        return claimed;
+    }
+
+    public void handleClaimAll(EntityPlayerMP player) {
+        int n = claimAll(player);
+        player.sendMessage(new TextComponentString("[Quests] " + n + " reward(s) claimed."));
+    }
+
     public void handleCheck(EntityPlayerMP player, String taskId) {
         player.sendMessage(new TextComponentString("[Quests] " + tracker.check(player, taskId)));
     }

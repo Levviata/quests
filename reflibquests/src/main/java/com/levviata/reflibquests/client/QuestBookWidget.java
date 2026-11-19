@@ -51,6 +51,7 @@ final class QuestBookWidget extends Widget {
 
     private static final int LIST_W = 120;
     private static final int DETAIL_W = 230;
+    private static final int HEADER = 22;
     private static final double GRID = 26.0;
     private static final double NODE = 22.0;
     /** How much of its square an icon fills; the icon scales with the square at every zoom level. */
@@ -63,7 +64,7 @@ final class QuestBookWidget extends Widget {
     private static final Map<String, ViewTransform> VIEWS = new HashMap<>();
     private static int listScroll;
 
-    private record Hit(Rect rect, Runnable action) {}
+    private record Hit(Rect rect, Runnable action, String tip) {}
 
     private final List<Hit> hits = new ArrayList<>();
     private boolean pressedOnMap;
@@ -83,11 +84,11 @@ final class QuestBookWidget extends Widget {
     }
 
     private Rect listRect() {
-        return new Rect(bounds.x(), bounds.y(), LIST_W, bounds.height());
+        return new Rect(bounds.x(), bounds.y() + HEADER, LIST_W, bounds.height() - HEADER);
     }
 
     private Rect mapRect() {
-        return new Rect(bounds.x() + LIST_W + 4, bounds.y(), bounds.width() - LIST_W - 4, bounds.height());
+        return new Rect(bounds.x() + LIST_W + 4, bounds.y() + HEADER, bounds.width() - LIST_W - 4, bounds.height() - HEADER);
     }
 
     private Rect detailRect() {
@@ -201,6 +202,7 @@ final class QuestBookWidget extends Widget {
         if (currentChapter(book) == null) {
             chapterId = chapters.isEmpty() ? "" : chapters.get(0).id;
         }
+        drawHeader(fr, book, engine, p, mouseX, mouseY);
         drawChapterList(fr, book, p, chapters, mouseX, mouseY);
         Chapter chapter = currentChapter(book);
         Rect map = mapRect();
@@ -256,6 +258,66 @@ final class QuestBookWidget extends Widget {
         }
     }
 
+    /** True if the player has a reward that can be claimed right now (choice rewards included). */
+    private static boolean anyClaimable(QuestBook book, ProgressEngine engine, TeamProgress p, UUID me) {
+        for (Quest q : book.allQuests()) {
+            if (claimable(engine, p, me, q)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean claimable(ProgressEngine engine, TeamProgress p, UUID me, Quest q) {
+        if (me == null || !p.isCompleted(q.id)) {
+            return false;
+        }
+        for (Reward r : q.rewards) {
+            if (engine.canClaim(p, me, r)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A small square button showing a texture from the supplied jar, or a text label when the art is missing. */
+    private int iconButton(int rightEdge, int y, String texture, String fallback, String tip, Runnable action, int mouseX, int mouseY) {
+        FontRenderer fr = mc().fontRenderer;
+        boolean art = QuestArt.available() && QuestArt.has("textures/gui/" + texture + ".png");
+        int w = art ? 16 : fr.getStringWidth(fallback) + 8;
+        Rect r = new Rect(rightEdge - w, y, w, 16);
+        boolean hover = r.contains(mouseX, mouseY);
+        Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), hover ? 0xFF4A4A68 : 0xFF2A2A3A);
+        if (art) {
+            QuestArt.quad(QuestArt.guiTexture(texture), r.x(), r.y(), 16, 16, 0xFFFFFFFF);
+        } else {
+            fr.drawStringWithShadow(fallback, r.x() + 4, r.y() + 4, 0xFFFFFF);
+        }
+        hits.add(new Hit(r, action, tip));
+        return r.x() - 4;
+    }
+
+    private void drawHeader(FontRenderer fr, QuestBook book, ProgressEngine engine, TeamProgress p, int mouseX, int mouseY) {
+        Gui.drawRect(bounds.x(), bounds.y(), bounds.x() + bounds.width(), bounds.y() + HEADER, 0xFF14141C);
+        int done = 0;
+        int total = 0;
+        for (Quest q : book.allQuests()) {
+            if (QuestRules.isVisible(book, p, q)) {
+                total++;
+                if (p.isCompleted(q.id)) {
+                    done++;
+                }
+            }
+        }
+        fr.drawStringWithShadow("Quest book  " + done + "/" + total, bounds.x() + 6, bounds.y() + 7, 0xDDDDDD);
+        int x = bounds.x() + bounds.width() - 4;
+        x = iconButton(x, bounds.y() + 3, "close", "X", "Close", () -> mc().displayGuiScreen(null), mouseX, mouseY);
+        UUID me = mc().player == null ? null : mc().player.getUniqueID();
+        if (anyClaimable(book, engine, p, me)) {
+            iconButton(x, bounds.y() + 3, "collect_rewards", "Claim all", "Claim all rewards", QuestNet::claimAll, mouseX, mouseY);
+        }
+    }
+
     private void drawChapterList(FontRenderer fr, QuestBook book, TeamProgress p, List<Chapter> chapters, int mouseX, int mouseY) {
         Rect r = listRect();
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF22222E);
@@ -284,7 +346,7 @@ final class QuestBookWidget extends Widget {
             hits.add(new Hit(row, () -> {
                 chapterId = id;
                 selectedQuest = "";
-            }));
+            }, null));
             y += 18;
         }
         unscissor();
@@ -356,6 +418,16 @@ final class QuestBookWidget extends Widget {
                 float scale = s * ICON_FRACTION / 16f;
                 float offset = (s - 16f * scale) / 2f;
                 drawItem(icon, x + offset, y + offset, scale);
+            }
+            if (QuestArt.available() && s >= 14) {
+                int badge = Math.max(8, s / 3);
+                if (state == State.DONE && QuestArt.has("textures/gui/check_gray.png")) {
+                    QuestArt.quad(QuestArt.guiTexture("check_gray"), x + s - badge, y + s - badge, badge, badge, 0xFFFFFFFF);
+                }
+                UUID me = mc().player == null ? null : mc().player.getUniqueID();
+                if (claimable(engine, p, me, q) && QuestArt.has("textures/gui/alert.png")) {
+                    QuestArt.quad(QuestArt.guiTexture("alert"), x + s - badge, y - badge / 3, badge, badge, 0xFFFFFFFF);
+                }
             }
         }
     }
@@ -481,7 +553,7 @@ final class QuestBookWidget extends Widget {
         boolean hover = r.contains(lastMouseX, lastMouseY);
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), hover ? 0xFF6B6B8F : 0xFF4A4A68);
         fr.drawStringWithShadow(label, x + 5, y + 2, 0xFFFFFF);
-        hits.add(new Hit(r, action));
+        hits.add(new Hit(r, action, null));
         return y + 15;
     }
 
@@ -587,6 +659,11 @@ final class QuestBookWidget extends Widget {
         ProgressEngine engine = ClientQuests.engine();
         if (book == null || p == null || engine == null || pressedOnMap && moved) {
             return null;
+        }
+        for (Hit h : hits) {
+            if (h.tip() != null && h.rect().contains(mouseX, mouseY)) {
+                return List.of(h.tip());
+            }
         }
         Quest q = questAt(mouseX, mouseY);
         if (q == null) {

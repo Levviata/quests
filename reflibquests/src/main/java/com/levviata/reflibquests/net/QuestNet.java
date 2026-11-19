@@ -51,6 +51,12 @@ public final class QuestNet {
                     if (qs != null && c.sender() != null) {
                         qs.handleSubmit(c.sender(), m.taskId);
                     }
+                })
+                .register(ClaimAll.class, Side.SERVER, (m, c) -> {
+                    QuestServer qs = QuestServer.get();
+                    if (qs != null && c.sender() != null) {
+                        qs.handleClaimAll(c.sender());
+                    }
                 });
     }
 
@@ -72,6 +78,10 @@ public final class QuestNet {
 
     public static void submit(String taskId) {
         channel.sendToServer(new SubmitTask(taskId));
+    }
+
+    public static void claimAll() {
+        channel.sendToServer(new ClaimAll());
     }
 
     private static void writeBlob(PacketBuffer buf, byte[] data) {
@@ -177,6 +187,17 @@ public final class QuestNet {
         public void read(PacketBuffer buf) {
             taskId = buf.readString(256);
         }
+    }
+
+    /** Client to server: claim everything claimable (choices excluded). */
+    public static final class ClaimAll implements ReflibMessage {
+        public ClaimAll() {}
+
+        @Override
+        public void write(PacketBuffer buf) {}
+
+        @Override
+        public void read(PacketBuffer buf) {}
     }
 
     /** Client to server: hand in items for a consuming item task. */
