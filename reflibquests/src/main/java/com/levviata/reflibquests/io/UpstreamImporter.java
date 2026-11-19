@@ -276,7 +276,9 @@ public final class UpstreamImporter {
                 if (rn instanceof DataNode.Compound rc) {
                     Reward r = readReward(rc, "reward table " + id);
                     if (r != null) {
-                        t.entries.add(new WeightedReward((float) rc.getDouble("weight", 1.0), r));
+                        // the weight belongs to the table entry, not to the reward itself
+                        Reward clean = new Reward(r.id(), r.type(), r.params().without("weight"));
+                        t.entries.add(new WeightedReward((float) rc.getDouble("weight", 1.0), clean));
                     }
                 }
             }

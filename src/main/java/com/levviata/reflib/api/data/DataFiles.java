@@ -29,10 +29,19 @@ public final class DataFiles {
     private DataFiles() {}
 
     public static void write(Path file, DataNode.Compound data) throws IOException {
+        writeText(file, Snbt.print(data) + "\n");
+    }
+
+    /** Like {@link #write} but in {@link Json5} form (commas, quoted keys), for files other programs read. */
+    public static void writeJson5(Path file, DataNode.Compound data) throws IOException {
+        writeText(file, Json5.print(data) + "\n");
+    }
+
+    private static void writeText(Path file, String text) throws IOException {
         Path dir = file.toAbsolutePath().getParent();
         Files.createDirectories(dir);
         Path tmp = dir.resolve(file.getFileName() + ".tmp");
-        Files.writeString(tmp, Snbt.print(data) + "\n", StandardCharsets.UTF_8);
+        Files.writeString(tmp, text, StandardCharsets.UTF_8);
         if (Files.exists(file)) {
             Files.copy(file, dir.resolve(file.getFileName() + ".bak"), StandardCopyOption.REPLACE_EXISTING);
         }

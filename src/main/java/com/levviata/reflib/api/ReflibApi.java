@@ -17,7 +17,7 @@ public final class ReflibApi {
      * Integer API level. Increases whenever the public API gains features; a project declares the minimum
      * level it needs through {@link com.levviata.reflib.api.project.ReflibProjects#register}.
      */
-    public static final int API_LEVEL = 4;
+    public static final int API_LEVEL = 5;
 
     private ReflibApi() {}
 }
