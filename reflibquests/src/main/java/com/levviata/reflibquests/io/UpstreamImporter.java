@@ -331,6 +331,13 @@ public final class UpstreamImporter {
             for (Quest q : c.quests) {
                 q.title = text(table, "quest." + q.id + ".title", q.title);
                 q.subtitle = text(table, "quest." + q.id + ".quest_subtitle", q.subtitle);
+                for (int ti = 0; ti < q.tasks.size(); ti++) {
+                    Task old = q.tasks.get(ti);
+                    String taskTitle = text(table, "task." + old.id() + ".title", "");
+                    if (!taskTitle.isEmpty()) {
+                        q.tasks.set(ti, new Task(old.id(), old.type(), old.params().with("title", taskTitle)));
+                    }
+                }
                 List<String> desc = list(table, "quest." + q.id + ".quest_desc");
                 if (!desc.isEmpty()) {
                     q.description = desc;

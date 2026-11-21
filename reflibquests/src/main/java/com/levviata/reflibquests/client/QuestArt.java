@@ -76,6 +76,11 @@ final class QuestArt {
         return new ResourceLocation(DOMAIN, "textures/shapes/" + name + "/" + layer + ".png");
     }
 
+    /** @return true if the player's quests jar carries this picture of its gui folder */
+    static boolean hasGui(String name) {
+        return available() && has("textures/gui/" + name + ".png");
+    }
+
     static ResourceLocation guiTexture(String name) {
         return new ResourceLocation(DOMAIN, "textures/gui/" + name + ".png");
     }

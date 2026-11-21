@@ -64,10 +64,43 @@ final class QuestText {
             case "checkmark":
                 return "Checkmark";
             case "kill":
-                return "Kill " + pretty(t.params().getString("entity", ""));
+                return "Kill: " + t.maxProgress() + "x " + titleCase(t.params().getString("entity", ""));
+            case "xp": {
+                boolean points = t.params().getBool("points", false);
+                net.minecraft.client.entity.EntityPlayerSP me = net.minecraft.client.Minecraft.getMinecraft().player;
+                long have = me == null ? Long.MAX_VALUE : points ? me.experienceTotal : me.experienceLevel;
+                return (points ? "XP: " : "XP Levels: ") + (have < t.maxProgress() ? "\u00a7c" : "") + t.maxProgress(); // red while the player is short of it
+            }
+            case "location":
+                return "Location";
+            case "stat":
+                return titleCase(t.params().getString("stat", ""));
+            case "dimension":
+                return "Visit Dimension: \u00a7a" + t.params().getString("dimension", "");
+            case "biome":
+                return "Visit Biome: \u00a7a" + t.params().getString("biome", "");
+            case "observation":
+                return "Observation: \u00a7a" + t.params().getString("to_observe", "");
+            case "advancement": {
+                String adv = t.params().getString("advancement", "");
+                String last = adv.contains("/") ? adv.substring(adv.lastIndexOf('/') + 1) : adv.contains(":") ? adv.substring(adv.indexOf(':') + 1) : adv;
+                return "Advancement: \u00a7e" + (last.equals("root") ? titleCase(adv.contains(":") ? adv.substring(0, adv.indexOf(':')) : adv) : titleCase(last));
+            }
             default:
                 return pretty(t.type());
         }
+    }
+
+    /** "minecraft:mob_kills" becomes "Mob Kills". */
+    private static String titleCase(String id) {
+        String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
+        StringBuilder out = new StringBuilder();
+        for (String word : path.split("[_ /]+")) {
+            if (!word.isEmpty()) {
+                out.append(out.length() > 0 ? " " : "").append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+            }
+        }
+        return out.toString();
     }
 
     /**
@@ -193,7 +226,28 @@ final class QuestText {
         if (t.type().equals("item")) {
             return stackOf(t.params().get("item"));
         }
-        return null;
+        // the picture of each task type, as in FTB Quests' own list of them
+        switch (t.type()) {
+            case "xp":
+                return new ItemStack(net.minecraft.init.Items.EXPERIENCE_BOTTLE);
+            case "dimension":
+                return new ItemStack(net.minecraft.init.Items.ENDER_EYE);
+            case "stat":
+                return new ItemStack(net.minecraft.init.Items.IRON_SWORD);
+            case "location":
+                return new ItemStack(net.minecraft.init.Items.COMPASS);
+            case "advancement":
+                return t.params().getString("advancement", "").endsWith("/root")
+                        ? new ItemStack(net.minecraft.init.Blocks.GRASS) : new ItemStack(net.minecraft.init.Items.WHEAT);
+            case "observation":
+                return null; // drawn as the library's landscape picture (see the widget)
+            case "biome":
+                return new ItemStack(net.minecraft.init.Blocks.SAPLING);
+            case "structure":
+                return new ItemStack(net.minecraft.init.Items.PAPER);
+            default:
+                return null;
+        }
     }
 
     /** The quest's icon: its own, else the first item task's item, else the first item reward's item. */

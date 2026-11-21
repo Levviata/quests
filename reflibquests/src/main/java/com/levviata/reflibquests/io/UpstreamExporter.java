@@ -174,7 +174,7 @@ public final class UpstreamExporter {
         o = flag(o, "or_tasks", q.orTasks);
         List<DataNode> tasks = new ArrayList<>();
         for (Task t : q.tasks) {
-            tasks.add(DataNode.Compound.empty().with("id", t.id()).with("type", t.type()).with("__params", withoutOurs(t.params())));
+            tasks.add(DataNode.Compound.empty().with("id", t.id()).with("type", t.type()).with("__params", withoutOurs(t.params()).without("title"))); // the title goes to the language file
         }
         List<DataNode> rewards = new ArrayList<>();
         for (Reward r : q.rewards) {
@@ -271,6 +271,9 @@ public final class UpstreamExporter {
             live.add("chapter." + c.id + ".");
             for (Quest q : c.quests) {
                 live.add("quest." + q.id + ".");
+                for (Task t : q.tasks) {
+                    live.add("task." + t.id() + ".");
+                }
             }
             for (var i : c.images) {
                 live.add("image." + i.id() + ".");
@@ -295,6 +298,9 @@ public final class UpstreamExporter {
                 text(main, "quest." + q.id + ".title", q.title);
                 text(main, "quest." + q.id + ".quest_subtitle", q.subtitle);
                 list(main, "quest." + q.id + ".quest_desc", q.description);
+                for (Task t : q.tasks) {
+                    text(main, "task." + t.id() + ".title", t.params().getString("title", ""));
+                }
             }
         }
         for (RewardTable t : book.tables().values()) {
@@ -326,7 +332,7 @@ public final class UpstreamExporter {
     }
 
     private static boolean isObjectKey(String key) {
-        return key.startsWith("quest.") || key.startsWith("image.") || key.startsWith("chapter.") || key.startsWith("chapter_group.") || key.startsWith("reward_table.");
+        return key.startsWith("quest.") || key.startsWith("task.") || key.startsWith("image.") || key.startsWith("chapter.") || key.startsWith("chapter_group.") || key.startsWith("reward_table.");
     }
 
     private static void text(Map<String, DataNode> table, String key, String value) {
