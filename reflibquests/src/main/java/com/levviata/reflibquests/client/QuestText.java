@@ -265,9 +265,9 @@ final class QuestText {
                 return (count > 1 ? count + "x " : "") + (s == null ? itemName(p.get("item")) : s.getDisplayName());
             }
             case "xp":
-                return p.getInt("xp", 1) + " XP";
+                return "XP: +" + Math.max(1, p.getInt("xp", 1)); // as FTB Quests names it
             case "xp_levels":
-                return p.getInt("xp_levels", 1) + " XP level(s)";
+                return "XP Levels: +" + Math.max(1, p.getInt("xp_levels", 1));
             case "command":
                 return "A reward command";
             case "toast":

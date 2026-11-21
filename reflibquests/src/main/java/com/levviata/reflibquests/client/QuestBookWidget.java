@@ -945,17 +945,30 @@ final class QuestBookWidget extends Widget {
             final String gid = g.id;
             final String parentId = parentChapter == null ? "" : parentChapter.id;
             final Definitions.ChapterGroup group = g;
+            // FTB Quests' group menu, in its order: Move, Move, Edit, Quick Edit Properties..., Delete, Complete Instantly, Copy ID
             Runnable groupMenu = !isEditing() ? null : () -> openMenu(lastMouseX, lastMouseY,
                     new MenuItem("\"" + RichText.stripCodes(group.title) + "\"", "", "", false, null),
-                    new MenuItem("Rename", "", "settings", true, () -> {
+                    new MenuItem("Move", "", "lib:up", true, () -> send("move_group", args("id", gid, "by", -1))),
+                    new MenuItem("Move", "", "lib:down", false, () -> send("move_group", args("id", gid, "by", 1))),
+                    new MenuItem("Edit", "", "settings", false, () -> {
                         Chapter parent = group.raw.getString("chapter", "").isEmpty() ? null : ClientQuests.book().chapter(group.raw.getString("chapter", ""));
                         mc().displayGuiScreen(parent != null ? TextEditScreen.forChapter(parent) : TextEditScreen.forGroup(group));
                     }),
-                    new MenuItem("Hold in Chapter...", "", "", false, () -> chooseHoldingChapter(gid)),
-                    new MenuItem("Move Up", "", "lib:up", false, () -> send("move_group", args("id", gid, "by", -1))),
-                    new MenuItem("Move Down", "", "lib:down", false, () -> send("move_group", args("id", gid, "by", 1))),
-                    new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(gid)),
-                    new MenuItem("Delete Group", "", "lib:remove", true, () -> send("delete_group", args("id", gid))));
+                    new MenuItem("Quick Edit Properties...", "", "settings", false, () -> openMenu(lastMouseX, lastMouseY,
+                            new MenuItem("\"" + RichText.stripCodes(group.title) + "\"", "", "", false, null),
+                            new MenuItem("Hold in Chapter...", "", "", true, () -> chooseHoldingChapter(gid)))),
+                    new MenuItem("Delete", "", "lib:remove", false, () -> send("delete_group", args("id", gid))),
+                    new MenuItem("Complete Instantly", "", "lib:check", false, () -> {
+                        QuestBook gb = ClientQuests.book();
+                        if (gb != null) {
+                            for (Chapter gc : gb.chapters()) {
+                                if (gc.groupId.equals(gid)) {
+                                    send("complete_quest", args("chapter", gc.id));
+                                }
+                            }
+                        }
+                    }),
+                    new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(gid)));
             hits.add(new Hit(row, () -> {
                 if (!parentId.isEmpty()) {
                     chapterId = parentId; // the row is a chapter too: open it
