@@ -241,6 +241,16 @@ public final class QuestServer {
             player.sendMessage(new TextComponentString("[Quests] Quest files saved on the server."));
             return;
         }
+        if ((op.equals("reset_progress") || op.equals("complete_quest")) && args.getBool("all", false)) {
+            // the whole book, for the player's team
+            TeamProgress team = progressOf(player);
+            long now = System.currentTimeMillis();
+            for (com.levviata.reflibquests.model.Definitions.Quest cq : new java.util.ArrayList<>(book.allQuests())) {
+                apply(team, op.equals("complete_quest") ? engine.forceComplete(team, cq.id, now, true) : engine.resetQuest(team, cq.id));
+            }
+            ReflibQuestsMod.LOGGER.info("{} ran {} on the whole book", player.getName(), op);
+            return;
+        }
         if ((op.equals("reset_progress") || op.equals("complete_quest")) && !args.getString("chapter", "").isEmpty()) {
             com.levviata.reflibquests.model.Definitions.Chapter ch = book.chapter(args.getString("chapter", ""));
             if (ch == null) {

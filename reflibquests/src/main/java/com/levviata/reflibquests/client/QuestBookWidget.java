@@ -736,7 +736,7 @@ final class QuestBookWidget extends Widget {
         refreshAlerts(book, engine, p, me);
         boolean claimable = anyAlert;
         int bagY = y;
-        y = iconButton(x, y, "collect_rewards", "$", claimable ? "Select rewards to claim" : "No rewards to claim", () -> {
+        y = iconButton(x, y, "collect_rewards", "$", claimable ? "Select Rewards" : "No rewards to claim", () -> {
             if (anyAlert) {
                 mc().displayGuiScreen(new RewardsScreen(mc().currentScreen));
             }
@@ -783,7 +783,7 @@ final class QuestBookWidget extends Widget {
         }
         hits.add(new Hit(prefs, () -> mc().displayGuiScreen(new PreferencesScreen(mc().currentScreen)), "Player Preferences\n\u00a77[Ctrl + P]"));
         if (ClientQuests.canEdit()) {
-            iconButton(x, by - 22, editing ? "editor" : "editor_white", "E", editing ? "Leave edit mode" : "Edit quests", () -> {
+            iconButton(x, by - 22, editing ? "editor" : "editor_white", "E", "Editing Mode for '" + (mc().player == null ? "" : mc().player.getName()) + "' " + (editing ? "Enabled" : "Disabled"), () -> {
                 editing = !editing;
                 linkFrom = "";
                 confirmDelete = false;
@@ -814,11 +814,24 @@ final class QuestBookWidget extends Widget {
                 hits.add(new Hit(cog, () -> openMenu(lastMouseX, lastMouseY,
                         new MenuItem("Edit File", "", "settings",  false,
                                 () -> mc().displayGuiScreen(new BookSettingsScreen(mc().currentScreen, ClientQuests.book()))),
+                        new MenuItem("Reset Progress", "", "lib:undo", false, () -> confirmBook("Reset progress for your team?", "reset_progress")),
+                        new MenuItem("Complete Instantly", "", "lib:check", false, () -> confirmBook("Complete this task instantly?", "complete_quest")),
                         new MenuItem("Edit Reward Tables", "", "collect_rewards", false,
                                 () -> mc().displayGuiScreen(new RewardTablesScreen(mc().currentScreen))),
                         new MenuItem("Save on Server now", "", "", false, () -> send("save_now", DataNode.Compound.empty()))), "Settings"));
             }
         }
+    }
+
+    /** The vanilla Yes/No screen FTB Quests asks before changing the whole book's progress. */
+    private void confirmBook(String question, String op) {
+        final GuiScreen back = mc().currentScreen;
+        mc().displayGuiScreen(new net.minecraft.client.gui.GuiYesNo((result, id) -> {
+            mc().displayGuiScreen(back);
+            if (result) {
+                send(op, args("all", true));
+            }
+        }, question, "", 0));
     }
 
     private void drawChapterList(FontRenderer fr, QuestBook book, TeamProgress p, List<Chapter> chapters, int mouseX, int mouseY) {
@@ -2036,6 +2049,8 @@ final class QuestBookWidget extends Widget {
     private void drawDetail(FontRenderer fr, QuestBook book, ProgressEngine engine, TeamProgress p) {
         Quest q = book.quest(selectedQuest);
         Rect r = detailRect();
+        // everything behind an open quest is dimmed (measured from FTB Quests: about 63% of a dark grey)
+        Gui.drawRect(bounds.x(), bounds.y(), bounds.x() + bounds.width(), bounds.y() + bounds.height(), 0xA0202426);
         Ui.shadow(r);
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF0E0F12);
         Gui.drawRect(r.x() + 1, r.y() + 1, r.x() + r.width() - 1, r.y() + r.height() - 1, 0xF51F2228);
@@ -2238,6 +2253,14 @@ final class QuestBookWidget extends Widget {
         }
     }
 
+    /** The box FTB Quests draws behind a hovered task or reward: 20 pixels, a 1 pixel dark edge, 26% black inside. */
+    private void slotHover(int x, int y) {
+        if (lastMouseX >= x - 1 && lastMouseX < x + 19 && lastMouseY >= y - 1 && lastMouseY < y + 19 && !(!menu.isEmpty() && menuRect(menu).contains(lastMouseX, lastMouseY))) {
+            Gui.drawRect(x - 1, y - 1, x + 19, y + 19, 0xFF1B1D1E);
+            Gui.drawRect(x, y, x + 18, y + 18, 0x42000000);
+        }
+    }
+
     private void drawRewardIcon(FontRenderer fr, Reward rw, int x, int y) {
         DataNode.Compound pm = rw.params();
         switch (rw.type()) {
@@ -2374,11 +2397,7 @@ final class QuestBookWidget extends Widget {
             new MenuItem("Add Page Break", "[P]", "pagebreak", false, () -> appendPage(q)),
             new MenuItem("Add Image", "[I]", "lib:art", false, () -> mc().displayGuiScreen(
                     new InsertDialogs.ImageDialog(mc().currentScreen, tag -> appendLine(q, tag)))),
-            new MenuItem("Quest Properties", "[Q]", "settings", true, () -> mc().displayGuiScreen(new QuestPropertiesScreen(mc().currentScreen, q))),
-            new MenuItem("Delete Quest", "", "", true, () -> {
-                send("delete_quest", args("id", q.id));
-                selectedQuest = "";
-            })
+            new MenuItem("Quest Properties", "[Q]", "settings", true, () -> mc().displayGuiScreen(new QuestPropertiesScreen(mc().currentScreen, q)))
         };
     }
 
@@ -2588,6 +2607,7 @@ final class QuestBookWidget extends Widget {
             int sx = r.x() + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % perRow) * 20;
             int sy = y + 18 + (i / perRow) * 21;
             boolean done = QuestRules.taskDone(p, t);
+            slotHover(sx, sy);
             drawTaskIcon(fr, t, done, sx, sy);
             if (done && !t.type().equals("checkmark")) {
                 Ui.check(sx + 10, sy - 3, 9, 0xFFFFFFFF);
@@ -2640,6 +2660,8 @@ final class QuestBookWidget extends Widget {
                     tip.append("\n\n§e§nClick to submit");
                     act = () -> QuestNet.submit(t.id());
                 }
+            } else if (t.type().equals("dimension")) {
+                tip.append("§fVisit Dimension: §a").append(t.params().getString("dimension", "?")); // FTB: the dimension's id in green
             } else {
                 tip.append(QuestText.task(t));
                 if (!done && canWork && t.type().equals("checkmark")) {
@@ -2648,7 +2670,10 @@ final class QuestBookWidget extends Widget {
                 }
             }
             if (t.optionalTask()) {
-                tip.append("\n§7Optional");
+                tip.append("\n§7Optional Task");
+            }
+            if (t.type().equals("item") && t.params().getBool("task_screen_only", false)) {
+                tip.append("\n\n§e§nItems can ONLY be submitted via a Task Screen!");
             }
             if (t.maxProgress() > 1 && !t.type().equals("item")) { // item tasks already have it, in green under the name
                 tip.append("\n§7").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
@@ -2678,6 +2703,7 @@ final class QuestBookWidget extends Widget {
             int sy = y + 18 + (i / perRow) * 21;
             boolean claimed = me != null && p.isClaimed(rw.id(), me);
             boolean ready = me != null && engine.canClaim(p, me, rw);
+            slotHover(sx, sy);
             drawRewardIcon(fr, rw, sx, sy);
             if (claimed) {
                 Ui.check(sx + 9, sy - 3, 10, 0xFFFFFFFF);
@@ -2687,11 +2713,13 @@ final class QuestBookWidget extends Widget {
             String tip;
             ItemStack rewardStack = rw.type().equals("item") ? QuestText.stackOf(rw.params().get("item")) : null;
             if (rw.type().equals("xp") || rw.type().equals("xp_levels")) {
-                tip = "\u00a7f" + (rw.type().equals("xp") ? "XP: " : "XP Levels: ") + "\u00a7a+" + Math.max(1, rw.params().getInt(rw.type(), 1));
+                tip = "\u00a79" + (rw.type().equals("xp") ? "XP: " : "XP Levels: ") + "\u00a7a+" + Math.max(1, rw.params().getInt(rw.type(), 1));
             } else if (rewardStack != null) {
                 tip = itemTip(rewardStack, jeiEnabled(book, q));
             } else if (rw.type().equals("choice") || rw.type().equals("random") || rw.type().equals("loot") || rw.type().equals("all_table")) {
                 tip = tableTip(book, rw);
+            } else if (rw.type().equals("custom") && rw.params().getString("title", "").isEmpty()) {
+                tip = "§9Custom";
             } else {
                 tip = QuestText.reward(rw);
             }
@@ -2777,11 +2805,12 @@ final class QuestBookWidget extends Widget {
         if (details && (isEditing() || pages > 1)) {
             int rowY = y + 2;
             if (isEditing()) {
-                Rect btn = new Rect(mid - 40, rowY, 80, 18);
-                Ui.box(btn, btn.contains(lastMouseX, lastMouseY) ? 0xFF2E323B : 0xFF1F2128);
-                Ui.questsGui("settings", btn.x() + 6, btn.y() + 3, 12, 12, 0xFFFFFFFF);
-                fr.drawStringWithShadow("Edit", btn.x() + 24, btn.y() + 5, 0xFFFFFF);
-                fr.drawStringWithShadow("v", btn.x() + 58, btn.y() + 5, 0xFFFFFF);
+                // 56 x 14, edge #1B1D1E, as measured from FTB Quests
+                Rect btn = new Rect(mid - 28, rowY, 56, 14);
+                Ui.box(btn, btn.contains(lastMouseX, lastMouseY) ? 0xFF3A404B : 0xFF2C3138);
+                Ui.questsGui("settings", btn.x() + 5, btn.y() + 3, 8, 8, 0xFFFFFFFF);
+                fr.drawStringWithShadow("Edit", btn.x() + 15, btn.y() + 3, 0xFFFFFF);
+                fr.drawStringWithShadow("\u25BC", btn.x() + 39, btn.y() + 3, 0xFFFFFF);
                 final Quest edited = q;
                 addHit(btn, () -> openMenu(btn.x(), btn.y() + 18, editMenu(edited)), "Edit this quest");
             }
@@ -4474,6 +4503,10 @@ final class QuestBookWidget extends Widget {
 
     @Override
     protected boolean onKey(char typed, int keyCode) {
+        if (keyCode == Keyboard.KEY_ESCAPE && !menu.isEmpty()) {
+            menu = List.of(); // Esc closes an open context menu first, as in FTB Quests
+            return true;
+        }
         if (!imgMode.isEmpty()) {
             if (keyCode == Keyboard.KEY_ESCAPE) {
                 endImageMode(false);
