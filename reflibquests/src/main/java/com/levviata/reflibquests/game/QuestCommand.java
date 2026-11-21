@@ -32,7 +32,7 @@ import com.levviata.reflibquests.model.TeamProgress;
 public final class QuestCommand extends CommandBase {
 
     private static final List<String> PLAYER = List.of("list", "info", "check", "submit", "claim", "claimall");
-    private static final List<String> ADMIN = List.of("complete", "reset", "reload", "lock", "blockrewards", "problems");
+    private static final List<String> ADMIN = List.of("complete", "reset", "reload", "lock", "blockrewards", "problems", "export");
 
     @Override
     public String getName() {
@@ -93,6 +93,10 @@ public final class QuestCommand extends CommandBase {
             case "reload":
                 qs.reload();
                 say(sender, "Reloaded: " + qs.book().chapters().size() + " chapters, " + qs.book().allQuests().size() + " quests.");
+                return;
+            case "export":
+                qs.exportBook();
+                say(sender, "Quest book saved to " + qs.questFolder());
                 return;
             case "problems":
                 say(sender, qs.inertTasks().isEmpty() ? "No inert tasks." : qs.inertTasks().size() + " inert task(s):");

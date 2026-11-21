@@ -32,6 +32,7 @@ public final class ClientQuests {
     private static TeamProgress progress;
     private static int bookVersion;
     private static java.util.List<String> pins = java.util.List.of();
+    private static boolean canEdit;
 
     private ClientQuests() {}
 
@@ -49,6 +50,49 @@ public final class ClientQuests {
         }
     }
 
+    /** Some chapters and reward tables were put back by the server (undo or redo): swap them in without waiting for the whole book. */
+    public static void onDelta(byte[] packed) {
+        if (book == null) {
+            return;
+        }
+        try {
+            DataNode.Compound c = Gz.unpack(packed);
+            for (DataNode n : c.getList("chapters")) {
+                if (!(n instanceof DataNode.Compound e)) {
+                    continue;
+                }
+                String id = e.getString("id", "");
+                int at = -1;
+                for (int i = 0; i < book.chapters().size(); i++) {
+                    if (book.chapters().get(i).id.equals(id)) {
+                        at = i;
+                    }
+                }
+                if (at >= 0) {
+                    book.chapters().remove(at);
+                }
+                if (e.getInt("index", -1) >= 0) {
+                    book.chapters().add(Math.min(e.getInt("index", 0), book.chapters().size()), BookCodec.chapterFrom(e.getCompound("data")));
+                }
+            }
+            for (DataNode n : c.getList("tables")) {
+                if (!(n instanceof DataNode.Compound e)) {
+                    continue;
+                }
+                String id = e.getString("id", "");
+                if (e.getCompound("data").entries().isEmpty()) {
+                    book.tables().remove(id);
+                } else {
+                    book.tables().put(id, BookCodec.tableFrom(e.getCompound("data")));
+                }
+            }
+            book.reindex();
+            bookVersion++;
+        } catch (IllegalArgumentException ex) {
+            ReflibQuestsMod.LOGGER.error("Could not read the changed parts from the server: {}", ex.getMessage());
+        }
+    }
+
     public static void onProgress(byte[] packed) {
         try {
             DataNode.Compound c = Gz.unpack(packed);
@@ -56,6 +100,43 @@ public final class ClientQuests {
         } catch (IllegalArgumentException ex) {
             ReflibQuestsMod.LOGGER.error("Could not read quest progress from the server: {}", ex.getMessage());
         }
+    }
+
+    public static void onPerms(boolean allowed) {
+        canEdit = allowed;
+    }
+
+    private static int undoCount;
+    private static int redoCount;
+    private static String undoLabel = "";
+    private static String redoLabel = "";
+
+    public static void onHistory(int undo, int redo, String undoText, String redoText) {
+        undoCount = undo;
+        redoCount = redo;
+        undoLabel = undoText;
+        redoLabel = redoText;
+    }
+
+    public static int undoCount() {
+        return undoCount;
+    }
+
+    public static int redoCount() {
+        return redoCount;
+    }
+
+    public static String undoLabel() {
+        return undoLabel;
+    }
+
+    public static String redoLabel() {
+        return redoLabel;
+    }
+
+    /** Whether the server lets this player edit the quest book. */
+    public static boolean canEdit() {
+        return canEdit;
     }
 
     public static void onPins(java.util.List<String> ids) {
@@ -100,6 +181,7 @@ public final class ClientQuests {
         progress = null;
         engine = null;
         pins = java.util.List.of();
+        canEdit = false;
         idMap = IdMap.withBuiltin(DataNode.Compound.empty());
     }
 }

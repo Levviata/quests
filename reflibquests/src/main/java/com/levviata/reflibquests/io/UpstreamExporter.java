@@ -112,6 +112,9 @@ public final class UpstreamExporter {
         o = flag(o, "hide_quest_until_deps_visible", c.hideQuestUntilDepsVisible);
         o = flag(o, "hide_quest_until_deps_complete", c.hideQuestUntilDepsComplete);
         o = flag(o, "default_repeatable_quest", c.defaultRepeatable);
+        o = flag(o, "default_hide_dependency_lines", c.defaultHideDependencyLines);
+        o = setOrRemove(o, "default_quest_shape", c.defaultQuestShape == null || c.defaultQuestShape.isEmpty() ? null
+                : new DataNode.Str(c.defaultQuestShape));
         List<DataNode> quests = new ArrayList<>();
         for (Quest q : c.quests) {
             quests.add(questData(q));
@@ -152,7 +155,14 @@ public final class UpstreamExporter {
         o = tri(o, "hide_details_until_startable", q.hideDetailsUntilStartable);
         o = tri(o, "hide_until_deps_visible", q.hideUntilDepsVisible);
         o = tri(o, "hide_until_deps_complete", q.hideUntilDepsComplete);
+        o = tri(o, "hide_dependency_lines", q.hideDependencyLines);
+        o = tri(o, "hide_dependent_lines", q.hideDependentLines);
         o = flag(o, "ignore_reward_blocking", q.ignoreRewardBlocking);
+        o = flag(o, "disable_toast", q.disableToast);
+        o = flag(o, "hide_lock_icon", q.hideLockIcon);
+        o = tri(o, "hide_text_until_complete", q.hideTextUntilComplete);
+        o = tri(o, "disable_jei", q.disableJei);
+        o = flag(o, "or_tasks", q.orTasks);
         List<DataNode> tasks = new ArrayList<>();
         for (Task t : q.tasks) {
             tasks.add(DataNode.Compound.empty().with("id", t.id()).with("type", t.type()).with("__params", t.params()));
@@ -244,7 +254,7 @@ public final class UpstreamExporter {
             live.add("reward_table." + t.id + ".");
         }
         for (Map<String, DataNode> t : tables.values()) {
-            t.keySet().removeIf(key -> isObjectKey(key) && live.stream().noneMatch(key::startsWith));
+            t.keySet().removeIf(key -> isObjectKey(key) && !live.contains(objectPrefix(key)));
         }
         for (ChapterGroup g : book.groups()) {
             text(main, "chapter_group." + g.id + ".title", g.title);
@@ -263,21 +273,27 @@ public final class UpstreamExporter {
         }
         for (var e : tables.entrySet()) {
             Path dir = folder.resolve("lang").resolve(e.getKey());
-            Map<String, DataNode.Compound> byFile = new LinkedHashMap<>();
+            Map<String, Map<String, DataNode>> byFile = new LinkedHashMap<>();
             for (var entry : e.getValue().entrySet()) {
                 String key = entry.getKey();
                 int dot = key.indexOf('.');
                 String file = dot > 0 ? key.substring(0, dot) : "other";
-                byFile.merge(file, DataNode.Compound.empty().with(key, entry.getValue()),
-                        (a, b) -> a.with(key, entry.getValue()));
+                byFile.computeIfAbsent(file, k -> new LinkedHashMap<>()).put(key, entry.getValue());
             }
             Set<String> written = new HashSet<>();
             for (var f : byFile.entrySet()) {
-                DataFiles.writeJson5(dir.resolve(f.getKey() + EXT), f.getValue());
+                DataFiles.writeJson5(dir.resolve(f.getKey() + EXT), new DataNode.Compound(f.getValue()));
                 written.add(f.getKey());
             }
             retire(dir, written);
         }
+    }
+
+    /** "quest.ABC.title" becomes "quest.ABC." (the form used in the set of live objects). */
+    private static String objectPrefix(String key) {
+        int first = key.indexOf('.');
+        int second = first < 0 ? -1 : key.indexOf('.', first + 1);
+        return second < 0 ? key : key.substring(0, second + 1);
     }
 
     private static boolean isObjectKey(String key) {

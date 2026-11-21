@@ -79,6 +79,24 @@ class SnbtTest {
     }
 
     @Test
+    void typedArraysAreReadAsPlainLists() {
+        DataNode.Compound c = Snbt.parse("{ a: [I; 1, 2, 3], b: [L; 5L, 6L], c: [B; 0b, 1b], d: [ I ; ], e: [1, 2] }");
+        assertEquals(List.of(new DataNode.Int(1), new DataNode.Int(2), new DataNode.Int(3)), c.getList("a"));
+        assertEquals(List.of(new DataNode.Lng(5), new DataNode.Lng(6)), c.getList("b"));
+        assertEquals(2, c.getList("c").size());
+        assertTrue(c.getList("d").isEmpty());
+        assertEquals(2, c.getList("e").size());
+        assertThrows(SnbtException.class, () -> Snbt.parse("{ a: [X; 1] }"));
+    }
+
+    @Test
+    void lenientParsingKeepsTheLastDuplicate() {
+        assertThrows(SnbtException.class, () -> Snbt.parse("{ a: 1, a: 2 }"));
+        assertEquals(2, Snbt.parseLenient("{ a: 1, a: 2 }").getInt("a", 0));
+        assertEquals(2, Snbt.parseLenient("{ a: null, a: 2 }").getInt("a", 0));
+    }
+
+    @Test
     void commentsAndOptionalCommas() {
         DataNode.Compound c = Snbt.parse("# header\n{ a: 1 // trailing\n b: 2, c: 3, }");
         assertEquals(3, c.entries().size());

@@ -54,6 +54,9 @@ public final class UpstreamImporter {
     }
 
     private Result run(Path folder) {
+        if (LegacyImporter.applies(folder)) {
+            return LegacyImporter.load(folder); // the older layout: one file per quest
+        }
         QuestBook book = new QuestBook();
         if (Files.exists(folder.resolve("data.json5"))) {
             ext = ".json5";
@@ -72,7 +75,7 @@ public final class UpstreamImporter {
 
     private DataNode.Compound readFile(Path file) {
         try {
-            return DataFiles.read(file);
+            return DataFiles.readLenient(file);
         } catch (IOException ex) {
             problems.add(ex.getMessage());
             return null;
@@ -91,7 +94,8 @@ public final class UpstreamImporter {
         }
         book.settings = data;
         book.progressionMode = ProgressionMode.parse(data.getString("progression_mode", "linear"), ProgressionMode.LINEAR);
-        book.fallbackLocale = data.getString("fallback_locale", "en_us");
+        String fallback = data.getString("fallback_locale", "en_us");
+        book.fallbackLocale = fallback.isBlank() ? "en_us" : fallback; // an empty setting means the default language
     }
 
     private void readGroups(Path folder, QuestBook book) {
@@ -145,6 +149,8 @@ public final class UpstreamImporter {
             chapter.hideQuestDetailsUntilStartable = c.getBool("hide_quest_details_until_startable", false);
             chapter.hideQuestUntilDepsVisible = c.getBool("hide_quest_until_deps_visible", false);
             chapter.hideQuestUntilDepsComplete = c.getBool("hide_quest_until_deps_complete", false);
+            chapter.defaultHideDependencyLines = c.getBool("default_hide_dependency_lines", false);
+            chapter.defaultQuestShape = c.getString("default_quest_shape", "");
             chapter.defaultRepeatable = c.getBool("default_repeatable_quest", false);
             chapter.raw = c.without("quests").without("quest_links").without("images");
             for (DataNode qn : c.getList("quests")) {
@@ -214,7 +220,14 @@ public final class UpstreamImporter {
         q.hideDetailsUntilStartable = Tristate.read(c, "hide_details_until_startable");
         q.hideUntilDepsVisible = Tristate.read(c, "hide_until_deps_visible");
         q.hideUntilDepsComplete = Tristate.read(c, "hide_until_deps_complete");
+        q.hideDependencyLines = Tristate.read(c, "hide_dependency_lines");
+        q.hideDependentLines = Tristate.read(c, "hide_dependent_lines");
         q.ignoreRewardBlocking = c.getBool("ignore_reward_blocking", false);
+        q.disableToast = c.getBool("disable_toast", false);
+        q.hideLockIcon = c.getBool("hide_lock_icon", false);
+        q.hideTextUntilComplete = Tristate.read(c, "hide_text_until_complete");
+        q.disableJei = Tristate.read(c, "disable_jei");
+        q.orTasks = c.getBool("or_tasks", false);
         q.raw = c.without("tasks").without("rewards");
         for (DataNode tn : c.getList("tasks")) {
             if (tn instanceof DataNode.Compound tc) {

@@ -195,6 +195,40 @@ class UpstreamImporterTest {
     }
 
     @Test
+    void readsTranslationsInSubfoldersAndToleratesDuplicateKeys() throws IOException {
+        write("data.snbt", "{ version: 13 }");
+        write("chapters/ch.snbt", "{ id: \"0000000000000010\" group: \"\" order_index: 0 filename: \"ch\" quests: [{ id: \"0000000000000011\" x: 0.0d y: 0.0d tasks: [{ id: \"0000000000000012\", type: \"checkmark\" }] }] }");
+        write("lang/en_us/chapter.snbt", "{ chapter.0000000000000010.title: \"Top level\" }");
+        write("lang/en_us/chapters/ch.snbt", "{ quest.0000000000000011.title: \"Nested\" quest.0000000000000011.title: \"Nested again\" quest.0000000000000011.quest_desc: [\"a\"] }");
+        UpstreamImporter.Result r = UpstreamImporter.load(dir);
+        assertEquals(java.util.List.of(), r.problems());
+        assertEquals("Top level", r.book().chapter("0000000000000010").title);
+        assertEquals("Nested again", r.book().quest("0000000000000011").title, "last duplicate wins");
+        assertEquals(java.util.List.of("a"), r.book().quest("0000000000000011").description);
+    }
+
+    @Test
+    void readsOneTranslationFilePerLanguage() throws IOException {
+        write("data.snbt", "{ version: 13 }");
+        write("chapters/ch.snbt", "{ id: \"0000000000000010\" group: \"\" order_index: 0 filename: \"ch\" quests: [{ id: \"0000000000000011\" x: 0.0d y: 0.0d tasks: [{ id: \"0000000000000012\", type: \"checkmark\" }] }] }");
+        write("lang/en_us.snbt", "{ chapter.0000000000000010.title: \"From the single file\" quest.0000000000000011.title: \"Quest title\" }");
+        write("lang/en_us/chapter.snbt_merged", "{ chapter.0000000000000010.title: \"ignored split file\" }");
+        UpstreamImporter.Result r = UpstreamImporter.load(dir);
+        assertEquals(java.util.List.of(), r.problems());
+        assertEquals("From the single file", r.book().chapter("0000000000000010").title);
+        assertEquals("Quest title", r.book().quest("0000000000000011").title);
+    }
+
+    @Test
+    void typedArraysInQuestDataLoadInsteadOfFailingTheChapter() throws IOException {
+        write("data.snbt", "{ version: 13 }");
+        write("chapters/ch.snbt", "{ id: \"0000000000000010\" group: \"\" order_index: 0 filename: \"ch\" quests: [{ id: \"0000000000000011\" x: 0.0d y: 0.0d tasks: [{ id: \"0000000000000012\", type: \"item\", item: { id: \"minecraft:player_head\", components: { owner: [I; 1, 2, 3, 4] } } }] }] }");
+        UpstreamImporter.Result r = UpstreamImporter.load(dir);
+        assertEquals(java.util.List.of(), r.problems());
+        assertEquals(1, r.quests());
+    }
+
+    @Test
     void badFilesAreReportedAndTheRestStillLoads() throws IOException {
         json5Pack();
         write("chapters/broken.json5", "{ id: \"0000000000000002\", quests: [ { ");

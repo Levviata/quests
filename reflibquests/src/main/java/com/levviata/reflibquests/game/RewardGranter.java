@@ -89,6 +89,7 @@ public final class RewardGranter {
             case "custom":
                 return Result.GRANTED; // nothing to do; other mods react to the claim
             case "random":
+            case "loot":
             case "all_table":
             case "choice":
                 return grantFromTable(player, reward, choice);
@@ -110,6 +111,17 @@ public final class RewardGranter {
                     Result r = grant(player, w.reward(), -1);
                     if (r != Result.GRANTED) {
                         return r;
+                    }
+                }
+                return Result.GRANTED;
+            }
+            case "loot": {
+                // like random, but as many rolls as the table's loot size says (at least one); a roll may give nothing
+                int rolls = Math.max(1, table.lootSize);
+                for (int i = 0; i < rolls; i++) {
+                    WeightedReward w = Names.pick(table.entries, table.emptyWeight, RANDOM);
+                    if (w != null) {
+                        grant(player, w.reward(), -1);
                     }
                 }
                 return Result.GRANTED;

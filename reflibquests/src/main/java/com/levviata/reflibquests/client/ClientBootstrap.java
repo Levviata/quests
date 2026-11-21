@@ -40,6 +40,11 @@ import com.levviata.reflibquests.model.TeamProgress;
 public final class ClientBootstrap {
 
     private static final KeyBinding OPEN = new KeyBinding("Open quest book", Keyboard.KEY_J, "Reflib Quests");
+
+    /** The current key of the "open quest book" binding, for the key reference. */
+    static String openKeyName() {
+        return Keyboard.getKeyName(OPEN.getKeyCode());
+    }
     private static volatile boolean openNextTick;
 
     /** How long a just-completed pinned quest stays on the tracker, and the colour it is shown in. */
@@ -106,6 +111,68 @@ public final class ClientBootstrap {
             openNextTick = false;
             open();
         }
+        if (event.phase == TickEvent.Phase.END) {
+            checkToasts();
+            TableEdits.tick();
+        }
+    }
+
+    // ---- corner pop-ups for completed quests and collected rewards (first look after joining is silent)
+    private static final java.util.Set<String> DONE_SEEN = new java.util.HashSet<>();
+    private static final java.util.Set<String> CLAIMED_SEEN = new java.util.HashSet<>();
+    private static boolean toastsPrimed;
+    private static int toastBookVersion = -1;
+    private static int toastTicks;
+
+    private static void notifyPlayer(Minecraft mc, String style, QuestToast toast, String chat) {
+        if (style.equals("Toast")) {
+            mc.getToastGui().add(toast);
+        } else if (style.equals("Chat")) {
+            mc.player.sendMessage(new net.minecraft.util.text.TextComponentString("\u00a7a[Quests] \u00a7f" + chat));
+        }
+    }
+
+    private static void checkToasts() {
+        Minecraft mc = Minecraft.getMinecraft();
+        ClientPrefs.ensureLoaded();
+        if (!ClientQuests.ready() || mc.player == null) {
+            toastsPrimed = false;
+            return;
+        }
+        if (++toastTicks % 5 != 0) {
+            return;
+        }
+        QuestBook book = ClientQuests.book();
+        TeamProgress p = ClientQuests.progress();
+        if (book == null || p == null) {
+            return;
+        }
+        java.util.UUID me = mc.player.getUniqueID();
+        boolean quiet = !toastsPrimed || toastBookVersion != ClientQuests.bookVersion();
+        toastsPrimed = true;
+        toastBookVersion = ClientQuests.bookVersion();
+        if (quiet) {
+            DONE_SEEN.clear();
+            CLAIMED_SEEN.clear();
+        }
+        for (Quest q : book.allQuests()) {
+            if (p.isCompleted(q.id) && DONE_SEEN.add(q.id) && !quiet && !q.disableToast) {
+                notifyPlayer(mc, ClientPrefs.completionNotification, new QuestToast("Quest completed!", QuestText.title(q), QuestText.iconOf(q)),
+                        "Quest completed: " + QuestText.titlePlain(q));
+                if (ClientPrefs.completionSounds && !ClientPrefs.completionNotification.equals("None")) {
+                    mc.getSoundHandler().playSound(net.minecraft.client.audio.PositionedSoundRecord.getMasterRecord(net.minecraft.init.SoundEvents.ENTITY_PLAYER_LEVELUP, 1.0f));
+                }
+            }
+            for (com.levviata.reflibquests.model.Definitions.Reward rw : q.rewards) {
+                if (p.isClaimed(rw.id(), me) && CLAIMED_SEEN.add(rw.id()) && !quiet) {
+                    String text = rw.type().equals("xp") ? "XP: +" + Math.max(1, rw.params().getInt("xp", 1)) : QuestText.reward(rw);
+                    net.minecraft.item.ItemStack icon = rw.type().startsWith("xp")
+                            ? new net.minecraft.item.ItemStack(net.minecraft.init.Items.EXPERIENCE_BOTTLE)
+                            : rw.type().equals("item") ? QuestText.stackOf(rw.params().get("item")) : null;
+                    notifyPlayer(mc, ClientPrefs.rewardNotification, new QuestToast("Reward Collected!", text, icon), "Reward collected: " + text);
+                }
+            }
+        }
     }
 
     @SubscribeEvent
@@ -129,8 +196,16 @@ public final class ClientBootstrap {
         QuestBook book = ClientQuests.book();
         TeamProgress p = ClientQuests.progress();
         FontRenderer fr = mc.fontRenderer;
-        int right = event.getResolution().getScaledWidth() - 6;
-        int y = 6;
+        ClientPrefs.ensureLoaded();
+        if (ClientPrefs.trackerVisibility.equals("Hidden")) {
+            return;
+        }
+        float sc = (float) ClientPrefs.pinnedScaling;
+        boolean leftSide = ClientPrefs.pinnedPosition.equals("Left");
+        int right = (int) (event.getResolution().getScaledWidth() / sc) - ClientPrefs.pinnedXInset;
+        int y = ClientPrefs.pinnedYInset;
+        net.minecraft.client.renderer.GlStateManager.pushMatrix();
+        net.minecraft.client.renderer.GlStateManager.scale(sc, sc, 1f);
         long now = System.currentTimeMillis();
         WAS_DONE.keySet().retainAll(pins); // forget quests that are no longer pinned
         CELEBRATE_UNTIL.keySet().retainAll(pins);
@@ -153,12 +228,14 @@ public final class ClientBootstrap {
             boolean details = QuestRules.detailsVisible(book, p, q);
             String title = details ? QuestText.title(q) : "???";
             int titleColor = celebrating ? DONE_GREEN : 0xFFD060;
-            fr.drawStringWithShadow(title, right - fr.getStringWidth(title), y, titleColor);
+            int titleW = Ui.width(fr, title);
+            Ui.drawText(fr, title, (leftSide ? ClientPrefs.pinnedXInset : right - titleW), y, titleColor | 0xFF000000, Integer.MAX_VALUE);
             if (celebrating) {
-                drawCheck(fr, right - fr.getStringWidth(title) - 12, y - 1);
+                drawCheck(fr, (leftSide ? ClientPrefs.pinnedXInset : right - titleW) - 12, y - 1);
             }
             y += 10;
-            if (!details) {
+            if (!details || ClientPrefs.trackerVisibility.equals("Quests only")) {
+                y += 4;
                 continue;
             }
             int shown = 0;
@@ -171,11 +248,12 @@ public final class ClientBootstrap {
                 }
                 long have = celebrating ? t.maxProgress() : Math.min(p.taskProgress(t.id()), t.maxProgress());
                 String text = QuestText.task(t) + (t.maxProgress() > 1 ? "  " + have + "/" + t.maxProgress() : "");
-                fr.drawStringWithShadow(text, right - fr.getStringWidth(text), y, celebrating ? DONE_GREEN : 0xDDDDDD);
+                fr.drawStringWithShadow(text, (leftSide ? ClientPrefs.pinnedXInset : right - fr.getStringWidth(text)), y, celebrating ? DONE_GREEN : 0xDDDDDD);
                 y += 10;
             }
             y += 4;
         }
+        net.minecraft.client.renderer.GlStateManager.popMatrix();
     }
 
     /** A check mark in light green: the supplied art if there is any, otherwise a character. */

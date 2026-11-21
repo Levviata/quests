@@ -18,7 +18,19 @@ final class QuestScreen extends ReflibScreen {
 
     @Override
     protected Widget buildRoot(int screenWidth, int screenHeight) {
-        return new QuestBookWidget(new Rect(8, 8, screenWidth - 16, screenHeight - 16));
+        return new QuestBookWidget(new Rect(0, 0, screenWidth, screenHeight));
+    }
+
+    @Override
+    public void initGui() {
+        super.initGui();
+        org.lwjgl.input.Keyboard.enableRepeatEvents(true);
+    }
+
+    @Override
+    public void onGuiClosed() {
+        org.lwjgl.input.Keyboard.enableRepeatEvents(false);
+        super.onGuiClosed();
     }
 
     @Override

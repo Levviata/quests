@@ -37,6 +37,9 @@ public final class QuestRules {
 
     /** True if every non-optional task is done; a quest with no tasks never completes by itself. */
     public static boolean allRequiredTasksDone(TeamProgress p, Quest q) {
+        if (q.orTasks) {
+            return tasksDone(p, q) > 0; // any one task is enough
+        }
         boolean anyRequired = false;
         for (Task t : q.tasks) {
             if (t.optionalTask()) {

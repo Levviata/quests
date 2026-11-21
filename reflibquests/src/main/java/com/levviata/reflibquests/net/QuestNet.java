@@ -64,7 +64,78 @@ public final class QuestNet {
                         qs.handleTogglePin(c.sender(), m.questId);
                     }
                 })
-                .register(SyncPins.class, Side.CLIENT, (m, c) -> ClientQuests.onPins(m.ids));
+                .register(SyncPins.class, Side.CLIENT, (m, c) -> ClientQuests.onPins(m.ids))
+                .register(EditAction.class, Side.SERVER, (m, c) -> {
+                    QuestServer qs = QuestServer.get();
+                    if (qs != null && c.sender() != null) {
+                        qs.handleEdit(c.sender(), m.op, m.args);
+                    }
+                })
+                .register(SyncPerms.class, Side.CLIENT, (m, c) -> ClientQuests.onPerms(m.canEdit))
+                .register(SyncHistory.class, Side.CLIENT, (m, c) -> ClientQuests.onHistory(m.undo, m.redo, m.undoLabel, m.redoLabel))
+                .register(SyncDelta.class, Side.CLIENT, (m, c) -> ClientQuests.onDelta(m.data));
+    }
+
+    public static void sendDelta(EntityPlayerMP player, byte[] packed) {
+        channel.sendTo(new SyncDelta(packed), player);
+    }
+
+    /** Server to client: some chapters and reward tables that changed (after an undo or redo), packed. */
+    public static final class SyncDelta implements ReflibMessage {
+        byte[] data = new byte[0];
+
+        public SyncDelta() {}
+
+        SyncDelta(byte[] data) {
+            this.data = data;
+        }
+
+        @Override
+        public void write(PacketBuffer buf) {
+            writeBlob(buf, data);
+        }
+
+        @Override
+        public void read(PacketBuffer buf) {
+            data = readBlob(buf);
+        }
+    }
+
+    public static void sendHistory(EntityPlayerMP player, int undo, int redo, String undoLabel, String redoLabel) {
+        channel.sendTo(new SyncHistory(undo, redo, undoLabel, redoLabel), player);
+    }
+
+    /** Server to client: how many edits can be undone and redone, and what the next of each is. */
+    public static final class SyncHistory implements ReflibMessage {
+        int undo;
+        int redo;
+        String undoLabel = "";
+        String redoLabel = "";
+
+        public SyncHistory() {}
+
+        SyncHistory(int undo, int redo, String undoLabel, String redoLabel) {
+            this.undo = undo;
+            this.redo = redo;
+            this.undoLabel = undoLabel;
+            this.redoLabel = redoLabel;
+        }
+
+        @Override
+        public void write(PacketBuffer buf) {
+            buf.writeVarInt(undo);
+            buf.writeVarInt(redo);
+            buf.writeString(undoLabel);
+            buf.writeString(redoLabel);
+        }
+
+        @Override
+        public void read(PacketBuffer buf) {
+            undo = buf.readVarInt();
+            redo = buf.readVarInt();
+            undoLabel = buf.readString(256);
+            redoLabel = buf.readString(256);
+        }
     }
 
     public static void sendBook(EntityPlayerMP player, byte[] packed) {
@@ -89,6 +160,15 @@ public final class QuestNet {
 
     public static void claimAll() {
         channel.sendToServer(new ClaimAll());
+    }
+
+    /** Ask the server to edit the quest book. {@code args} are plain data; the server validates everything. */
+    public static void edit(String op, com.levviata.reflib.api.data.DataNode.Compound args) {
+        channel.sendToServer(new EditAction(op, com.levviata.reflib.api.data.Snbt.printCompact(args)));
+    }
+
+    public static void sendPerms(EntityPlayerMP player, boolean canEdit) {
+        channel.sendTo(new SyncPerms(canEdit), player);
     }
 
     public static void togglePin(String questId) {
@@ -201,6 +281,52 @@ public final class QuestNet {
         @Override
         public void read(PacketBuffer buf) {
             taskId = buf.readString(256);
+        }
+    }
+
+    /** Client to server: one edit of the quest book (operation name and arguments as compact text). */
+    public static final class EditAction implements ReflibMessage {
+        String op = "";
+        String args = "{}";
+
+        public EditAction() {}
+
+        EditAction(String op, String args) {
+            this.op = op;
+            this.args = args;
+        }
+
+        @Override
+        public void write(PacketBuffer buf) {
+            buf.writeString(op);
+            buf.writeString(args);
+        }
+
+        @Override
+        public void read(PacketBuffer buf) {
+            op = buf.readString(64);
+            args = buf.readString(16384);
+        }
+    }
+
+    /** Server to client: whether the receiving player may edit the book. */
+    public static final class SyncPerms implements ReflibMessage {
+        boolean canEdit;
+
+        public SyncPerms() {}
+
+        SyncPerms(boolean canEdit) {
+            this.canEdit = canEdit;
+        }
+
+        @Override
+        public void write(PacketBuffer buf) {
+            buf.writeBoolean(canEdit);
+        }
+
+        @Override
+        public void read(PacketBuffer buf) {
+            canEdit = buf.readBoolean();
         }
     }
 

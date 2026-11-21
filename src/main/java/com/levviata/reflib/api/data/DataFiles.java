@@ -52,6 +52,16 @@ public final class DataFiles {
         }
     }
 
+    /** Like {@link #read} but duplicate keys are tolerated (the last value wins); for files other programs wrote. */
+    public static DataNode.Compound readLenient(Path file) throws IOException {
+        String text = Files.readString(file, StandardCharsets.UTF_8);
+        try {
+            return Snbt.parseLenient(text);
+        } catch (SnbtException ex) {
+            throw new DataFileException(file, ex.getMessage(), ex);
+        }
+    }
+
     /**
      * @throws DataFileException if the text is not valid
      * @throws IOException       if the file cannot be read

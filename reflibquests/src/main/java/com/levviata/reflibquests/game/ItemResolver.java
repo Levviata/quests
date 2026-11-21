@@ -9,6 +9,10 @@ import javax.annotation.Nullable;
 
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.JsonToNBT;
+import net.minecraft.nbt.NBTException;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTUtil;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import net.minecraftforge.oredict.OreDictionary;
@@ -23,16 +27,43 @@ import com.levviata.reflibquests.io.IdMap;
  */
 public final class ItemResolver {
 
-    /** A resolved item reference. {@code meta} is {@link OreDictionary#WILDCARD_VALUE} when any damage matches. */
-    public record Resolved(Item item, int meta, int count) {
+    /**
+     * A resolved item reference. {@code meta} is {@link OreDictionary#WILDCARD_VALUE} when any damage matches;
+     * {@code nbt} (null for none) is the item's extra data: it is given with the item, and a stack only matches if it has
+     * at least those entries.
+     */
+    public record Resolved(Item item, int meta, int count, @Nullable NBTTagCompound nbt) {
+
+        public Resolved(Item item, int meta, int count) {
+            this(item, meta, count, null);
+        }
 
         public ItemStack toStack(int amount) {
-            return new ItemStack(item, amount, meta == OreDictionary.WILDCARD_VALUE ? 0 : meta);
+            ItemStack stack = new ItemStack(item, amount, meta == OreDictionary.WILDCARD_VALUE ? 0 : meta);
+            if (nbt != null) {
+                stack.setTagCompound(nbt.copy());
+            }
+            return stack;
         }
 
         public boolean matches(ItemStack have) {
             return !have.isEmpty() && have.getItem() == item
-                    && (meta == OreDictionary.WILDCARD_VALUE || have.getMetadata() == meta);
+                    && (meta == OreDictionary.WILDCARD_VALUE || have.getMetadata() == meta)
+                    && (nbt == null || NBTUtil.areNBTEquals(nbt, have.getTagCompound(), true));
+        }
+    }
+
+    /** The extra data of an item spec ({@code nbt}, or {@code tag} as the older files write it), or null. */
+    @Nullable
+    private static NBTTagCompound nbtOf(DataNode.Compound c) {
+        DataNode.Compound data = c.has("nbt") ? c.getCompound("nbt") : c.getCompound("tag");
+        if (data.entries().isEmpty()) {
+            return null;
+        }
+        try {
+            return JsonToNBT.getTagFromJson(com.levviata.reflib.api.data.Snbt.printCompact(data));
+        } catch (NBTException | RuntimeException ex) {
+            return null; // data that is not valid NBT is ignored; the item itself still works
         }
     }
 
@@ -43,12 +74,14 @@ public final class ItemResolver {
         String id;
         int count = 1;
         int damage = -1;
+        NBTTagCompound nbt = null;
         if (spec instanceof DataNode.Str s) {
             id = s.value();
         } else if (spec instanceof DataNode.Compound c) {
             id = c.getString("id", "");
             count = Math.max(1, c.getInt("count", c.getInt("Count", 1)));
             damage = c.has("damage") ? c.getInt("damage", -1) : c.has("Damage") ? c.getInt("Damage", -1) : c.getInt("meta", -1);
+            nbt = nbtOf(c);
         } else {
             return null;
         }
@@ -65,6 +98,6 @@ public final class ItemResolver {
             return null;
         }
         int meta = target.hasMeta() ? target.meta() : damage >= 0 ? damage : OreDictionary.WILDCARD_VALUE;
-        return new Resolved(item, meta, count);
+        return new Resolved(item, meta, count, nbt);
     }
 }

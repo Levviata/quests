@@ -10,6 +10,8 @@ import java.util.List;
 
 import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflibquests.model.Definitions.Chapter;
+import com.levviata.reflibquests.model.Definitions.ChapterImage;
+import com.levviata.reflibquests.model.Definitions.QuestLink;
 import com.levviata.reflibquests.model.Definitions.ChapterGroup;
 import com.levviata.reflibquests.model.Definitions.DependencyMode;
 import com.levviata.reflibquests.model.Definitions.ProgressionMode;
@@ -25,7 +27,7 @@ import com.levviata.reflibquests.model.QuestBook;
  * Compact wire form of a {@link QuestBook} for sending to clients (our own schema, not the upstream file
  * format). Carries what the client screen needs: texts, positions, tasks and rewards with their parameters,
  * dependencies, flags and reward tables, plus the server's id map so the client resolves items identically.
- * Chapter images and quest links are not carried yet. Defaults are omitted to keep the data small.
+ * Chapter images and quest links are carried (the images with their original fields). Defaults are omitted to keep the data small.
  */
 public final class BookCodec {
 
@@ -40,7 +42,7 @@ public final class BookCodec {
     public static DataNode.Compound write(QuestBook b, DataNode.Compound idMap) {
         List<DataNode> groups = new ArrayList<>();
         for (ChapterGroup g : b.groups()) {
-            groups.add(DataNode.Compound.empty().with("id", g.id).with("title", g.title));
+            groups.add(putIf(DataNode.Compound.empty().with("id", g.id).with("title", g.title), "chapter", g.raw.getString("chapter", "")));
         }
         List<DataNode> chapters = new ArrayList<>();
         for (Chapter c : b.chapters()) {
@@ -48,12 +50,7 @@ public final class BookCodec {
         }
         List<DataNode> tables = new ArrayList<>();
         for (RewardTable t : b.tables().values()) {
-            List<DataNode> entries = new ArrayList<>();
-            for (WeightedReward w : t.entries) {
-                entries.add(writeReward(w.reward()).with("weight", (double) w.weight()));
-            }
-            tables.add(DataNode.Compound.empty().with("id", t.id).with("title", t.title)
-                    .with("empty", (double) t.emptyWeight).with("entries", new DataNode.Lst(entries)));
+            tables.add(tableData(t));
         }
         return DataNode.Compound.empty()
                 .with("v", VERSION)
@@ -64,6 +61,37 @@ public final class BookCodec {
                 .with("groups", new DataNode.Lst(groups))
                 .with("chapters", new DataNode.Lst(chapters))
                 .with("tables", new DataNode.Lst(tables));
+    }
+
+    /** One chapter in the form used to send the book (also used to send a changed chapter on its own). */
+    public static DataNode.Compound chapterData(Chapter c) {
+        return writeChapter(c);
+    }
+
+    public static Chapter chapterFrom(DataNode.Compound c) {
+        return readChapter(c);
+    }
+
+    public static DataNode.Compound tableData(RewardTable t) {
+        List<DataNode> entries = new ArrayList<>();
+        for (WeightedReward w : t.entries) {
+            entries.add(writeReward(w.reward()).with("weight", (double) w.weight()));
+        }
+        return DataNode.Compound.empty().with("id", t.id).with("title", t.title)
+                .with("empty", (double) t.emptyWeight).with("loot", t.lootSize).with("entries", new DataNode.Lst(entries));
+    }
+
+    public static RewardTable tableFrom(DataNode.Compound t) {
+        RewardTable table = new RewardTable(t.getString("id", ""));
+        table.title = t.getString("title", "");
+        table.emptyWeight = (float) t.getDouble("empty", 0);
+        table.lootSize = (int) t.getLong("loot", 0);
+        for (DataNode e : t.getList("entries")) {
+            if (e instanceof DataNode.Compound ec) {
+                table.entries.add(new WeightedReward((float) ec.getDouble("weight", 1), readReward(ec)));
+            }
+        }
+        return table;
     }
 
     private static DataNode.Compound writeChapter(Chapter c) {
@@ -84,7 +112,24 @@ public final class BookCodec {
         o = putIf(o, "hideDetails", c.hideQuestDetailsUntilStartable);
         o = putIf(o, "hideDepsVisible", c.hideQuestUntilDepsVisible);
         o = putIf(o, "hideDepsComplete", c.hideQuestUntilDepsComplete);
+        o = putIf(o, "hideDepLines", c.defaultHideDependencyLines);
+        o = putIf(o, "qshape", c.defaultQuestShape);
+        o = putIf(o, "autofocus", c.autofocusId);
         o = putIf(o, "repeatable", c.defaultRepeatable);
+        if (!c.images.isEmpty()) {
+            List<DataNode> images = new ArrayList<>();
+            for (ChapterImage img : c.images) {
+                images.add(img.raw().with("id", img.id()));
+            }
+            o = o.with("images", new DataNode.Lst(images));
+        }
+        if (!c.links.isEmpty()) {
+            List<DataNode> links = new ArrayList<>();
+            for (QuestLink l : c.links) {
+                links.add(DataNode.Compound.empty().with("id", l.id()).with("quest", l.linkedQuest()).with("x", l.x()).with("y", l.y()));
+            }
+            o = o.with("links", new DataNode.Lst(links));
+        }
         return o.with("quests", new DataNode.Lst(quests));
     }
 
@@ -118,6 +163,7 @@ public final class BookCodec {
         }
         o = putIf(o, "minDeps", q.minRequiredDependencies);
         o = putIf(o, "optional", q.optional);
+        o = putIf(o, "orTasks", q.orTasks);
         o = putIf(o, "invisible", q.invisible);
         o = putIf(o, "invisibleTasks", q.invisibleUntilTasks);
         o = putIf(o, "cooldown", q.repeatCooldown);
@@ -129,7 +175,13 @@ public final class BookCodec {
         o = putTri(o, "hideDetails", q.hideDetailsUntilStartable);
         o = putTri(o, "hideDepsVisible", q.hideUntilDepsVisible);
         o = putTri(o, "hideDepsComplete", q.hideUntilDepsComplete);
+        o = putTri(o, "hideDepLines", q.hideDependencyLines);
+        o = putTri(o, "hideDependentLines", q.hideDependentLines);
         o = putIf(o, "ignoreBlock", q.ignoreRewardBlocking);
+        o = putIf(o, "noToast", q.disableToast);
+        o = putIf(o, "noLock", q.hideLockIcon);
+        o = putTri(o, "hideText", q.hideTextUntilComplete);
+        o = putTri(o, "noJei", q.disableJei);
         return o;
     }
 
@@ -185,6 +237,9 @@ public final class BookCodec {
             if (n instanceof DataNode.Compound g) {
                 ChapterGroup group = new ChapterGroup(g.getString("id", ""));
                 group.title = g.getString("title", "");
+                if (!g.getString("chapter", "").isEmpty()) {
+                    group.raw = DataNode.Compound.empty().with("chapter", g.getString("chapter", ""));
+                }
                 b.groups().add(group);
             }
         }
@@ -195,14 +250,7 @@ public final class BookCodec {
         }
         for (DataNode n : c.getList("tables")) {
             if (n instanceof DataNode.Compound t) {
-                RewardTable table = new RewardTable(t.getString("id", ""));
-                table.title = t.getString("title", "");
-                table.emptyWeight = (float) t.getDouble("empty", 0);
-                for (DataNode e : t.getList("entries")) {
-                    if (e instanceof DataNode.Compound ec) {
-                        table.entries.add(new WeightedReward((float) ec.getDouble("weight", 1), readReward(ec)));
-                    }
-                }
+                RewardTable table = tableFrom(t);
                 b.tables().put(table.id, table);
             }
         }
@@ -223,10 +271,23 @@ public final class BookCodec {
         ch.hideQuestDetailsUntilStartable = c.getBool("hideDetails", false);
         ch.hideQuestUntilDepsVisible = c.getBool("hideDepsVisible", false);
         ch.hideQuestUntilDepsComplete = c.getBool("hideDepsComplete", false);
+        ch.defaultHideDependencyLines = c.getBool("hideDepLines", false);
+        ch.autofocusId = c.getString("autofocus", "");
+        ch.defaultQuestShape = c.getString("qshape", "");
         ch.defaultRepeatable = c.getBool("repeatable", false);
         for (DataNode n : c.getList("quests")) {
             if (n instanceof DataNode.Compound qc) {
                 ch.quests.add(readQuest(qc));
+            }
+        }
+        for (DataNode n : c.getList("images")) {
+            if (n instanceof DataNode.Compound ic) {
+                ch.images.add(new ChapterImage(ic.getString("id", ""), ic));
+            }
+        }
+        for (DataNode n : c.getList("links")) {
+            if (n instanceof DataNode.Compound lc) {
+                ch.links.add(new QuestLink(lc.getString("id", ""), lc.getString("quest", ""), lc.getDouble("x", 0), lc.getDouble("y", 0), DataNode.Compound.empty()));
             }
         }
         return ch;
@@ -256,6 +317,7 @@ public final class BookCodec {
         q.dependencyMode = DependencyMode.parse(c.getString("depMode", "ALL_COMPLETED"));
         q.minRequiredDependencies = c.getInt("minDeps", 0);
         q.optional = c.getBool("optional", false);
+        q.orTasks = c.getBool("orTasks", false);
         q.invisible = c.getBool("invisible", false);
         q.invisibleUntilTasks = c.getInt("invisibleTasks", 0);
         q.repeatCooldown = c.getInt("cooldown", 0);
@@ -265,7 +327,13 @@ public final class BookCodec {
         q.hideDetailsUntilStartable = tri(c, "hideDetails");
         q.hideUntilDepsVisible = tri(c, "hideDepsVisible");
         q.hideUntilDepsComplete = tri(c, "hideDepsComplete");
+        q.hideDependencyLines = tri(c, "hideDepLines");
+        q.hideDependentLines = tri(c, "hideDependentLines");
         q.ignoreRewardBlocking = c.getBool("ignoreBlock", false);
+        q.disableToast = c.getBool("noToast", false);
+        q.hideLockIcon = c.getBool("noLock", false);
+        q.hideTextUntilComplete = tri(c, "hideText");
+        q.disableJei = tri(c, "noJei");
         return q;
     }
 

@@ -88,9 +88,75 @@ public final class TaskTracker {
                         quests.setTaskProgress(player, t, 1);
                     }
                     break;
+                case "biome": {
+                    net.minecraft.world.biome.Biome wanted = net.minecraftforge.fml.common.registry.ForgeRegistries.BIOMES.getValue(
+                            new net.minecraft.util.ResourceLocation(t.params().getString("biome", "minecraft:none")));
+                    if (wanted != null && player.world.getBiome(player.getPosition()) == wanted) {
+                        quests.setTaskProgress(player, t, 1);
+                    }
+                    break;
+                }
+                case "structure": {
+                    String name = structureName(t.params().getString("structure", ""));
+                    if (!name.isEmpty() && player.world instanceof net.minecraft.world.WorldServer ws
+                            && ws.getChunkProvider().isInsideStructure(ws, name, player.getPosition())) {
+                        quests.setTaskProgress(player, t, 1);
+                    }
+                    break;
+                }
+                case "observation": {
+                    // looking at the block (the timer of the original is not used: seeing it once counts)
+                    net.minecraft.util.math.RayTraceResult hit = player.rayTrace(6.0, 1.0f);
+                    if (hit != null && hit.typeOfHit == net.minecraft.util.math.RayTraceResult.Type.BLOCK) {
+                        net.minecraft.util.ResourceLocation seen = player.world.getBlockState(hit.getBlockPos()).getBlock().getRegistryName();
+                        if (seen != null && seen.toString().equals(t.params().getString("to_observe", ""))) {
+                            quests.setTaskProgress(player, t, 1);
+                        }
+                    }
+                    break;
+                }
                 default:
                     break;
             }
+        }
+    }
+
+    /**
+     * The name 1.12.2 uses for a structure, for the vanilla ones; empty when the structure does not exist in this game
+     * (structures that came with later versions or other mods).
+     */
+    static String structureName(String id) {
+        String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
+        if (id.contains(":") && !id.startsWith("minecraft:")) {
+            return "";
+        }
+        switch (path) {
+            case "village":
+                return "Village";
+            case "mineshaft":
+                return "Mineshaft";
+            case "stronghold":
+                return "Stronghold";
+            case "fortress":
+            case "nether_fortress":
+                return "Fortress";
+            case "mansion":
+            case "woodland_mansion":
+                return "Mansion";
+            case "monument":
+            case "ocean_monument":
+                return "Monument";
+            case "desert_pyramid":
+            case "jungle_pyramid":
+            case "jungle_temple":
+            case "desert_temple":
+            case "igloo":
+            case "swamp_hut":
+                return "Temple";
+            case "end_city":
+                return "EndCity";
+            default:
+                return "";
         }
     }
 
@@ -104,18 +170,18 @@ public final class TaskTracker {
         if (consumes(t)) {
             return; // consumed only through submit
         }
-        ItemResolver.Resolved r = ItemResolver.resolve(t.params().get("item"), quests.idMap());
-        if (r == null) {
+        List<ItemResolver.Resolved> set = ItemSet.resolveAll(t.params().get("item"), quests.idMap());
+        if (set.isEmpty()) {
             return;
         }
-        quests.setTaskProgress(player, t, Math.min(t.maxProgress(), countItems(player, r)));
+        quests.setTaskProgress(player, t, Math.min(t.maxProgress(), countItems(player, set)));
     }
 
-    private static long countItems(EntityPlayerMP player, ItemResolver.Resolved r) {
+    private static long countItems(EntityPlayerMP player, List<ItemResolver.Resolved> set) {
         long n = 0;
         for (int i = 0; i < player.inventory.mainInventory.size(); i++) {
             ItemStack s = player.inventory.mainInventory.get(i);
-            if (r.matches(s)) {
+            if (ItemSet.matches(set, s)) {
                 n += s.getCount();
             }
         }
@@ -187,7 +253,7 @@ public final class TaskTracker {
         if (team.isCompleted(q.id) || QuestRules.taskDone(team, t)) {
             return "Already done.";
         }
-        if (!QuestRules.canProgress(quests.book(), team, q)) {
+        if (!QuestRules.canProgress(quests.book(), team, q) || !QuestRules.dependenciesMet(quests.book(), team, q)) {
             return "That quest is not available yet.";
         }
         quests.setTaskProgress(player, t, 1);
@@ -200,8 +266,8 @@ public final class TaskTracker {
         if (t == null || !t.type().equals("item")) {
             return "No item task '" + taskId + "'.";
         }
-        ItemResolver.Resolved r = ItemResolver.resolve(t.params().get("item"), quests.idMap());
-        if (r == null) {
+        List<ItemResolver.Resolved> set = ItemSet.resolveAll(t.params().get("item"), quests.idMap());
+        if (set.isEmpty()) {
             return "This task's item is not known in 1.12.2.";
         }
         TeamProgress team = quests.progressOf(player);
@@ -209,14 +275,14 @@ public final class TaskTracker {
         if (team.isCompleted(q.id) || QuestRules.taskDone(team, t)) {
             return "Already done.";
         }
-        if (!QuestRules.canProgress(quests.book(), team, q)) {
+        if (!QuestRules.canProgress(quests.book(), team, q) || !QuestRules.dependenciesMet(quests.book(), team, q)) {
             return "That quest is not available yet.";
         }
         long need = t.maxProgress() - team.taskProgress(taskId);
         long taken = 0;
         for (int i = 0; i < player.inventory.mainInventory.size() && taken < need; i++) {
             ItemStack s = player.inventory.mainInventory.get(i);
-            if (r.matches(s)) {
+            if (ItemSet.matches(set, s)) {
                 int take = (int) Math.min(s.getCount(), need - taken);
                 s.shrink(take);
                 taken += take;

@@ -14,9 +14,12 @@ import java.util.Set;
 
 import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflibquests.model.Definitions.Chapter;
+import com.levviata.reflibquests.model.Definitions.ChapterGroup;
 import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.Definitions.Reward;
+import com.levviata.reflibquests.model.Definitions.RewardTable;
 import com.levviata.reflibquests.model.Definitions.Task;
+import com.levviata.reflibquests.model.Definitions.DependencyMode;
 import com.levviata.reflibquests.model.Definitions.Tristate;
 
 /**
@@ -29,16 +32,16 @@ public final class BookEditor {
 
     public enum Result { OK, NOT_FOUND, INVALID, CYCLE }
 
-    public static final int MAX_TITLE = 120;
-    public static final int MAX_LINES = 60;
-    public static final int MAX_LINE = 300;
+    public static final int MAX_TITLE = 1000;
+    public static final int MAX_LINES = 200;
+    public static final int MAX_LINE = 4000;
     public static final double MAX_COORD = 100_000;
     public static final long MAX_VALUE = 1_000_000_000L;
 
     /** Task types the editor may add. */
-    public static final Set<String> TASK_TYPES = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom");
+    public static final Set<String> TASK_TYPES = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom", "biome", "structure", "observation");
     /** Reward types the editor may add. */
-    public static final Set<String> REWARD_TYPES = Set.of("item", "xp", "xp_levels", "command", "toast");
+    public static final Set<String> REWARD_TYPES = Set.of("item", "xp", "xp_levels", "command", "toast", "advancement");
     public static final Set<String> SHAPES = Set.of("", "circle", "square", "diamond", "hexagon", "octagon", "pentagon", "heart", "gear", "rsquare", "none");
     public static final Set<String> FLAGS = Set.of("optional", "invisible", "repeatable", "sequential", "hide_details", "hide_deps_visible", "hide_deps_complete");
 
@@ -139,6 +142,162 @@ public final class BookEditor {
         return Result.OK;
     }
 
+    /** Sets one chapter-wide property; keys match the Chapter Properties screen. */
+    public Result setChapterProp(String id, String key, String value) {
+        Chapter c = book.chapter(id);
+        if (c == null) {
+            return Result.NOT_FOUND;
+        }
+        if (key == null || value == null) {
+            return Result.INVALID;
+        }
+        boolean on = Boolean.parseBoolean(value);
+        switch (key) {
+            case "shape" -> {
+                String s = value.toLowerCase(Locale.ROOT);
+                if (!SHAPES.contains(s)) {
+                    return Result.INVALID;
+                }
+                c.defaultQuestShape = s;
+            }
+            case "always_invisible" -> c.alwaysInvisible = on;
+            case "hide_details" -> c.hideQuestDetailsUntilStartable = on;
+            case "hide_deps_visible" -> c.hideQuestUntilDepsVisible = on;
+            case "hide_deps_complete" -> c.hideQuestUntilDepsComplete = on;
+            case "progression_mode" -> {
+                Definitions.ProgressionMode m = Definitions.ProgressionMode.parse(value, null);
+                if (m == null) {
+                    return Result.INVALID;
+                }
+                c.progressionMode = m;
+            }
+            case "repeatable" -> c.defaultRepeatable = on;
+            case "sequential" -> c.requireSequentialTasks = on;
+            case "hide_dep_lines" -> c.defaultHideDependencyLines = on;
+            case "autofocus" -> {
+                if (!value.isEmpty() && c.quests.stream().noneMatch(q -> q.id.equals(value))) {
+                    return Result.INVALID;
+                }
+                c.autofocusId = value;
+            }
+            default -> {
+                return Result.INVALID;
+            }
+        }
+        return Result.OK;
+    }
+
+    // ------------------------------------------------------------------ chapter groups
+
+    /** @return the new group, or null if the title is invalid; {@code wantedId} lets a client show it before the server answers */
+    public ChapterGroup createGroup(String title, String wantedId) {
+        String t = clean(title, MAX_TITLE);
+        if (t == null || t.isEmpty()) {
+            return null;
+        }
+        boolean usable = wantedId != null && wantedId.matches("[0-9A-F]{16}") && !wantedId.equals("0000000000000000")
+                && !allIds().contains(wantedId);
+        ChapterGroup g = new ChapterGroup(usable ? wantedId : newId());
+        g.title = t;
+        book.groups().add(g);
+        return g;
+    }
+
+    private ChapterGroup group(String id) {
+        for (ChapterGroup g : book.groups()) {
+            if (g.id.equals(id)) {
+                return g;
+            }
+        }
+        return null;
+    }
+
+    public Result renameGroup(String id, String title) {
+        ChapterGroup g = group(id);
+        String t = clean(title, MAX_TITLE);
+        if (g == null) {
+            return Result.NOT_FOUND;
+        }
+        if (t == null || t.isEmpty()) {
+            return Result.INVALID;
+        }
+        g.title = t;
+        return Result.OK;
+    }
+
+    /** Its chapters stay; they just no longer belong to a group. */
+    public Result deleteGroup(String id) {
+        ChapterGroup g = group(id);
+        if (g == null) {
+            return Result.NOT_FOUND;
+        }
+        for (Chapter c : book.chapters()) {
+            if (c.groupId.equals(id)) {
+                c.groupId = "";
+            }
+        }
+        book.groups().remove(g);
+        return Result.OK;
+    }
+
+    /** @param groupId a group's id, or empty for no group */
+    public Result setChapterGroup(String chapterId, String groupId) {
+        Chapter c = book.chapter(chapterId);
+        if (c == null) {
+            return Result.NOT_FOUND;
+        }
+        if (groupId == null || (!groupId.isEmpty() && group(groupId) == null)) {
+            return Result.INVALID;
+        }
+        c.groupId = groupId;
+        return Result.OK;
+    }
+
+    /** Move a chapter one place up (-1) or down (+1) among the chapters of its own group. */
+    public Result moveChapter(String chapterId, int delta) {
+        Chapter c = book.chapter(chapterId);
+        if (c == null) {
+            return Result.NOT_FOUND;
+        }
+        if (delta != -1 && delta != 1) {
+            return Result.INVALID;
+        }
+        List<Chapter> all = book.chapters();
+        int at = all.indexOf(c);
+        int to = at + delta;
+        while (to >= 0 && to < all.size() && !all.get(to).groupId.equals(c.groupId)) {
+            to += delta;
+        }
+        if (to < 0 || to >= all.size()) {
+            return Result.OK; // already first or last
+        }
+        Chapter other = all.get(to);
+        all.set(at, other);
+        all.set(to, c);
+        for (int i = 0; i < all.size(); i++) {
+            all.get(i).order = i;
+        }
+        return Result.OK;
+    }
+
+    public Result moveGroup(String id, int delta) {
+        ChapterGroup g = group(id);
+        if (g == null) {
+            return Result.NOT_FOUND;
+        }
+        if (delta != -1 && delta != 1) {
+            return Result.INVALID;
+        }
+        List<ChapterGroup> all = book.groups();
+        int at = all.indexOf(g);
+        int to = at + delta;
+        if (to >= 0 && to < all.size()) {
+            all.set(at, all.get(to));
+            all.set(to, g);
+        }
+        return Result.OK;
+    }
+
     public Result deleteChapter(String id) {
         Chapter c = book.chapter(id);
         if (c == null) {
@@ -202,6 +361,78 @@ public final class BookEditor {
             }
             c.links.removeIf(l -> questIds.contains(l.linkedQuest()));
         }
+    }
+
+    public Result setTitleOnly(String questId, String title) {
+        Quest q = book.quest(questId);
+        if (q == null) {
+            return Result.NOT_FOUND;
+        }
+        String t = clean(title, MAX_TITLE);
+        if (t == null) {
+            return Result.INVALID;
+        }
+        q.title = t;
+        return Result.OK;
+    }
+
+    public Result setSubtitleOnly(String questId, String subtitle) {
+        Quest q = book.quest(questId);
+        if (q == null) {
+            return Result.NOT_FOUND;
+        }
+        String s = clean(subtitle, MAX_TITLE);
+        if (s == null) {
+            return Result.INVALID;
+        }
+        q.subtitle = s;
+        return Result.OK;
+    }
+
+    /** Adds lines at the end of the description; works on the server's current text, so quick edits cannot overwrite each other. */
+    public Result addLines(String questId, List<String> lines) {
+        Quest q = book.quest(questId);
+        if (q == null) {
+            return Result.NOT_FOUND;
+        }
+        if (lines == null || lines.isEmpty() || q.description.size() + lines.size() > MAX_LINES) {
+            return Result.INVALID;
+        }
+        for (String l : lines) {
+            if (l == null || l.length() > MAX_LINE || l.indexOf((char) 10) >= 0) {
+                return Result.INVALID;
+            }
+        }
+        List<String> next = new ArrayList<>(q.description);
+        next.addAll(lines);
+        q.description = next;
+        return Result.OK;
+    }
+
+    /** Moves a picture of a chapter to a new position (in map units). */
+    public Result moveImage(String imageId, double x, double y) {
+        if (!coordOk(x) || !coordOk(y)) {
+            return Result.INVALID;
+        }
+        for (Chapter c : book.chapters()) {
+            for (int i = 0; i < c.images.size(); i++) {
+                Definitions.ChapterImage img = c.images.get(i);
+                if (img.id().equals(imageId)) {
+                    c.images.set(i, new Definitions.ChapterImage(img.id(), img.raw().with("x", Math.round(x * 4.0) / 4.0).with("y", Math.round(y * 4.0) / 4.0)));
+                    return Result.OK;
+                }
+            }
+        }
+        return Result.NOT_FOUND;
+    }
+
+    public Result deleteImage(String imageId) {
+        for (Chapter c : book.chapters()) {
+            if (c.images.removeIf(img -> img.id().equals(imageId))) {
+                return Result.OK;
+            }
+        }
+        return Result.NOT_FOUND;
     }
 
     public Result setText(String questId, String title, String subtitle, List<String> description) {
@@ -274,6 +505,106 @@ public final class BookEditor {
         }
         q.shape = s;
         return Result.OK;
+    }
+
+    /** Sets one property of a quest by name; values are text ({@code true}/{@code false}/{@code default}, numbers, names). */
+    public Result setProp(String questId, String key, String value) {
+        Quest q = book.quest(questId);
+        if (q == null) {
+            return Result.NOT_FOUND;
+        }
+        String v = value == null ? "" : value.trim();
+        try {
+            switch (key) {
+                case "shape":
+                    return setShape(questId, v);
+                case "size": {
+                    double d = Double.parseDouble(v);
+                    if (!(d >= 0.25 && d <= 4.0)) {
+                        return Result.INVALID;
+                    }
+                    q.size = d;
+                    return Result.OK;
+                }
+                case "dependency_requirement":
+                    q.dependencyMode = DependencyMode.valueOf(v.toUpperCase(Locale.ROOT));
+                    return Result.OK;
+                case "min_required_dependencies": {
+                    int n = Integer.parseInt(v);
+                    if (n < 0 || n > 50) {
+                        return Result.INVALID;
+                    }
+                    q.minRequiredDependencies = n;
+                    return Result.OK;
+                }
+                case "invisible_until_tasks": {
+                    int n = Integer.parseInt(v);
+                    if (n < 0 || n > 20) {
+                        return Result.INVALID;
+                    }
+                    q.invisibleUntilTasks = n;
+                    return Result.OK;
+                }
+                case "optional":
+                    q.optional = Boolean.parseBoolean(v);
+                    return Result.OK;
+                case "invisible":
+                    q.invisible = Boolean.parseBoolean(v);
+                    return Result.OK;
+                case "disable_toast":
+                    q.disableToast = Boolean.parseBoolean(v);
+                    return Result.OK;
+                case "hide_lock_icon":
+                    q.hideLockIcon = Boolean.parseBoolean(v);
+                    return Result.OK;
+                case "ignore_reward_blocking":
+                    q.ignoreRewardBlocking = Boolean.parseBoolean(v);
+                    return Result.OK;
+                case "progression_mode":
+                    q.progressionMode = Definitions.ProgressionMode.valueOf(v.toUpperCase(Locale.ROOT));
+                    return Result.OK;
+                default:
+                    break;
+            }
+        } catch (IllegalArgumentException ex) {
+            return Result.INVALID;
+        }
+        Tristate tri = v.equalsIgnoreCase("true") ? Tristate.TRUE : v.equalsIgnoreCase("false") ? Tristate.FALSE
+                : v.equalsIgnoreCase("default") ? Tristate.DEFAULT : null;
+        if (tri == null) {
+            return Result.INVALID;
+        }
+        switch (key) {
+            case "repeatable":
+                q.canRepeat = tri;
+                return Result.OK;
+            case "sequential":
+                q.requireSequentialTasks = tri;
+                return Result.OK;
+            case "hide_details":
+                q.hideDetailsUntilStartable = tri;
+                return Result.OK;
+            case "hide_deps_visible":
+                q.hideUntilDepsVisible = tri;
+                return Result.OK;
+            case "hide_deps_complete":
+                q.hideUntilDepsComplete = tri;
+                return Result.OK;
+            case "hide_dep_lines":
+                q.hideDependencyLines = tri;
+                return Result.OK;
+            case "hide_dependent_lines":
+                q.hideDependentLines = tri;
+                return Result.OK;
+            case "hide_text_until_complete":
+                q.hideTextUntilComplete = tri;
+                return Result.OK;
+            case "disable_jei":
+                q.disableJei = tri;
+                return Result.OK;
+            default:
+                return Result.INVALID;
+        }
     }
 
     public Result setFlag(String questId, String flag, boolean value) {
@@ -386,5 +717,297 @@ public final class BookEditor {
             }
         }
         return Result.NOT_FOUND;
+    }
+
+    // ------------------------------------------------------------------ task and reward settings
+
+    public static final Set<String> AUTO_CLAIM = Set.of("default", "disabled", "enabled", "no_toast", "invisible");
+
+    /** An empty or blank text removes the key; text with a line break or over the limit is refused (null). */
+    private static DataNode.Compound withText(DataNode.Compound p, String key, String value, int max) {
+        String t = clean(value, max);
+        if (t == null) {
+            return null;
+        }
+        return t.isEmpty() ? p.without(key) : p.with(key, t);
+    }
+
+    /** The parameter that names what a task is about (entity, dimension, biome, structure, advancement), or null. */
+    public static String targetKey(String type) {
+        return switch (type) {
+            case "kill" -> "entity";
+            case "dimension" -> "dimension";
+            case "biome" -> "biome";
+            case "structure" -> "structure";
+            case "advancement" -> "advancement";
+            default -> null;
+        };
+    }
+
+    /** Keys: {@code title}, {@code optional_task} (true/false), {@code consume_items} (item tasks: default, true or false). */
+    public Result setTaskProp(String taskId, String key, String value) {
+        Quest q = book.questOfTask(taskId);
+        if (q == null || key == null || value == null) {
+            return Result.NOT_FOUND;
+        }
+        for (int i = 0; i < q.tasks.size(); i++) {
+            Task t = q.tasks.get(i);
+            if (!t.id().equals(taskId)) {
+                continue;
+            }
+            DataNode.Compound p = t.params();
+            switch (key) {
+                case "title" -> p = withText(p, "title", value, 200);
+                case "optional_task" -> {
+                    if (!value.equals("true") && !value.equals("false")) {
+                        return Result.INVALID;
+                    }
+                    p = value.equals("true") ? p.with("optional_task", true) : p.without("optional_task");
+                }
+                case "consume_items" -> {
+                    if (!t.type().equals("item") || !List.of("default", "true", "false").contains(value)) {
+                        return Result.INVALID;
+                    }
+                    p = value.equals("default") ? p.without("consume_items") : p.with("consume_items", value.equals("true"));
+                }
+                case "target" -> {
+                    String pk = targetKey(t.type());
+                    String v = value.strip();
+                    if (pk == null || !v.matches("[a-z0-9_.-]+:[a-z0-9_./-]+")) {
+                        return Result.INVALID;
+                    }
+                    p = p.with(pk, v);
+                }
+                default -> {
+                    return Result.INVALID;
+                }
+            }
+            if (p == null) {
+                return Result.INVALID;
+            }
+            q.tasks.set(i, new Task(t.id(), t.type(), p));
+            book.reindex();
+            return Result.OK;
+        }
+        return Result.NOT_FOUND;
+    }
+
+    /**
+     * Keys: {@code title}, {@code auto} (default, disabled, enabled, no_toast, invisible) and the amount of the reward:
+     * {@code count} (item), {@code xp}, {@code xp_levels}.
+     */
+    public Result setRewardProp(String rewardId, String key, String value) {
+        if (key == null || value == null) {
+            return Result.INVALID;
+        }
+        for (Chapter c : book.chapters()) {
+            for (Quest q : c.quests) {
+                for (int i = 0; i < q.rewards.size(); i++) {
+                    Reward r = q.rewards.get(i);
+                    if (!r.id().equals(rewardId)) {
+                        continue;
+                    }
+                    DataNode.Compound p = r.params();
+                    switch (key) {
+                        case "title" -> p = withText(p, "title", value, 200);
+                        case "auto" -> {
+                            if (!AUTO_CLAIM.contains(value)) {
+                                return Result.INVALID;
+                            }
+                            p = value.equals("default") ? p.without("auto") : p.with("auto", value);
+                        }
+                        case "count", "xp", "xp_levels" -> {
+                            boolean fits = key.equals("count") ? r.type().equals("item") : r.type().equals(key);
+                            long n;
+                            try {
+                                n = Long.parseLong(value.strip());
+                            } catch (NumberFormatException ex) {
+                                return Result.INVALID;
+                            }
+                            if (!fits || n < 1 || n > (key.equals("xp_levels") ? 10_000 : MAX_VALUE)) {
+                                return Result.INVALID;
+                            }
+                            p = p.with(key, (int) Math.min(n, Integer.MAX_VALUE));
+                        }
+                        case "command", "description", "advancement", "criterion" -> {
+                            String need = key.equals("command") ? "command" : key.equals("description") ? "toast" : "advancement";
+                            if (!r.type().equals(need)) {
+                                return Result.INVALID;
+                            }
+                            String v = value.strip();
+                            if (key.equals("advancement") && !v.matches("[a-z0-9_.-]+:[a-z0-9_./-]+")) {
+                                return Result.INVALID;
+                            }
+                            p = withText(p, key, v, 500);
+                        }
+                        case "permission_level" -> {
+                            if (!r.type().equals("command") || !value.matches("[0-4]")) {
+                                return Result.INVALID;
+                            }
+                            p = p.with("permission_level", Integer.parseInt(value));
+                        }
+                        case "silent" -> {
+                            if (!r.type().equals("command") || !(value.equals("true") || value.equals("false"))) {
+                                return Result.INVALID;
+                            }
+                            p = value.equals("true") ? p.with("silent", true) : p.without("silent");
+                        }
+                        default -> {
+                            return Result.INVALID;
+                        }
+                    }
+                    if (p == null) {
+                        return Result.INVALID;
+                    }
+                    q.rewards.set(i, new Reward(r.id(), r.type(), p));
+                    book.reindex();
+                    return Result.OK;
+                }
+            }
+        }
+        return Result.NOT_FOUND;
+    }
+
+    // ------------------------------------------------------------------ reward tables
+
+    public static final int MAX_TABLE_ENTRIES = 200;
+    public static final float MAX_WEIGHT = 1_000_000f;
+
+    /** @return the new, empty table, or null if the title is invalid */
+    public RewardTable createTable(String title) {
+        return createTable(title, "");
+    }
+
+    /** As above, with an id chosen by the caller (16 upper-case hex digits, unused) so a client can show the table at once. */
+    public RewardTable createTable(String title, String wantedId) {
+        String t = clean(title, MAX_TITLE);
+        if (t == null || t.isEmpty()) {
+            return null;
+        }
+        boolean usable = wantedId != null && wantedId.matches("[0-9A-F]{16}") && !wantedId.equals("0000000000000000")
+                && !allIds().contains(wantedId);
+        RewardTable table = new RewardTable(usable ? wantedId : newId());
+        table.title = t;
+        Set<String> names = new HashSet<>();
+        book.tables().values().forEach(x -> names.add(x.filename.toLowerCase(Locale.ROOT)));
+        String base = slug(t);
+        String name = base;
+        int n = 2;
+        while (names.contains(name)) {
+            name = base + "_" + n++;
+        }
+        table.filename = name;
+        table.order = book.tables().values().stream().mapToInt(x -> x.order).max().orElse(-1) + 1;
+        book.tables().put(table.id, table);
+        return table;
+    }
+
+    public Result renameTable(String id, String title) {
+        RewardTable t = book.tables().get(id);
+        String s = clean(title, MAX_TITLE);
+        if (t == null) {
+            return Result.NOT_FOUND;
+        }
+        if (s == null || s.isEmpty()) {
+            return Result.INVALID;
+        }
+        t.title = s;
+        return Result.OK;
+    }
+
+    /** A table that a reward still points at is kept: deleting it would leave that reward with nothing to give. */
+    public Result deleteTable(String id) {
+        if (book.tables().get(id) == null) {
+            return Result.NOT_FOUND;
+        }
+        for (Chapter c : book.chapters()) {
+            for (Quest q : c.quests) {
+                for (Reward r : q.rewards) {
+                    if (id.equalsIgnoreCase(r.params().getString("table_id", ""))) {
+                        return Result.INVALID;
+                    }
+                }
+            }
+        }
+        book.tables().remove(id);
+        return Result.OK;
+    }
+
+    /** Keys: {@code empty_weight} (chance of nothing, in the same units as the entry weights) and {@code loot_size}. */
+    public Result setTableProp(String id, String key, String value) {
+        RewardTable t = book.tables().get(id);
+        if (t == null) {
+            return Result.NOT_FOUND;
+        }
+        try {
+            switch (key) {
+                case "empty_weight" -> {
+                    float v = Float.parseFloat(value);
+                    if (!(v >= 0 && v <= MAX_WEIGHT)) {
+                        return Result.INVALID;
+                    }
+                    t.emptyWeight = v;
+                }
+                case "loot_size" -> {
+                    int v = Integer.parseInt(value);
+                    if (v < 0 || v > 100) {
+                        return Result.INVALID;
+                    }
+                    t.lootSize = v;
+                }
+                default -> {
+                    return Result.INVALID;
+                }
+            }
+        } catch (NumberFormatException ex) {
+            return Result.INVALID;
+        }
+        return Result.OK;
+    }
+
+    /** @return the new entry's reward id, or null if the table is unknown, full, or the entry is not allowed */
+    public String addTableEntry(String tableId, String type, DataNode.Compound params, float weight) {
+        return addTableEntry(tableId, type, params, weight, "");
+    }
+
+    /** As above, with an id chosen by the caller (16 upper-case hex digits, unused), so a client can show the entry at once. */
+    public String addTableEntry(String tableId, String type, DataNode.Compound params, float weight, String wantedId) {
+        RewardTable t = book.tables().get(tableId);
+        if (t == null || !REWARD_TYPES.contains(type) || params == null || t.entries.size() >= MAX_TABLE_ENTRIES
+                || !(weight > 0 && weight <= MAX_WEIGHT)) {
+            return null;
+        }
+        if (type.equals("item") && !params.has("item")) {
+            return null;
+        }
+        String id = wantedId != null && wantedId.matches("[0-9A-F]{16}") && !wantedId.equals("0000000000000000")
+                && !allIds().contains(wantedId) ? wantedId : newId();
+        t.entries.add(new Definitions.WeightedReward(weight, new Reward(id, type, params)));
+        return id;
+    }
+
+    public Result setEntryWeight(String tableId, String rewardId, float weight) {
+        RewardTable t = book.tables().get(tableId);
+        if (t == null) {
+            return Result.NOT_FOUND;
+        }
+        if (!(weight > 0 && weight <= MAX_WEIGHT)) {
+            return Result.INVALID;
+        }
+        for (int i = 0; i < t.entries.size(); i++) {
+            if (t.entries.get(i).reward().id().equals(rewardId)) {
+                t.entries.set(i, new Definitions.WeightedReward(weight, t.entries.get(i).reward()));
+                return Result.OK;
+            }
+        }
+        return Result.NOT_FOUND;
+    }
+
+    public Result removeTableEntry(String tableId, String rewardId) {
+        RewardTable t = book.tables().get(tableId);
+        if (t == null) {
+            return Result.NOT_FOUND;
+        }
+        return t.entries.removeIf(w -> w.reward().id().equals(rewardId)) ? Result.OK : Result.NOT_FOUND;
     }
 }

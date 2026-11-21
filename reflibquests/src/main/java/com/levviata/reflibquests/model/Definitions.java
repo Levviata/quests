@@ -186,6 +186,19 @@ public final class Definitions {
         public Tristate hideUntilDepsVisible = Tristate.DEFAULT;
         public Tristate hideUntilDepsComplete = Tristate.DEFAULT;
         public boolean ignoreRewardBlocking;
+        /** No pop-up when this quest is completed. */
+        public boolean disableToast;
+        /** Hide the lock icon that shows while the quest waits for its dependencies. */
+        public boolean hideLockIcon;
+        /** The description is not shown until the quest is completed (outside edit mode). */
+        public Tristate hideTextUntilComplete = Tristate.DEFAULT;
+        /** No recipe view when a task or reward of this quest is clicked. */
+        public Tristate disableJei = Tristate.DEFAULT;
+        /** The quest is complete as soon as any one of its tasks is done (older quest files call this "or_tasks"). */
+        public boolean orTasks;
+        /** Hide the lines to this quest's dependencies / from this quest to its dependants. */
+        public Tristate hideDependencyLines = Tristate.DEFAULT;
+        public Tristate hideDependentLines = Tristate.DEFAULT;
         /** Original quest data without the tasks and rewards arrays. */
         public DataNode.Compound raw = DataNode.Compound.empty();
 
@@ -214,6 +227,11 @@ public final class Definitions {
         public boolean hideQuestUntilDepsVisible;
         public boolean hideQuestUntilDepsComplete;
         public boolean defaultRepeatable;
+        public boolean defaultHideDependencyLines;
+        /** The quest the chapter opens centred on (empty: none). */
+        public String autofocusId = "";
+        /** Shape for quests that do not name one (empty: the book's default). */
+        public String defaultQuestShape = "";
         public final List<Quest> quests = new ArrayList<>();
         public final List<QuestLink> links = new ArrayList<>();
         public final List<ChapterImage> images = new ArrayList<>();

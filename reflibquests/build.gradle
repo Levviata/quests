@@ -58,6 +58,10 @@ cleanroom {
 
 test {
     useJUnitPlatform()
+    systemProperty 'reflibquests.pack', project.findProperty('pack') ?: ''
+    testLogging {
+        showStandardStreams = true
+    }
 }
 
 tasks.withType(JavaExec).configureEach {

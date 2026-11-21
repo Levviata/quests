@@ -21,12 +21,143 @@ final class QuestText {
 
     private QuestText() {}
 
+    /** The quest's title as written (with {@code &} codes); quests without one are named after their first task. */
+    static String rawTitle(Quest q) {
+        if (!q.title.isEmpty()) {
+            return q.title;
+        }
+        String auto = autoTitle(q);
+        return auto.isEmpty() ? q.id : auto;
+    }
+
+    /** The title for drawing: formatting codes as section signs, {@code &z} kept as a rainbow marker (draw it with {@code Ui.drawText}). */
     static String title(Quest q) {
-        return q.title.isEmpty() ? q.id : q.title;
+        return com.levviata.reflibquests.text.RichText.toRainbowAware(rawTitle(q));
+    }
+
+    /** The title for places that cannot show a rainbow (chat). */
+    static String titlePlain(Quest q) {
+        return com.levviata.reflibquests.text.RichText.toSectionCodes(rawTitle(q));
+    }
+
+    private static String autoTitle(Quest q) {
+        if (q.tasks.isEmpty()) {
+            return "";
+        }
+        Task t = q.tasks.get(0);
+        String custom = t.params().getString("title", "");
+        if (!custom.isEmpty()) {
+            return custom;
+        }
+        switch (t.type()) {
+            case "item": {
+                DataNode spec = t.params().get("item");
+                java.util.List<ItemResolver.Resolved> set = setOf(spec);
+                // a quest without a title of its own is named after what it asks for, with the amount: "80x Iron Ingot"
+                String amount = t.maxProgress() > 1 ? t.maxProgress() + "x " : "";
+                if (!set.isEmpty()) {
+                    return amount + set.get(0).toStack(1).getDisplayName();
+                }
+                String id = spec instanceof DataNode.Str s ? s.value() : spec instanceof DataNode.Compound c ? c.getString("id", "") : "";
+                return amount + (id.equals(com.levviata.reflibquests.game.ItemSet.SMART_FILTER) ? "Any of these items" : pretty(id));
+            }
+            case "checkmark":
+                return "Checkmark";
+            case "kill":
+                return "Kill " + pretty(t.params().getString("entity", ""));
+            default:
+                return pretty(t.type());
+        }
+    }
+
+    /**
+     * Whether claiming the reward would actually give something in this game: items must exist, tables must exist and
+     * contain at least one reward that can be given. Rewards that cannot are not offered as claimable.
+     */
+    static boolean grantable(com.levviata.reflibquests.model.QuestBook book, com.levviata.reflibquests.model.Definitions.Reward r, int depth) {
+        switch (r.type()) {
+            case "item":
+                return !setOf(r.params().get("item")).isEmpty();
+            case "random":
+            case "loot":
+            case "all_table":
+            case "choice": {
+                if (depth > 3) {
+                    return false;
+                }
+                com.levviata.reflibquests.model.Definitions.RewardTable table = book.tables().get(tableId(r));
+                if (table == null) {
+                    return false;
+                }
+                for (com.levviata.reflibquests.model.Definitions.WeightedReward w : table.entries) {
+                    if (grantable(book, w.reward(), depth + 1)) {
+                        return true;
+                    }
+                }
+                return table.entries.isEmpty();
+            }
+            default:
+                return true;
+        }
+    }
+
+    /** A readable name for an item spec: the real name when the item exists, else its id made readable. */
+    static String itemName(@Nullable DataNode spec) {
+        ItemStack s = stackOf(spec);
+        if (s != null) {
+            return s.getDisplayName();
+        }
+        String id = spec instanceof DataNode.Str str ? str.value() : spec instanceof DataNode.Compound c ? c.getString("id", "") : "";
+        return id.equals(com.levviata.reflibquests.game.ItemSet.SMART_FILTER) ? "Any of these items" : id.isEmpty() ? "an unknown item" : pretty(id);
+    }
+
+    /** Title with a rainbow marker kept for {@code &z} (for the few places that can draw rainbow text). */
+    static String titleRainbow(Quest q) {
+        return com.levviata.reflibquests.text.RichText.toRainbowAware(rawTitle(q));
+    }
+
+    /** {@code minecraft:stripped_oak_log} becomes "Stripped Oak Log". */
+    private static String pretty(String id) {
+        String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
+        StringBuilder sb = new StringBuilder();
+        for (String word : path.replace('/', ' ').replace('_', ' ').split(" +")) {
+            if (!word.isEmpty()) {
+                sb.append(sb.length() > 0 ? " " : "").append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+            }
+        }
+        return sb.toString();
+    }
+
+    private static final java.util.IdentityHashMap<DataNode, java.util.List<ItemResolver.Resolved>> SETS = new java.util.IdentityHashMap<>();
+    private static int setsVersion = -1;
+
+    /** The items a task or reward spec accepts, remembered until the book changes. */
+    static java.util.List<ItemResolver.Resolved> setOf(@Nullable DataNode spec) {
+        if (spec == null) {
+            return java.util.List.of();
+        }
+        int version = ClientQuests.bookVersion();
+        if (version != setsVersion) {
+            SETS.clear();
+            setsVersion = version;
+        }
+        return SETS.computeIfAbsent(spec, s -> com.levviata.reflibquests.game.ItemSet.resolveAll(s, ClientQuests.idMap()));
     }
 
     @Nullable
     static ItemStack stackOf(@Nullable DataNode spec) {
+        java.util.List<ItemResolver.Resolved> set = setOf(spec);
+        if (set.isEmpty()) {
+            return null;
+        }
+        if (com.levviata.reflibquests.game.ItemSet.isFilter(spec)) {
+            return set.get((int) ((System.currentTimeMillis() / 1200) % set.size())).toStack(1); // a collection cycles its items
+        }
+        return set.get(0).toStack(Math.max(1, set.get(0).count()));
+    }
+
+    @Nullable
+    static ItemStack stackOfOld(@Nullable DataNode spec) {
         ItemResolver.Resolved r = ItemResolver.resolve(spec, ClientQuests.idMap());
         return r == null ? null : r.toStack(Math.max(1, r.count()));
     }
@@ -64,7 +195,7 @@ final class QuestText {
         switch (t.type()) {
             case "item": {
                 ItemStack s = stackOf(p.get("item"));
-                String name = s == null ? "an unknown item" : s.getDisplayName();
+                String name = s == null ? itemName(p.get("item")) : s.getDisplayName();
                 return (t.maxProgress() > 1 ? "Collect " + t.maxProgress() + "x " : "Collect ") + name;
             }
             case "checkmark":
@@ -79,6 +210,12 @@ final class QuestText {
                 return "Visit " + shortName(p.getString("dimension", "?"));
             case "location":
                 return "Reach a location";
+            case "biome":
+                return "Visit the " + shortName(p.getString("biome", "?")) + " biome";
+            case "structure":
+                return "Find " + shortName(p.getString("structure", "?"));
+            case "observation":
+                return "Look at " + shortName(p.getString("to_observe", "?"));
             default:
                 return t.type() + " (not supported yet)";
         }
@@ -90,7 +227,7 @@ final class QuestText {
             case "item": {
                 ItemStack s = stackOf(p.get("item"));
                 int count = Math.max(1, p.getInt("count", 1));
-                return (count > 1 ? count + "x " : "") + (s == null ? "an unknown item" : s.getDisplayName());
+                return (count > 1 ? count + "x " : "") + (s == null ? itemName(p.get("item")) : s.getDisplayName());
             }
             case "xp":
                 return p.getInt("xp", 1) + " XP";
@@ -106,6 +243,8 @@ final class QuestText {
                 return "Choose one reward";
             case "random":
                 return "A random reward";
+            case "loot":
+                return "Loot";
             case "all_table":
                 return "Several rewards";
             default:

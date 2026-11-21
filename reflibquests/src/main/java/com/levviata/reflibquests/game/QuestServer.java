@@ -33,6 +33,7 @@ import com.levviata.reflibquests.api.QuestEvents;
 import com.levviata.reflibquests.io.BookCodec;
 import com.levviata.reflibquests.io.Gz;
 import com.levviata.reflibquests.io.IdMap;
+import com.levviata.reflibquests.io.UpstreamExporter;
 import com.levviata.reflibquests.net.QuestNet;
 import com.levviata.reflibquests.io.UpstreamImporter;
 import com.levviata.reflibquests.model.Definitions.Quest;
@@ -53,7 +54,8 @@ import com.levviata.reflibquests.model.TeamProgress;
 public final class QuestServer {
 
     /** Task types the game layer can currently detect. Others are kept and shown but never progress. */
-    public static final Set<String> SUPPORTED_TASKS = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom");
+    public static final Set<String> SUPPORTED_TASKS = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom",
+            "biome", "structure", "observation");
 
     private static QuestServer instance;
 
@@ -65,6 +67,10 @@ public final class QuestServer {
     private DataNode.Compound idMapRaw = DataNode.Compound.empty();
     private byte[] bookBytes = new byte[0];
     private PinStore pins = new PinStore();
+    private boolean bookDirty;
+    private long resyncAt;
+    private long resyncFirstAt;
+    private boolean backedUp;
     private final Map<UUID, TeamProgress> teams = new LinkedHashMap<>();
     private final Set<UUID> dirty = new HashSet<>();
     /** teams whose progress must be re-sent to their online members at the end of this tick */
@@ -135,12 +141,30 @@ public final class QuestServer {
         return inertTasks;
     }
 
+    /**
+     * Where the quest files are: {@code config/reflibquests/quests/}, or the config folder itself when the files
+     * were dropped there (a data file plus a chapters folder) and the {@code quests/} subfolder has no chapters.
+     */
     public File questFolder() {
-        return new File(configDir, "quests");
+        File nested = new File(configDir, "quests");
+        if (!hasChapters(nested) && hasChapters(configDir)) {
+            return configDir;
+        }
+        return nested;
+    }
+
+    private static boolean hasChapters(File folder) {
+        String[] names = new File(folder, "chapters").list();
+        return names != null && names.length > 0;
     }
 
     /** (Re)read definitions and the id map; progress already in memory is kept. */
     public void reload() {
+        waitForExport();
+        history.clear(); // the book is about to be read again; copies of the old one no longer fit
+        if (bookDirty) {
+            exportBook(); // never throw away edits that were not saved yet
+        }
         Path mapFile = configDir.toPath().resolve("id_map.snbt");
         idMapRaw = DataNode.Compound.empty();
         idMap = IdMap.withBuiltin(idMapRaw);
@@ -180,9 +204,255 @@ public final class QuestServer {
 
     /** Send the whole book and the player's team progress (on join and after a reload). */
     public void syncPlayer(EntityPlayerMP player) {
+        if (bookBytesStale) {
+            bookBytes = Gz.pack(BookCodec.write(book, idMapRaw));
+            bookBytesStale = false;
+        }
         QuestNet.sendBook(player, bookBytes);
         QuestNet.sendProgress(player, Gz.pack(ProgressCodec.write(progressOf(player))));
         QuestNet.sendPins(player, pins.pinsOf(player.getUniqueID()));
+        QuestNet.sendPerms(player, canEdit(player));
+        sendHistory(player);
+    }
+
+    public boolean canEdit(EntityPlayerMP player) {
+        return player.canUseCommand(2, "rquests");
+    }
+
+    /** A client asked for an edit. Needs permission level 2; the edit is validated, saved and sent to everyone. */
+    public void handleEdit(EntityPlayerMP player, String op, String argsText) {
+        if (!canEdit(player)) {
+            player.sendMessage(new TextComponentString("[Quests] You need permission level 2 to edit quests."));
+            return;
+        }
+        if (exporter != null) {
+            deferredEdits.add(() -> handleEdit(player, op, argsText)); // a save is running: apply this right after it
+            return;
+        }
+        com.levviata.reflib.api.data.DataNode.Compound args;
+        try {
+            args = com.levviata.reflib.api.data.Snbt.parse(argsText);
+        } catch (RuntimeException ex) {
+            player.sendMessage(new TextComponentString("[Quests] Edit refused: unreadable request."));
+            return;
+        }
+        if (op.equals("save_now")) {
+            exportBook();
+            player.sendMessage(new TextComponentString("[Quests] Quest files saved on the server."));
+            return;
+        }
+        if ((op.equals("reset_progress") || op.equals("complete_quest")) && !args.getString("chapter", "").isEmpty()) {
+            com.levviata.reflibquests.model.Definitions.Chapter ch = book.chapter(args.getString("chapter", ""));
+            if (ch == null) {
+                player.sendMessage(new TextComponentString("[Quests] That chapter no longer exists."));
+                return;
+            }
+            TeamProgress team = progressOf(player);
+            long now = System.currentTimeMillis();
+            for (com.levviata.reflibquests.model.Definitions.Quest cq : new java.util.ArrayList<>(ch.quests)) {
+                apply(team, op.equals("complete_quest") ? engine.forceComplete(team, cq.id, now) : engine.resetQuest(team, cq.id));
+            }
+            ReflibQuestsMod.LOGGER.info("{} ran {} on chapter {}", player.getName(), op, ch.id);
+            return;
+        }
+        if (op.equals("reset_progress") || op.equals("complete_quest")) {
+            String questId = args.getString("id", "");
+            if (book.quest(questId) == null) {
+                player.sendMessage(new TextComponentString("[Quests] That quest no longer exists."));
+                return;
+            }
+            TeamProgress team = progressOf(player);
+            long now = System.currentTimeMillis();
+            apply(team, op.equals("complete_quest") ? engine.forceComplete(team, questId, now) : engine.resetQuest(team, questId));
+            ReflibQuestsMod.LOGGER.info("{} ran {} on {}", player.getName(), op, questId);
+            return;
+        }
+        if (op.equals("undo") || op.equals("redo")) {
+            String what = op.equals("undo") ? history.undo(book) : history.redo(book);
+            if (what == null) {
+                player.sendMessage(new TextComponentString("[Quests] Nothing to " + op + "."));
+                return;
+            }
+            ReflibQuestsMod.LOGGER.info("{} ran {}: {}", player.getName(), op, what);
+            book.reindex();
+            tracker.rebuild();
+            findInertTasks();
+            pins.prune(book);
+            bookDirty = true;
+            if (history.lastNeedsFullSync) {
+                changed(true); // chapters moved or groups changed: the whole book is sent again
+            } else {
+                bookBytesStale = true;
+                sendChangedParts(); // only what was put back goes to the players, at once
+            }
+            return;
+        }
+        History.Open open = History.begin(book, op, args);
+        String error = QuestEdits.apply(this, player, op, args);
+        if (error != null) {
+            player.sendMessage(new TextComponentString("[Quests] Edit refused: " + error));
+            return;
+        }
+        if (open != null) {
+            history.commit(book, open);
+        }
+        ReflibQuestsMod.LOGGER.info("{} edited the quest book: {}", player.getName(), op);
+        editApplied(op);
+    }
+
+    private final History history = new History();
+    private boolean bookBytesStale;
+
+    /** Send the chapters and reward tables the last undo or redo changed, and nothing else. */
+    private void sendChangedParts() {
+        java.util.List<com.levviata.reflib.api.data.DataNode> chapters = new ArrayList<>();
+        for (String id : history.lastChapterIds) {
+            com.levviata.reflibquests.model.Definitions.Chapter c = book.chapter(id);
+            chapters.add(com.levviata.reflib.api.data.DataNode.Compound.empty().with("id", id)
+                    .with("index", c == null ? -1 : book.chapters().indexOf(c))
+                    .with("data", c == null ? com.levviata.reflib.api.data.DataNode.Compound.empty() : BookCodec.chapterData(c)));
+        }
+        java.util.List<com.levviata.reflib.api.data.DataNode> tables = new ArrayList<>();
+        for (String id : history.lastTableIds) {
+            com.levviata.reflibquests.model.Definitions.RewardTable t = book.tables().get(id);
+            tables.add(com.levviata.reflib.api.data.DataNode.Compound.empty().with("id", id)
+                    .with("data", t == null ? com.levviata.reflib.api.data.DataNode.Compound.empty() : BookCodec.tableData(t)));
+        }
+        byte[] packed = Gz.pack(com.levviata.reflib.api.data.DataNode.Compound.empty()
+                .with("chapters", new com.levviata.reflib.api.data.DataNode.Lst(chapters))
+                .with("tables", new com.levviata.reflib.api.data.DataNode.Lst(tables)));
+        for (EntityPlayerMP p : server.getPlayerList().getPlayers()) {
+            QuestNet.sendDelta(p, packed);
+            QuestNet.sendPins(p, pins.pinsOf(p.getUniqueID()));
+            sendHistory(p);
+        }
+    }
+
+    /** Edits that add, remove or replace tasks (the tracker keeps its own list of them). */
+    private static final java.util.Set<String> TASK_OPS = java.util.Set.of(
+            "add_task", "remove_task", "task_value", "delete_quest", "delete_chapter", "create_quest");
+
+    /**
+     * The book changed. Only what the edit can have affected is rebuilt (the task list, the check for tasks that cannot
+     * progress, the pins), and the whole book is sent once the edits pause instead of after every single one.
+     */
+    private void editApplied(String op) {
+        changed(TASK_OPS.contains(op) || op.equals("delete_quest") || op.equals("delete_chapter"));
+    }
+
+    /** The book changed: rebuild what the change may have affected (when {@code structural}) and schedule sending it. */
+    private void changed(boolean structural) {
+        book.reindex();
+        if (structural) {
+            tracker.rebuild();
+            findInertTasks();
+            pins.prune(book);
+        }
+        bookDirty = true;
+        long now = System.currentTimeMillis();
+        if (resyncFirstAt == 0) {
+            resyncFirstAt = now;
+        }
+        resyncAt = now + 250;
+    }
+
+    private void flushTableSync() {
+        if (resyncAt == 0) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now < resyncAt && now - resyncFirstAt < 1500) {
+            return; // still being edited
+        }
+        resyncAt = 0;
+        resyncFirstAt = 0;
+        bookBytesStale = false;
+        bookBytes = Gz.pack(BookCodec.write(book, idMapRaw));
+        for (EntityPlayerMP p : server.getPlayerList().getPlayers()) {
+            QuestNet.sendBook(p, bookBytes); // only the book changed; progress, pins and rights are as they were
+            QuestNet.sendPins(p, pins.pinsOf(p.getUniqueID()));
+            sendHistory(p);
+        }
+    }
+
+    private void sendHistory(EntityPlayerMP p) {
+        QuestNet.sendHistory(p, history.undoCount(), history.redoCount(), history.undoLabel(), history.redoLabel());
+    }
+
+    private volatile Thread exporter;
+    private final java.util.ArrayDeque<Runnable> deferredEdits = new java.util.ArrayDeque<>();
+
+    /**
+     * Save the book on a background thread so the game does not stall. While it runs the book is only read, and edits that
+     * arrive are held back and applied right after (see {@link #tick}).
+     */
+    private void exportBookInBackground() {
+        if (exporter != null || !bookDirty) {
+            return;
+        }
+        bookDirty = false;
+        Thread t = new Thread(() -> {
+            try {
+                writeBook();
+            } finally {
+                exporter = null;
+            }
+        }, "reflibquests-save");
+        exporter = t;
+        t.start();
+    }
+
+    private void waitForExport() {
+        Thread t = exporter;
+        if (t != null) {
+            try {
+                t.join();
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /** Write the book to the quest folder now (keeps a copy of the previous folder once per session). */
+    public void exportBook() {
+        waitForExport();
+        bookDirty = false;
+        writeBook();
+    }
+
+    private void writeBook() {
+        long started = System.currentTimeMillis();
+        try {
+            if (!backedUp && questFolder().isDirectory()) {
+                backupFolder();
+                backedUp = true;
+            }
+            UpstreamExporter.export(book, questFolder().toPath());
+            ReflibQuestsMod.LOGGER.info("Saved the quest book to {} ({} ms)", questFolder(), System.currentTimeMillis() - started);
+        } catch (IOException | RuntimeException ex) {
+            bookDirty = true; // try again next time
+            ReflibQuestsMod.LOGGER.error("Cannot save the quest book: {}", ex.getMessage(), ex);
+        }
+    }
+
+    private void backupFolder() throws IOException {
+        Path source = questFolder().toPath();
+        Path target = new File(configDir, "backups/quests-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmmss").format(new java.util.Date())).toPath();
+        try (java.util.stream.Stream<Path> walk = Files.walk(source)) {
+            for (Path p : (Iterable<Path>) walk::iterator) {
+                if (p.startsWith(configDir.toPath().resolve("backups"))) {
+                    continue; // when the quests live in the config folder itself, do not copy the backups into a backup
+                }
+                Path dest = target.resolve(source.relativize(p).toString());
+                if (Files.isDirectory(p)) {
+                    Files.createDirectories(dest);
+                } else {
+                    Files.createDirectories(dest.getParent());
+                    Files.copy(p, dest);
+                }
+            }
+        }
+        ReflibQuestsMod.LOGGER.info("Backed up the quest folder to {}", target);
     }
 
     /** A client asked to pin or unpin a quest. */
@@ -267,8 +537,12 @@ public final class QuestServer {
         TeamProgress team = progressOf(player);
         int claimed = 0;
         for (Quest q : book.allQuests()) {
+            if (!team.isCompleted(q.id)) {
+                continue; // only completed quests have rewards to claim
+            }
             for (Reward r : q.rewards) {
-                if (!r.type().equals("choice") && engine.canClaim(team, player.getUniqueID(), r)
+                if (!r.type().equals("choice") && !r.params().getBool("exclude_from_claim_all", false)
+                        && engine.canClaim(team, player.getUniqueID(), r)
                         && claim(player, r, -1, true) == RewardGranter.Result.GRANTED) {
                     claimed++;
                 }
@@ -291,17 +565,30 @@ public final class QuestServer {
     }
 
     private void findInertTasks() {
+        int before = inertTasks.size();
         inertTasks.clear();
         for (Quest q : book.allQuests()) {
             for (Task t : q.tasks) {
                 if (!SUPPORTED_TASKS.contains(t.type())) {
                     inertTasks.add(q.id + "/" + t.id() + ": unsupported task type '" + t.type() + "'");
+                } else if (t.type().equals("biome") && net.minecraftforge.fml.common.registry.ForgeRegistries.BIOMES.getValue(
+                        new net.minecraft.util.ResourceLocation(t.params().getString("biome", "minecraft:none"))) == null) {
+                    inertTasks.add(q.id + "/" + t.id() + ": biome '" + t.params().getString("biome", "?") + "' does not exist in 1.12.2");
+                } else if (t.type().equals("structure") && TaskTracker.structureName(t.params().getString("structure", "")).isEmpty()) {
+                    inertTasks.add(q.id + "/" + t.id() + ": structure '" + t.params().getString("structure", "?") + "' is not known in 1.12.2");
+                } else if (t.type().equals("observation") && !t.params().getString("observation_type", "block").equals("block")) {
+                    inertTasks.add(q.id + "/" + t.id() + ": only blocks can be observed so far");
+                } else if (t.type().equals("item") && ItemSet.isFilter(t.params().get("item"))) {
+                    // a "any of these items" filter works as long as at least one of its items exists in this game
+                    if (ItemSet.resolveAll(t.params().get("item"), idMap).isEmpty()) {
+                        inertTasks.add(q.id + "/" + t.id() + ": none of the filter's items exist in 1.12.2");
+                    }
                 } else if (t.type().equals("item") && ItemResolver.resolve(t.params().get("item"), idMap) == null) {
                     inertTasks.add(q.id + "/" + t.id() + ": item '" + describe(t.params().get("item")) + "' is not known in 1.12.2 (add it to id_map.snbt)");
                 }
             }
         }
-        if (!inertTasks.isEmpty()) {
+        if (!inertTasks.isEmpty() && inertTasks.size() != before) {
             ReflibQuestsMod.LOGGER.warn("{} task(s) cannot progress; first: {}", inertTasks.size(), inertTasks.get(0));
         }
     }
@@ -350,6 +637,9 @@ public final class QuestServer {
     }
 
     public void saveDirty() {
+        if (bookDirty) {
+            exportBookInBackground();
+        }
         for (UUID id : new ArrayList<>(dirty)) {
             save(id);
         }
@@ -358,7 +648,12 @@ public final class QuestServer {
         }
     }
 
+    /** Everything is written before this returns (used when the world closes), including a save that is still running. */
     public void saveAll() {
+        waitForExport();
+        if (bookDirty) {
+            exportBook();
+        }
         saveDirty();
     }
 
@@ -479,6 +774,10 @@ public final class QuestServer {
     /** Called every server tick. */
     public void tick(int serverTick) {
         flushSync();
+        while (exporter == null && !deferredEdits.isEmpty()) {
+            deferredEdits.poll().run();
+        }
+        flushTableSync();
         if (serverTick % 600 == 0) {
             saveDirty();
         }

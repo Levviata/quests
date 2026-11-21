@@ -5,6 +5,7 @@
 
 package com.levviata.reflibquests.model;
 
+import com.levviata.reflibquests.text.RichText;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -54,11 +55,12 @@ public final class QuestSearch {
                     continue;
                 }
                 String title = q.title.isEmpty() ? q.id : q.title;
-                String titleLower = title.toLowerCase(Locale.ROOT);
-                StringBuilder hay = new StringBuilder(titleLower).append('\n').append(q.subtitle.toLowerCase(Locale.ROOT))
+                String titleLower = RichText.stripCodes(title).toLowerCase(Locale.ROOT);
+                StringBuilder hay = new StringBuilder(titleLower).append('\n')
+                        .append(RichText.stripCodes(q.subtitle).toLowerCase(Locale.ROOT))
                         .append('\n').append(q.id.toLowerCase(Locale.ROOT));
                 for (String line : q.description) {
-                    hay.append('\n').append(line.toLowerCase(Locale.ROOT));
+                    hay.append('\n').append(RichText.stripCodes(line).toLowerCase(Locale.ROOT));
                 }
                 boolean all = true;
                 for (String w : words) {

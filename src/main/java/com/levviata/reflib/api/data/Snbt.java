@@ -37,7 +37,20 @@ public final class Snbt {
     // ------------------------------------------------------------------ parsing
 
     public static DataNode.Compound parse(String text) {
+        return parse(text, false);
+    }
+
+    /**
+     * Like {@link #parse} but a key that appears twice is not an error: the last value wins. Real-world files
+     * written by other programs sometimes contain such duplicates.
+     */
+    public static DataNode.Compound parseLenient(String text) {
+        return parse(text, true);
+    }
+
+    private static DataNode.Compound parse(String text, boolean lenient) {
         Parser p = new Parser(text);
+        p.lenient = lenient;
         p.skipSpace();
         DataNode.Compound result = p.readCompound();
         p.skipSpace();
@@ -50,6 +63,7 @@ public final class Snbt {
     private static final class Parser {
         private final String s;
         private int pos;
+        private boolean lenient;
 
         Parser(String s) {
             this.s = s;
@@ -126,13 +140,13 @@ public final class Snbt {
                 skipSpace();
                 DataNode value = readValue();
                 if (value == null) {
-                    if (map.containsKey(key)) {
+                    if (map.containsKey(key) && !lenient) {
                         throw error("Duplicate key '" + key + "'");
                     }
                     skipComma();
                     continue; // null means "absent"
                 }
-                if (map.put(key, value) != null) {
+                if (map.put(key, value) != null && !lenient) {
                     throw error("Duplicate key '" + key + "'");
                 }
                 skipComma();
@@ -141,6 +155,7 @@ public final class Snbt {
 
         DataNode.Lst readList() {
             expect('[');
+            skipTypedArrayPrefix();
             List<DataNode> items = new ArrayList<>();
             while (true) {
                 skipSpace();
@@ -156,6 +171,20 @@ public final class Snbt {
                     items.add(item);
                 }
                 skipComma();
+            }
+        }
+
+        /** SNBT typed arrays start with a type letter and a semicolon: [I; 1, 2], [L; 1L], [B; 0b]. The letter is dropped. */
+        private void skipTypedArrayPrefix() {
+            skipSpace();
+            if (pos < s.length() && "ILBilb".indexOf(s.charAt(pos)) >= 0) {
+                int q = pos + 1;
+                while (q < s.length() && Character.isWhitespace(s.charAt(q))) {
+                    q++;
+                }
+                if (q < s.length() && s.charAt(q) == ';') {
+                    pos = q + 1;
+                }
             }
         }
 
@@ -230,7 +259,12 @@ public final class Snbt {
                         }
                         pos += 4;
                     }
-                    default -> throw error("Unknown escape '\\" + e + "'");
+                    default -> {
+                        if (!lenient) {
+                            throw error("Unknown escape '\\" + e + "'");
+                        }
+                        sb.append(e);
+                    }
                 }
             }
         }
