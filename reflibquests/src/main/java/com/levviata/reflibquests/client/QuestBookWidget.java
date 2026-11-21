@@ -1176,7 +1176,7 @@ final class QuestBookWidget extends Widget {
                     continue;
                 }
                 // straight line from node to node; green while the hovered or opened quest is one of its ends
-                int tint = 0xFFA39C96; // calm by default
+                int tint = 0xFF7A6B71; // calm by default (measured from FTB Quests)
                 int flow = 0;          // lines are still, unless a quest is hovered
                 if (q.id.equals(focus)) {
                     tint = 0xFF00C4C4; // a dependency of the focused quest: cyan, moving forward towards the focused quest
@@ -1185,7 +1185,7 @@ final class QuestBookWidget extends Widget {
                     tint = 0xFFC4C400; // a dependant of the focused quest: yellow, moving on to the dependant
                     flow = 1;
                 }
-                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(3.0, Math.min(8.0, zoom * 3.6)), tint, flow);
+                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(3.0, Math.min(10.0, zoom * 4.0)), tint, flow); // 4 GUI pixels wide at zoom 1
             }
         }
         if (movingQuest != null && chapter.quests.contains(movingQuest)) {
@@ -1250,6 +1250,10 @@ final class QuestBookWidget extends Widget {
                     Ui.alert(x + s * 0.83 - badge / 2, y + s * 0.17 - badge / 2, badge);
                 } else if (state == State.DONE) {
                     Ui.check(x + s * 0.83 - badge / 2, y + s * 0.17 - badge / 2, badge, 0xFFFFFFFF);
+                }
+                // while editing, a quest players cannot see yet carries a small eye in its top left corner
+                if (isEditing() && !QuestRules.isVisible(book, p, q)) {
+                    Ui.questsGui("hidden", x + s * 0.20 - badge / 2, y + s * 0.19 - badge / 2, badge, badge, 0xFFFFFFFF);
                 }
             }
         }
@@ -1391,6 +1395,7 @@ final class QuestBookWidget extends Widget {
         if (count < 2) {
             return;
         }
+        boolean chevrons = QuestArt.hasGui("dependency");
         double phase = (System.currentTimeMillis() % 20000L) / 20000.0 * 8.0;
         double[] nx = new double[count];
         double[] ny = new double[count];
@@ -1412,9 +1417,9 @@ final class QuestBookWidget extends Widget {
             if (i > 0) {
                 along += Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]);
             }
-            vv[i] = along / (thickness * 8) - flow * phase;
+            vv[i] = along / (chevrons ? thickness : thickness * 8) - flow * phase;
         }
-        mc().getTextureManager().bindTexture(LADDER);
+        mc().getTextureManager().bindTexture(chevrons ? QuestArt.guiTexture("dependency") : LADDER);
         GlStateManager.disableCull();
         GlStateManager.enableTexture2D();
         GlStateManager.enableBlend();
@@ -1423,10 +1428,17 @@ final class QuestBookWidget extends Widget {
         net.minecraft.client.renderer.BufferBuilder bb = tess.getBuffer();
         bb.begin(GL11.GL_QUADS, net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_TEX);
         for (int i = 0; i + 1 < count; i++) {
-            bb.pos(xs[i] + nx[i], ys[i] + ny[i], 0).tex(2 / 16.0, vv[i]).endVertex();
-            bb.pos(xs[i + 1] + nx[i + 1], ys[i + 1] + ny[i + 1], 0).tex(2 / 16.0, vv[i + 1]).endVertex();
-            bb.pos(xs[i + 1] - nx[i + 1], ys[i + 1] - ny[i + 1], 0).tex(4 / 16.0, vv[i + 1]).endVertex();
-            bb.pos(xs[i] - nx[i], ys[i] - ny[i], 0).tex(4 / 16.0, vv[i]).endVertex();
+            if (chevrons) {
+                bb.pos(xs[i] + nx[i], ys[i] + ny[i], 0).tex(vv[i], 0).endVertex();
+                bb.pos(xs[i + 1] + nx[i + 1], ys[i + 1] + ny[i + 1], 0).tex(vv[i + 1], 0).endVertex();
+                bb.pos(xs[i + 1] - nx[i + 1], ys[i + 1] - ny[i + 1], 0).tex(vv[i + 1], 1).endVertex();
+                bb.pos(xs[i] - nx[i], ys[i] - ny[i], 0).tex(vv[i], 1).endVertex();
+            } else {
+                bb.pos(xs[i] + nx[i], ys[i] + ny[i], 0).tex(2 / 16.0, vv[i]).endVertex();
+                bb.pos(xs[i + 1] + nx[i + 1], ys[i + 1] + ny[i + 1], 0).tex(2 / 16.0, vv[i + 1]).endVertex();
+                bb.pos(xs[i + 1] - nx[i + 1], ys[i + 1] - ny[i + 1], 0).tex(4 / 16.0, vv[i + 1]).endVertex();
+                bb.pos(xs[i] - nx[i], ys[i] - ny[i], 0).tex(4 / 16.0, vv[i]).endVertex();
+            }
         }
         tess.draw();
         GlStateManager.color(1f, 1f, 1f, 1f);
@@ -1928,11 +1940,12 @@ final class QuestBookWidget extends Widget {
         }
         double nx = -dy / len * thickness / 2;
         double ny = dx / len * thickness / 2;
-        double repeats = len / (thickness * 8);
+        boolean chevrons = QuestArt.hasGui("dependency"); // FTB Quests' own line: a band of chevrons pointing at the quest
+        double repeats = len / (chevrons ? thickness : thickness * 8);
         double phase = (System.currentTimeMillis() % 20000L) / 20000.0 * 8.0; // slow drift: 0.4 tile per second
         double v0 = -flow * phase;
         double v1 = repeats - flow * phase;
-        mc().getTextureManager().bindTexture(LADDER);
+        mc().getTextureManager().bindTexture(chevrons ? QuestArt.guiTexture("dependency") : LADDER);
         GlStateManager.disableCull();
         GlStateManager.enableTexture2D();
         GlStateManager.enableBlend();
@@ -1940,10 +1953,17 @@ final class QuestBookWidget extends Widget {
         net.minecraft.client.renderer.Tessellator tess = net.minecraft.client.renderer.Tessellator.getInstance();
         net.minecraft.client.renderer.BufferBuilder bb = tess.getBuffer();
         bb.begin(GL11.GL_QUADS, net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_TEX);
-        bb.pos(x1 + nx, y1 + ny, 0).tex(2 / 16.0, v0).endVertex();
-        bb.pos(x2 + nx, y2 + ny, 0).tex(2 / 16.0, v1).endVertex();
-        bb.pos(x2 - nx, y2 - ny, 0).tex(4 / 16.0, v1).endVertex();
-        bb.pos(x1 - nx, y1 - ny, 0).tex(4 / 16.0, v0).endVertex();
+        if (chevrons) {
+            bb.pos(x1 + nx, y1 + ny, 0).tex(v0, 0).endVertex();
+            bb.pos(x2 + nx, y2 + ny, 0).tex(v1, 0).endVertex();
+            bb.pos(x2 - nx, y2 - ny, 0).tex(v1, 1).endVertex();
+            bb.pos(x1 - nx, y1 - ny, 0).tex(v0, 1).endVertex();
+        } else {
+            bb.pos(x1 + nx, y1 + ny, 0).tex(2 / 16.0, v0).endVertex();
+            bb.pos(x2 + nx, y2 + ny, 0).tex(2 / 16.0, v1).endVertex();
+            bb.pos(x2 - nx, y2 - ny, 0).tex(4 / 16.0, v1).endVertex();
+            bb.pos(x1 - nx, y1 - ny, 0).tex(4 / 16.0, v0).endVertex();
+        }
         tess.draw();
         GlStateManager.color(1f, 1f, 1f, 1f);
         GlStateManager.enableCull();
@@ -2210,8 +2230,12 @@ final class QuestBookWidget extends Widget {
         ItemStack named = QuestText.taskIcon(first);
         if (named != null && !first.type().equals("item")) {
             drawItem(named, x, y, size / 16f); // a task with an icon of its own, or a kill task's spawn egg
+        } else if (first.type().equals("custom")) {
+            Ui.icon(Ui.LIBRARY, "textures/icons/color_hsb.png", x, y, size, size, 0xFFFFFFFF);
+        } else if (first.type().equals("observation")) {
+            Ui.icon(Ui.LIBRARY, "textures/icons/art.png", x, y, size, size, 0xFFFFFFFF);
         } else if (first.type().equals("checkmark")) {
-            Ui.taskCheck(x, y, size, done);
+            Ui.mapCheck(x, y, size, done);
         } else if (first.type().equals("item")) {
             ItemStack s = QuestText.stackOf(first.params().get("item"));
             if (s != null && !s.isEmpty()) {
@@ -2245,8 +2269,12 @@ final class QuestBookWidget extends Widget {
         ItemStack named = t.type().equals("item") || t.type().equals("checkmark") ? null : QuestText.taskIcon(t);
         if (named != null) {
             drawItem(named, x + 1, y + 1, 1f);
+        } else if (t.type().equals("custom")) {
+            Ui.icon(Ui.LIBRARY, "textures/icons/color_hsb.png", x + 1, y + 1, 16, 16, 0xFFFFFFFF);
+        } else if (t.type().equals("observation")) {
+            Ui.icon(Ui.LIBRARY, "textures/icons/art.png", x + 1, y + 1, 16, 16, 0xFFFFFFFF);
         } else if (t.type().equals("checkmark")) {
-            if (!Ui.taskCheck(x + 1, y + 1, 16, done)) {
+            if (done ? !Ui.taskCheck(x + 1, y + 1, 16, true) : !Ui.questsGui("check_gray", x + 1, y + 1, 16, 16, 0xFFFFFFFF)) {
                 iconBox(fr, "v", x, y);
             }
         } else if (t.type().equals("item")) {
@@ -2768,7 +2796,7 @@ final class QuestBookWidget extends Widget {
             y += 20;
         } else {
             String subText = !q.subtitle.isEmpty() ? RichText.toRainbowAware(q.subtitle)
-                    : q.optional ? "[Optional]" : isEditing() ? "[No Subtitle]" : "";
+                    : isEditing() ? "[No Subtitle]" : "";
             if (inlineOn("subtitle", q)) {
                 drawInlineField(fr, r.x() + 6, y + 3, r.width() - 12);
                 y += 18;
@@ -4346,6 +4374,12 @@ final class QuestBookWidget extends Widget {
         lines.add("§f" + (details ? QuestText.title(q) : "???")); // white unless the title has colours of its own
         if (details && !q.subtitle.isEmpty()) {
             lines.add("§7" + RichText.toRainbowAware(q.subtitle)); // gray unless the subtitle has colours of its own
+        }
+        if (q.optional) {
+            lines.add("\u00a77[Optional Quest]");
+        }
+        if (QuestRules.repeatable(book, q)) {
+            lines.add("\u00a77[Repeatable Quest]");
         }
         State s = stateOf(book, engine, p, q);
         if (s != State.DONE && !QuestRules.dependenciesMet(book, p, q)) {

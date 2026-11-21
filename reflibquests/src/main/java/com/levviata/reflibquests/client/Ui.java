@@ -124,6 +124,17 @@ final class Ui {
     // ---- the checkmark TASK icon: the pixel-art check from the supplied jar, grey until done
     private static final Map<String, ResourceLocation> GRAY = new HashMap<>();
 
+    /** The check on a quest of the map: FTB Quests draws it dark (about half as bright as in the task list), measured from its window. */
+    static boolean mapCheck(double x, double y, double size, boolean done) {
+        if (done) {
+            return taskCheck(x, y, size, true);
+        }
+        if (questsGui("check_gray", x, y, size, size, 0xFFFFFFFF)) {
+            return true; // FTB Quests' own grey check for an unfinished checkmark quest
+        }
+        return grayIcon(LIBRARY, "textures/icons/check.png", x, y, size, size, 0xFF828478);
+    }
+
     static boolean taskCheck(double x, double y, double size, boolean done) {
         if (done) {
             return icon(LIBRARY, "textures/icons/check.png", x, y, size, size, 0xFFFFFFFF);
