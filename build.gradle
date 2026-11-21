@@ -4,7 +4,7 @@ plugins {
     id 'com.cleanroommc.conventions' version '1.4.0'
 }
 
-group = root_package
+group = 'com.levviata'
 
 base {
     archivesName = mod_id
@@ -35,6 +35,7 @@ conventions {
 }
 
 repositories {
+    mavenCentral()
     exclusiveContent {
         forRepository {
             maven {
@@ -63,6 +64,8 @@ dependencies {
     implementation cleanroom.userdev(cleanroom_version) {
         accessTransformers.from(accessTransformerNames.collect { "src/main/resources/META-INF/$it" })
     }
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
     if (dependOnHei) {
         implementation 'mezz:jei:4.36.1:dev'
     } else {
@@ -92,7 +95,13 @@ tokenEnvoy {
     set file('tokens.properties')
 }
 
+test {
+    useJUnitPlatform()
+}
+
 jar {
+    // the example referencing project is a development aid and smoke test, not part of the release jar
+    exclude 'com/levviata/reflib/devexample/**'
     manifest {
         if (accessTransformerNames) {
             attributes 'FMLAT': accessTransformerNames.join(' ')

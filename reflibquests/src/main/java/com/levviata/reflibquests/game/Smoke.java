@@ -1,0 +1,117 @@
+/*
+ * Copyright (c) 2026 Levviata
+ * SPDX-License-Identifier: LGPL-2.1-only
+ */
+
+package com.levviata.reflibquests.game;
+
+import java.io.File;
+import java.util.UUID;
+
+import com.levviata.reflib.api.data.DataFiles;
+import com.levviata.reflibquests.model.ProgressCodec;
+import com.levviata.reflibquests.model.TeamProgress;
+
+/** Headless self-check used by {@code -Dreflibquests.smoke=true}: load, progress, save, reload from disk. */
+public final class Smoke {
+
+    private Smoke() {}
+
+    /** Applies edits to the in-memory book, exports to a temporary folder, imports that, then reloads from disk. */
+    private static String checkEditing(QuestServer qs) throws java.io.IOException {
+        java.nio.file.Path tmp = java.nio.file.Files.createTempDirectory("rq-smoke");
+        try {
+            com.levviata.reflib.api.data.DataNode.Compound none = com.levviata.reflib.api.data.DataNode.Compound.empty();
+            String e1 = QuestEdits.apply(qs, null, "create_chapter", none.with("title", "Smoke chapter"));
+            if (e1 != null) {
+                return "create_chapter refused: " + e1;
+            }
+            var chapter = qs.book().chapters().get(qs.book().chapters().size() - 1);
+            String e2 = QuestEdits.apply(qs, null, "create_quest", none.with("chapter", chapter.id).with("x", 1.3).with("y", 2.0));
+            if (e2 != null) {
+                return "create_quest refused: " + e2;
+            }
+            var quest = chapter.quests.get(0);
+            String e3 = QuestEdits.apply(qs, null, "set_text", none.with("id", quest.id).with("title", "Edited title")
+                    .with("subtitle", "sub").with("desc", new com.levviata.reflib.api.data.DataNode.Lst(java.util.List.of(
+                            new com.levviata.reflib.api.data.DataNode.Str("line one"), new com.levviata.reflib.api.data.DataNode.Str("line two")))));
+            if (e3 != null) {
+                return "set_text refused: " + e3;
+            }
+            if (QuestEdits.apply(qs, null, "no_such_op", none) == null || QuestEdits.apply(qs, null, "delete_quest", none.with("id", "nope")) == null) {
+                return "bad edits were not refused";
+            }
+            com.levviata.reflibquests.io.UpstreamExporter.export(qs.book(), tmp);
+            var back = com.levviata.reflibquests.io.UpstreamImporter.load(tmp);
+            var q2 = back.book().quest(quest.id);
+            if (!back.problems().isEmpty()) {
+                return "re-import problems: " + back.problems().get(0);
+            }
+            if (q2 == null || !"Edited title".equals(q2.title) || q2.x != 1.5 || q2.description.size() != 2) {
+                return "edited quest did not survive export and import";
+            }
+            if (back.book().chapters().size() != qs.book().chapters().size()) {
+                return "chapter count changed in the export";
+            }
+            return null;
+        } finally {
+            qs.reload(); // forget the in-memory edits
+            try (java.util.stream.Stream<java.nio.file.Path> walk = java.nio.file.Files.walk(tmp)) {
+                walk.sorted(java.util.Comparator.reverseOrder()).forEach(path -> path.toFile().delete());
+            }
+        }
+    }
+
+    public static String run(QuestServer qs) {
+        try {
+            if (qs.book().allQuests().size() < 6) {
+                return "expected at least the 6 sample quests, found " + qs.book().allQuests().size();
+            }
+            if (qs.book().tables().size() != 1) {
+                return "expected 1 reward table";
+            }
+            var dirt = qs.book().quest("q_dirt");
+            if (dirt == null || !"Gather dirt".equals(dirt.title) || dirt.description.size() != 2) {
+                return "translations were not applied";
+            }
+            if (qs.inertTasks().size() != 2) {
+                return "expected 2 inert tasks (fluid, unknown item), found " + qs.inertTasks();
+            }
+            // the mapped 1.21 name must resolve through id_map.snbt
+            if (ItemResolver.resolve(qs.book().task("t_log").params().get("item"), qs.idMap()) == null) {
+                return "oak_log did not resolve through the id map";
+            }
+            java.util.List<String> table = BuiltinCheck.problems();
+            if (!table.isEmpty()) {
+                for (String line : table) {
+                    com.levviata.reflibquests.ReflibQuestsMod.LOGGER.error("ID TABLE: {}", line);
+                }
+                return table.size() + " built-in id table entr(ies) do not match the game; first: " + table.get(0);
+            }
+            com.levviata.reflibquests.ReflibQuestsMod.LOGGER.info("ID TABLE: {} item and {} entity entries match the 1.12.2 registries",
+                    com.levviata.reflibquests.io.BuiltinIdMap.items().size(), com.levviata.reflibquests.io.BuiltinIdMap.entities().size());
+            String editProblem = checkEditing(qs);
+            if (editProblem != null) {
+                return editProblem;
+            }
+            UUID team = UUID.randomUUID();
+            TeamProgress p = qs.progressOf(team);
+            qs.apply(p, qs.engine().setTaskProgress(p, "t_dirt", 3, 1000L));
+            if (!p.isCompleted("q_dirt")) {
+                return "q_dirt did not complete";
+            }
+            qs.saveAll();
+            File file = new File(new File(net.minecraftforge.common.DimensionManager.getCurrentSaveRootDirectory(), "data/reflibquests"), "team-" + team + ".snbt");
+            if (!file.exists()) {
+                return "progress file was not written: " + file;
+            }
+            TeamProgress back = ProgressCodec.read(team, DataFiles.read(file.toPath()));
+            if (!back.isCompleted("q_dirt") || back.taskProgress("t_dirt") != 3) {
+                return "progress did not survive a save/load";
+            }
+            return null;
+        } catch (Throwable t) {
+            return t.toString();
+        }
+    }
+}

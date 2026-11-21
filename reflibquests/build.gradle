@@ -1,0 +1,69 @@
+plugins {
+    id 'java'
+    id 'com.cleanroommc.cleanroomgradle'
+}
+
+group = 'com.levviata'
+version = '0.1.0'
+
+base {
+    archivesName = 'reflibquests'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+    exclusiveContent {
+        forRepository {
+            maven {
+                name 'CleanroomMC'
+                url 'https://maven.cleanroommc.com'
+            }
+        }
+        filter {
+            includeGroup 'mezz'
+        }
+    }
+}
+
+dependencies {
+    implementation cleanroom.userdev(cleanroom_version)
+    implementation project(':')
+    // development runs only: party teams so shared progress can be tried; the mod itself needs no such dependency
+    runtimeOnly project(':reflibteams')
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+}
+
+cleanroom {
+    runs {
+        client {
+            configure {
+                username = project.findProperty('mc_username') ?: 'Developer'
+                jvmArgs extra_jvm_args.tokenize()
+            }
+        }
+        server {
+            configure {
+                jvmArgs extra_jvm_args.tokenize()
+            }
+        }
+    }
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'reflibquests.pack', project.findProperty('pack') ?: ''
+    testLogging {
+        showStandardStreams = true
+    }
+}
+
+tasks.withType(JavaExec).configureEach {
+    systemProperty 'foundation.loadsall', 'true'
+}
