@@ -24,6 +24,16 @@ class RichTextTest {
     }
 
     @Test
+    void sectionSignCodesWorkLikeAmpersandCodesAndColourSeveralWords() {
+        List<Line> lines = RichText.parseEntry("§6FTB Utils§r and more");
+        Line l = lines.get(0);
+        assertEquals("FTB Utils", span(l, 0).text(), "the colour covers both words, not just the first");
+        assertEquals(0xFFAA00, span(l, 0).rgb());
+        assertEquals(" and more", span(l, 1).text());
+        assertEquals(RichText.NO_COLOR, span(l, 1).rgb());
+    }
+
+    @Test
     void colourAndStyleCodesApplyUntilReset() {
         List<Line> lines = RichText.parseEntry("plain &6gold&r back &l&bbold aqua&r");
         assertEquals(1, lines.size());

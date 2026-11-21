@@ -95,6 +95,10 @@ public final class ClientBootstrap {
             }
             return;
         }
+        if (ClientQuests.book() != null && ClientQuests.book().settings.getBool("disable_gui", false) && !ClientQuests.canEdit()) {
+            mc.getToastGui().add(QuestToast.blocked("Quest Book GUI is disabled"));
+            return;
+        }
         mc.displayGuiScreen(new QuestScreen());
     }
 
@@ -119,6 +123,7 @@ public final class ClientBootstrap {
 
     // ---- corner pop-ups for completed quests and collected rewards (first look after joining is silent)
     private static final java.util.Set<String> DONE_SEEN = new java.util.HashSet<>();
+    private static final java.util.Set<String> CHAPTERS_SEEN = new java.util.HashSet<>();
     private static final java.util.Set<String> CLAIMED_SEEN = new java.util.HashSet<>();
     private static boolean toastsPrimed;
     private static int toastBookVersion = -1;
@@ -126,6 +131,7 @@ public final class ClientBootstrap {
 
     private static void notifyPlayer(Minecraft mc, String style, QuestToast toast, String chat) {
         if (style.equals("Toast")) {
+            QuestToast.live++;
             mc.getToastGui().add(toast);
         } else if (style.equals("Chat")) {
             mc.player.sendMessage(new net.minecraft.util.text.TextComponentString("\u00a7a[Quests] \u00a7f" + chat));
@@ -152,20 +158,48 @@ public final class ClientBootstrap {
         toastsPrimed = true;
         toastBookVersion = ClientQuests.bookVersion();
         if (quiet) {
+            CHAPTERS_SEEN.clear();
             DONE_SEEN.clear();
             CLAIMED_SEEN.clear();
         }
+        for (com.levviata.reflibquests.model.Definitions.Chapter ch : book.chapters()) {
+            if (ch.quests.isEmpty() || !com.levviata.reflibquests.model.QuestRules.chapterCompleted(p, ch)) {
+                CHAPTERS_SEEN.remove(ch.id); // reset: it can be finished again
+            } else if (CHAPTERS_SEEN.add(ch.id) && !quiet && !ch.disableToast && !book.settings.getBool("disable_toast", false)) {
+                net.minecraft.item.ItemStack chIcon = ch.icon.entries().isEmpty() ? null : QuestText.stackOf(ch.icon);
+                if (chIcon == null && !ch.quests.isEmpty()) {
+                    chIcon = QuestText.iconOf(ch.quests.get(0));
+                }
+                QuestToast chapterToast = new QuestToast("Chapter completed!", com.levviata.reflibquests.text.RichText.stripCodes(ch.title.isEmpty() ? ch.id : ch.title), chIcon);
+                chapterToast.titleColor = 0xFF55FF;
+                notifyPlayer(mc, ClientPrefs.completionNotification, chapterToast, "Chapter completed: " + com.levviata.reflibquests.text.RichText.stripCodes(ch.title));
+                if (ClientPrefs.completionSounds && !ClientPrefs.completionNotification.equals("None")) {
+                    mc.getSoundHandler().playSound(net.minecraft.client.audio.PositionedSoundRecord.getMasterRecord(net.minecraft.init.SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, 1.0f));
+                }
+            }
+        }
         for (Quest q : book.allQuests()) {
-            if (p.isCompleted(q.id) && DONE_SEEN.add(q.id) && !quiet && !q.disableToast) {
+            com.levviata.reflibquests.model.Definitions.Chapter toastChapter = book.chapterOf(q.id);
+            if (!p.isCompleted(q.id)) {
+                DONE_SEEN.remove(q.id); // progress was reset: completing it again pops the toast again
+            }
+            if (p.isCompleted(q.id) && !DONE_SEEN.contains(q.id)) {
+                com.levviata.reflibquests.ReflibQuestsMod.LOGGER.info("toast check {}: quiet={} questOff={} chapterOff={} bookOff={} style={}", q.id, quiet, q.disableToast,
+                        toastChapter != null && toastChapter.disableToast, book.settings.getBool("disable_toast", false), ClientPrefs.completionNotification);
+            }
+            if (p.isCompleted(q.id) && DONE_SEEN.add(q.id) && !quiet && !q.disableToast && (toastChapter == null || !toastChapter.disableToast) && !book.settings.getBool("disable_toast", false)) {
                 notifyPlayer(mc, ClientPrefs.completionNotification, new QuestToast("Quest completed!", QuestText.title(q), QuestText.iconOf(q)),
                         "Quest completed: " + QuestText.titlePlain(q));
-                if (ClientPrefs.completionSounds && !ClientPrefs.completionNotification.equals("None")) {
+                if (ClientPrefs.completionSounds && !ClientPrefs.completionNotification.equals("None") && QuestToast.live <= 1) {
                     mc.getSoundHandler().playSound(net.minecraft.client.audio.PositionedSoundRecord.getMasterRecord(net.minecraft.init.SoundEvents.ENTITY_PLAYER_LEVELUP, 1.0f));
                 }
             }
             for (com.levviata.reflibquests.model.Definitions.Reward rw : q.rewards) {
+                if (!p.isClaimed(rw.id(), me)) {
+                    CLAIMED_SEEN.remove(rw.id()); // un-claimed by a reset: the next claim shows its toast
+                }
                 if (p.isClaimed(rw.id(), me) && CLAIMED_SEEN.add(rw.id()) && !quiet) {
-                    String text = rw.type().equals("xp") ? "XP: +" + Math.max(1, rw.params().getInt("xp", 1)) : QuestText.reward(rw);
+                    String text = rw.type().equals("xp") ? "XP: \u00a7a+" + Math.max(1, rw.params().getInt("xp", 1)) : QuestText.reward(rw);
                     net.minecraft.item.ItemStack icon = rw.type().startsWith("xp")
                             ? new net.minecraft.item.ItemStack(net.minecraft.init.Items.EXPERIENCE_BOTTLE)
                             : rw.type().equals("item") ? QuestText.stackOf(rw.params().get("item")) : null;

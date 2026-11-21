@@ -87,10 +87,31 @@ final class ChangeLog {
 
     static void add(String action, String type, String name) {
         load();
-        lastAdded = System.currentTimeMillis();
+        long now = System.currentTimeMillis();
+        Line last = LINES.peekLast();
+        if (action.equals("Move") && last != null && last.session() && last.action().equals(action) && last.type().equals(type)
+                && last.name().equals(name) && now - last.at() < 2000) {
+            // repeated nudges (Ctrl + arrows) show as one line; every press is still its own undo step
+            LINES.removeLast();
+        }
+        lastAdded = now;
         LINES.addLast(new Line(lastAdded, action, type, name, true));
         while (LINES.size() > KEEP) {
             LINES.removeFirst();
+        }
+        save();
+    }
+
+    static int size() {
+        load();
+        return LINES.size();
+    }
+
+    /** Drop the lines added after the log had {@code size} lines (edits that were cancelled). */
+    static void truncate(int size) {
+        load();
+        while (LINES.size() > size) {
+            LINES.removeLast();
         }
         save();
     }
@@ -101,6 +122,87 @@ final class ChangeLog {
         if (d != null) {
             add(d.action(), d.type(), d.name());
         }
+        if (!NOT_UNDOABLE.contains(op)) {
+            UNDO_STACK.addLast(d != null ? d : new Desc("Edit", "", ""));
+            while (UNDO_STACK.size() > 100) {
+                UNDO_STACK.removeFirst();
+            }
+            REDO_STACK.clear(); // a new edit ends what could be redone
+        }
+    }
+
+    // ------------------------------------------------------------------ what Undo and Redo would do
+
+    /** Edits that are not steps of the undo history. */
+    private static final java.util.Set<String> NOT_UNDOABLE = java.util.Set.of("reset_progress", "complete_quest", "save_now", "undo", "redo", "complete_task", "reset_task", "grab_item");
+    private static final ArrayDeque<Desc> UNDO_STACK = new ArrayDeque<>();
+    private static final ArrayDeque<Desc> REDO_STACK = new ArrayDeque<>();
+
+    static void noteUndo() {
+        if (!UNDO_STACK.isEmpty()) {
+            REDO_STACK.addLast(UNDO_STACK.removeLast());
+        }
+    }
+
+    static void noteRedo() {
+        if (!REDO_STACK.isEmpty()) {
+            UNDO_STACK.addLast(REDO_STACK.removeLast());
+        }
+    }
+
+    static int undoSize() {
+        return UNDO_STACK.size();
+    }
+
+    /** Forget the steps noted after the stack had {@code size} entries (edits that were cancelled). */
+    static void truncateUndo(int size) {
+        while (UNDO_STACK.size() > size) {
+            UNDO_STACK.removeLast();
+        }
+    }
+
+    static void clearHistoryNotes() {
+        UNDO_STACK.clear();
+        REDO_STACK.clear();
+    }
+
+    private static String typeCode(String type) {
+        String kind = type.contains(" ") ? type.substring(0, type.indexOf(' ')) : type;
+        switch (kind) {
+            case "Task":
+                return "\u00a79";
+            case "Reward":
+            case "Chapter":
+                return "\u00a76";
+            case "Image":
+                return "\u00a7d";
+            case "Progress":
+                return "\u00a7c";
+            default:
+                return "\u00a7a";
+        }
+    }
+
+    /**
+     * The tooltip of the Undo or Redo button: the steps it would undo or redo, the newest first, and its key.
+     * With no steps noted (the history is older than this session) the server's own wording is used.
+     */
+    static List<String> historyTip(boolean undo, String shortcut, String serverLabel) {
+        List<String> out = new ArrayList<>();
+        out.add("\u00a7f" + (undo ? "Undo" : "Redo"));
+        ArrayDeque<Desc> stack = undo ? UNDO_STACK : REDO_STACK;
+        int shown = 0;
+        java.util.Iterator<Desc> it = stack.descendingIterator();
+        while (it.hasNext() && shown++ < 8) {
+            Desc d = it.next();
+            String line = "\u00a77\u2022 " + d.action() + (d.type().isEmpty() ? "" : " " + typeCode(d.type()) + d.type() + "\u00a77:");
+            out.add(d.name().isEmpty() ? line : line + " '" + d.name() + "'");
+        }
+        if (shown == 0 && !serverLabel.isEmpty()) {
+            out.add("\u00a77\u2022 " + serverLabel);
+        }
+        out.add("\u00a78[" + shortcut + "]");
+        return out;
     }
 
     // ------------------------------------------------------------------ drawing
@@ -118,9 +220,9 @@ final class ChangeLog {
         String kind = type.contains(" ") ? type.substring(0, type.indexOf(' ')) : type;
         switch (kind) {
             case "Task" -> c = 0x5555FF;
-            case "Reward" -> c = 0xFFAA00;
+            case "Reward" -> c = 0xFF55FF;
             case "Chapter" -> c = 0x55FFFF;
-            case "Image" -> c = 0xFF55FF;
+            case "Image" -> c = 0x55FFFF;
             case "Progress" -> c = 0xFF5555;
             default -> c = 0x55FF55;
         }
@@ -156,10 +258,17 @@ final class ChangeLog {
         if (lines.isEmpty()) {
             return;
         }
-        float scale = (float) Math.max(0.3, Math.min(2.0, ClientPrefs.changelogScale));
+        float scale = (float) Math.max(0.3, Math.min(2.0, ClientPrefs.changelogScale)) * 0.88f;
         int rowHeight = Math.max(6, Math.round(11 * scale));
         int height = lines.size() * rowHeight + 2;
-        Gui.drawRect(x, bottom - height, x + width, bottom, 0xB0000000);
+        int widest = 0;
+        for (Line l : lines) {
+            String all = CLOCK.format(new Date(l.at())) + " | " + l.action() + " " + (l.type().isEmpty() ? "" : l.type() + (colon(l.type()) ? ": " : " "))
+                    + (l.name().isEmpty() ? "" : "'" + l.name() + "'");
+            widest = Math.max(widest, Math.round(fr.getStringWidth(all) * scale) + 8);
+        }
+        width = Math.min(width, widest); // as wide as its text
+        Gui.drawRect(x, bottom - height, x + width, bottom, 0x6E000000);
         GlStateManager.enableBlend();
         int y = bottom - height + 2;
         long nowMs = System.currentTimeMillis();
@@ -215,6 +324,16 @@ final class ChangeLog {
                 return new Desc("Move", "Quest", quest(book, id));
             case "delete_quest":
                 return new Desc("Delete", "Quest", quest(book, id));
+            case "move_task":
+                return new Desc("Move", "Task", "");
+            case "move_reward":
+                return new Desc("Move", "Reward", "");
+            case "set_bezier":
+                return new Desc("Modify", "Quest", quest(book, id));
+            case "move_quests":
+                return new Desc("Move", "Quest", a.getList("moves").size() + " quests");
+            case "delete_quests":
+                return new Desc("Delete", "Quest", a.getList("ids").size() + " quests");
             case "create_quest":
                 return new Desc("Create", "Quest", "");
             case "set_title":
@@ -275,6 +394,12 @@ final class ChangeLog {
                 return new Desc("Move", "Image", "");
             case "delete_image":
                 return new Desc("Delete", "Image", "");
+            case "set_image_props":
+                return new Desc("Modify", "Image", "");
+            case "create_link":
+                return new Desc("Create", "Quest Link", "");
+            case "delete_link":
+                return new Desc("Delete", "Quest Link", "");
             case "create_table":
                 return new Desc("Create", "Reward Table", RichText.stripCodes(a.getString("title", "")));
             case "rename_table":

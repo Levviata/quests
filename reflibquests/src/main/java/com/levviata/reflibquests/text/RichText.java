@@ -151,7 +151,7 @@ public final class RichText {
                 i++;
                 continue;
             }
-            if (c == '&' && i + 1 < row.length()) {
+            if ((c == '&' || c == '§') && i + 1 < row.length()) { // legacy files write the section sign, as the game does
                 char n = Character.toLowerCase(row.charAt(i + 1));
                 if (n == '&') {
                     text.append('&');

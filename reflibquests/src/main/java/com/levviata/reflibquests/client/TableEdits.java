@@ -43,10 +43,10 @@ final class TableEdits {
     /** Edits the client can carry out on its own copy of the book exactly as the server will. */
     private static final Set<String> LOCAL = Set.of(
             "create_table", "rename_table", "delete_table", "set_table_prop", "add_table_entry", "set_entry_weight", "remove_table_entry",
-            "move_quest", "delete_quest", "delete_chapter", "rename_chapter", "set_chapter_prop", "set_text", "set_title", "set_subtitle",
-            "set_prop", "set_flag", "set_shape", "toggle_dep", "task_value", "remove_task", "remove_reward", "move_image", "delete_image",
-            "set_task_prop", "set_reward_prop",
-            "create_group", "rename_group", "delete_group", "set_chapter_group", "move_chapter", "move_group");
+            "move_quest", "delete_quest", "move_quests", "delete_quests", "set_bezier", "delete_chapter", "rename_chapter", "set_chapter_prop", "set_text", "set_title", "set_subtitle",
+            "set_prop", "set_flag", "set_shape", "toggle_dep", "task_value", "remove_task", "remove_reward", "move_image", "delete_image", "set_image_props", "delete_link",
+            "set_task_prop", "set_reward_prop", "set_book_prop", "move_task", "move_reward",
+            "create_group", "rename_group", "delete_group", "set_chapter_group", "move_chapter", "move_group", "set_group_chapter");
 
     private static final List<Op> PENDING = new ArrayList<>();
     private static boolean fileChecked;
@@ -115,6 +115,9 @@ final class TableEdits {
                     (float) a.getDouble("weight", 1), a.getString("entry", ""));
             case "move_quest" -> ed.moveQuest(a.getString("id", ""), a.getDouble("x", Double.NaN), a.getDouble("y", Double.NaN));
             case "delete_quest" -> ed.deleteQuest(a.getString("id", ""));
+            case "move_quests" -> ed.moveQuests(a);
+            case "set_bezier" -> ed.setBezier(a.getString("id", ""), a.getCompound("points"));
+            case "delete_quests" -> ed.deleteQuests(a);
             case "delete_chapter" -> ed.deleteChapter(a.getString("id", ""));
             case "rename_chapter" -> ed.renameChapter(a.getString("id", ""), a.getString("title", ""));
             case "set_chapter_prop" -> ed.setChapterProp(a.getString("id", ""), a.getString("key", ""), a.getString("value", ""));
@@ -130,15 +133,80 @@ final class TableEdits {
             case "remove_reward" -> ed.removeReward(a.getString("id", ""));
             case "move_image" -> ed.moveImage(a.getString("id", ""), a.getDouble("x", 0), a.getDouble("y", 0));
             case "delete_image" -> ed.deleteImage(a.getString("id", ""));
+            case "set_image_props" -> ed.setImageProps(a.getString("id", ""), a.getCompound("props"));
+            case "delete_link" -> ed.deleteLink(a.getString("id", ""));
             case "create_group" -> ed.createGroup(a.getString("title", ""), a.getString("id", ""));
             case "rename_group" -> ed.renameGroup(a.getString("id", ""), a.getString("title", ""));
             case "delete_group" -> ed.deleteGroup(a.getString("id", ""));
             case "set_chapter_group" -> ed.setChapterGroup(a.getString("id", ""), a.getString("group", ""));
             case "move_chapter" -> ed.moveChapter(a.getString("id", ""), a.getInt("by", 0));
             case "move_group" -> ed.moveGroup(a.getString("id", ""), a.getInt("by", 0));
+            case "set_group_chapter" -> ed.setGroupChapter(a.getString("id", ""), a.getString("chapter", ""));
             case "set_task_prop" -> ed.setTaskProp(a.getString("id", ""), a.getString("key", ""), a.getString("value", ""));
+            case "move_task" -> ed.moveTask(a.getString("id", ""), a.getInt("by", 0));
+            case "move_reward" -> ed.moveReward(a.getString("id", ""), a.getInt("by", 0));
+            case "set_book_prop" -> ed.setBookProp(a.getString("key", ""), a.getString("value", ""));
             case "set_reward_prop" -> ed.setRewardProp(a.getString("id", ""), a.getString("key", ""), a.getString("value", ""));
             default -> { }
+        }
+    }
+
+    /** What a window that can be cancelled needs to put the book back: the waiting edits, the log and the reward tables. */
+    static final class Mark {
+        private final int pending = PENDING.size();
+        private final int log = ChangeLog.size();
+        private final int undoNotes = ChangeLog.undoSize();
+        private final java.util.Map<String, com.levviata.reflibquests.model.Definitions.RewardTable> tables = new java.util.LinkedHashMap<>();
+        private boolean open = true;
+
+        private Mark() {
+            QuestBook book = ClientQuests.book();
+            if (book != null) {
+                book.tables().forEach((id, t) -> tables.put(id, com.levviata.reflibquests.model.DeepCopy.table(t)));
+            }
+            holds++;
+        }
+    }
+
+    private static int holds;
+
+    /** Start a window whose edits only count on Accept. Nothing is sent to the server until {@link #accept} or {@link #rollback}. */
+    static Mark mark() {
+        return new Mark();
+    }
+
+    static void accept(Mark m) {
+        if (m.open) {
+            m.open = false;
+            holds = Math.max(0, holds - 1);
+        }
+    }
+
+    /** Cancel: put the reward tables back and forget the edits made since the mark. */
+    static void rollback(Mark m) {
+        if (!m.open) {
+            return;
+        }
+        m.open = false;
+        holds = Math.max(0, holds - 1);
+        QuestBook book = ClientQuests.book();
+        if (book != null) {
+            book.tables().clear();
+            book.tables().putAll(m.tables);
+        }
+        while (PENDING.size() > m.pending) {
+            PENDING.remove(PENDING.size() - 1);
+        }
+        ChangeLog.truncate(m.log);
+        ChangeLog.truncateUndo(m.undoNotes);
+        if (PENDING.isEmpty()) {
+            try {
+                Files.deleteIfExists(file());
+            } catch (IOException ex) {
+                ReflibQuestsMod.LOGGER.warn("Cannot remove the pending quest edits: {}", ex.getMessage());
+            }
+        } else {
+            persist();
         }
     }
 
@@ -182,6 +250,9 @@ final class TableEdits {
         }
         if (PENDING.isEmpty()) {
             return;
+        }
+        if (holds > 0) {
+            return; // a window with Accept / Cancel is open
         }
         if (!inQuestUi() || System.currentTimeMillis() - lastFlush >= AUTOSAVE_MS) {
             flush();

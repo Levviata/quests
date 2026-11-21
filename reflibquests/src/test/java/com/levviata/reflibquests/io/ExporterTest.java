@@ -177,6 +177,55 @@ class ExporterTest {
         assertEquals(3, UpstreamImporter.load(dir.resolve("out")).book().chapters().size());
     }
 
+    @Test
+    void settingsSavedByFtbQuests2612SurviveAnImportAndExport() throws IOException {
+        // keys as FTB Quests 26.1.2 wrote them into a saved quest folder
+        Path root = dir.resolve("ftb");
+        write(root, "data.json5", "{ version: 13, disable_toast: true, suppress_all_autoclaiming: true, default_reward_team: true, "
+                + "default_consume_items: true, default_autoclaim_rewards: \"enabled\", default_quest_shape: \"diamond\", "
+                + "default_quest_disable_jei: true, drop_loot_crates: false, progression_mode: \"flexible\", fallback_locale: \"en_us\" }");
+        write(root, "chapters/ss.json5", """
+                { id: "42F8156782BCB9C6", group: "", order_index: 0, disable_toast: true, filename: "ss", always_invisible: true,
+                  default_quest_shape: "circle", default_hide_dependency_lines: true, progression_mode: "flexible", consume_items: true,
+                  hide_quest_details_until_startable: true, hide_quest_until_deps_visible: true, hide_quest_until_deps_complete: true,
+                  hide_text_until_complete: true, default_repeatable_quest: true, require_sequential_tasks: true, preset: "normal",
+                  quests: [
+                    { x: -3.0, y: -3.0, shape: "circle", hide_dependency_lines: true, hide_until_deps_visible: true,
+                      dependency_requirement: "one_completed", hide_text_until_complete: false, size: 1.0, optional: true,
+                      ignore_reward_blocking: true, hide_details_until_startable: false, hide_lock_icon: true, preset: "normal",
+                      id: "0ACA4BA5FF854014",
+                      tasks: [
+                        { id: "6EDFEBE175009A74", type: "item", disable_toast: true, optional_task: true,
+                          item: { id: "minecraft:stripped_oak_wood", count: 1 }, consume_items: false, only_from_crafting: false,
+                          match_components: "fuzzy", task_screen_only: true } ],
+                      rewards: [
+                        { id: "08BF126A5CB1A59E", type: "item", team_reward: false, auto: "disabled", exclude_from_claim_all: true,
+                          ignore_reward_blocking: true, disable_reward_screen_blur: true,
+                          item: { id: "minecraft:spruce_trapdoor", count: 1 }, only_one: true } ] },
+                    { x: -0.5, y: 0.0, dependencies: [ "0ACA4BA5FF854014" ],
+                      dep_control_pts: { "0ACA4BA5FF854014": [ -15.98, -6.07, -0.43, -1.69 ] },
+                      size: 1.0, id: "10422FA1A4944CAF",
+                      tasks: [ { id: "69BB60E6B2F35F5A", type: "item", item: { id: "minecraft:birch_slab", count: 1 } } ] } ],
+                  quest_links: [], images: [] }
+                """);
+        UpstreamImporter.Result r = UpstreamImporter.load(root);
+        assertEquals(List.of(), r.problems());
+        var chapter = r.book().chapters().get(0);
+        assertTrue(chapter.disableToast);
+        assertTrue(chapter.hideTextUntilComplete);
+        assertEquals(com.levviata.reflibquests.model.Definitions.Tristate.TRUE, chapter.defaultConsumeItems);
+        Path out = dir.resolve("ftb-out");
+        UpstreamExporter.export(r.book(), out);
+        String chapterText = Files.readString(out.resolve("chapters/ss.json5"));
+        for (String key : List.of("disable_toast", "consume_items", "hide_text_until_complete", "match_components", "task_screen_only",
+                "only_from_crafting", "team_reward", "only_one", "disable_reward_screen_blur", "ignore_reward_blocking",
+                "exclude_from_claim_all", "dep_control_pts", "preset", "hide_lock_icon", "dependency_requirement")) {
+            assertTrue(chapterText.contains(key), "the exported chapter keeps " + key);
+        }
+        String dataText = Files.readString(out.resolve("data.json5"));
+        assertTrue(dataText.contains("suppress_all_autoclaiming") && dataText.contains("disable_toast"), "book settings keep their keys");
+    }
+
     private static final class DataFilesRead {
         static DataNode.Compound read(Path p) throws IOException {
             return com.levviata.reflib.api.data.DataFiles.read(p);

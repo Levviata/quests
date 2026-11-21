@@ -66,6 +66,11 @@ public final class UpstreamExporter {
 
     private static void writeData(QuestBook book, Path folder) throws IOException {
         DataNode.Compound d = book.settings;
+        // "tags" is not known in FTB Quests' file yet, so it is not written; the book's icon is {id, count} there
+        d = d.without("tags");
+        if (d.get("icon") instanceof DataNode.Compound ic && !ic.has("count")) {
+            d = d.with("icon", ic.with("count", 1));
+        }
         d = d.with("version", FORMAT_VERSION);
         d = ensure(d, "default_reward_team", new DataNode.Bool(false));
         d = ensure(d, "default_consume_items", new DataNode.Bool(false));
@@ -105,6 +110,9 @@ public final class UpstreamExporter {
         o = o.with("id", c.id).with("group", c.groupId).with("order_index", orderIndex).with("filename", filename);
         o = setOrRemove(o, "icon", c.icon.entries().isEmpty() ? null : c.icon);
         o = flag(o, "always_invisible", c.alwaysInvisible);
+        o = flag(o, "disable_toast", c.disableToast);
+        o = flag(o, "hide_text_until_complete", c.hideTextUntilComplete);
+        o = tri(o, "consume_items", c.defaultConsumeItems);
         o = setOrRemove(o, "progression_mode", c.progressionMode == ProgressionMode.DEFAULT ? null
                 : new DataNode.Str(c.progressionMode.name().toLowerCase(Locale.ROOT)));
         o = flag(o, "require_sequential_tasks", c.requireSequentialTasks);
@@ -125,7 +133,7 @@ public final class UpstreamExporter {
         }
         List<DataNode> images = new ArrayList<>();
         for (var i : c.images) {
-            images.add(i.raw().with("id", i.id()));
+            images.add(i.raw().without("title").with("id", i.id())); // the title goes to the language file
         }
         return o.with("quests", new DataNode.Lst(quests)).with("quest_links", new DataNode.Lst(links)).with("images", new DataNode.Lst(images));
     }
@@ -141,6 +149,7 @@ public final class UpstreamExporter {
             deps.add(new DataNode.Str(d));
         }
         o = setOrRemove(o, "dependencies", deps.isEmpty() ? null : new DataNode.Lst(deps));
+        o = setOrRemove(o, "dep_control_pts", q.depControlPts.isEmpty() ? null : com.levviata.reflibquests.model.ControlPoints.write(q.depControlPts));
         o = setOrRemove(o, "dependency_requirement", q.dependencyMode == DependencyMode.ALL_COMPLETED ? null
                 : new DataNode.Str(q.dependencyMode.name().toLowerCase(Locale.ROOT)));
         o = setOrRemove(o, "min_required_dependencies", q.minRequiredDependencies == 0 ? null : new DataNode.Int(q.minRequiredDependencies));
@@ -165,13 +174,27 @@ public final class UpstreamExporter {
         o = flag(o, "or_tasks", q.orTasks);
         List<DataNode> tasks = new ArrayList<>();
         for (Task t : q.tasks) {
-            tasks.add(DataNode.Compound.empty().with("id", t.id()).with("type", t.type()).with("__params", t.params()));
+            tasks.add(DataNode.Compound.empty().with("id", t.id()).with("type", t.type()).with("__params", withoutOurs(t.params())));
         }
         List<DataNode> rewards = new ArrayList<>();
         for (Reward r : q.rewards) {
-            rewards.add(DataNode.Compound.empty().with("id", r.id()).with("type", r.type()).with("__params", r.params()));
+            rewards.add(DataNode.Compound.empty().with("id", r.id()).with("type", r.type()).with("__params", withoutOurs(r.params())));
         }
         return o.with("tasks", flatten(tasks)).with("rewards", flatten(rewards));
+    }
+
+    /**
+     * Settings of a task or reward that Reflib Quests keeps but whose names in FTB Quests' files are not known: they are left
+     * out of the exported files, because a file with a field FTB Quests does not know can stop quests from working.
+     */
+    private static final java.util.Set<String> OURS_ONLY = java.util.Set.of();
+
+    private static DataNode.Compound withoutOurs(DataNode.Compound params) {
+        DataNode.Compound out = params;
+        for (String key : OURS_ONLY) {
+            out = out.without(key);
+        }
+        return out;
     }
 
     /** Moves each element's "__params" entries up into the element itself (so id and type come first). */
@@ -218,7 +241,7 @@ public final class UpstreamExporter {
                 if (!w.reward().type().equals("item")) {
                     r = r.with("type", w.reward().type());
                 }
-                for (var e : w.reward().params().entries().entrySet()) {
+                for (var e : withoutOurs(w.reward().params()).entries().entrySet()) {
                     r = r.with(e.getKey(), e.getValue());
                 }
                 if (w.weight() != 1f) {
@@ -249,6 +272,9 @@ public final class UpstreamExporter {
             for (Quest q : c.quests) {
                 live.add("quest." + q.id + ".");
             }
+            for (var i : c.images) {
+                live.add("image." + i.id() + ".");
+            }
         }
         for (RewardTable t : book.tables().values()) {
             live.add("reward_table." + t.id + ".");
@@ -262,6 +288,9 @@ public final class UpstreamExporter {
         for (Chapter c : book.chapters()) {
             text(main, "chapter." + c.id + ".title", c.title);
             list(main, "chapter." + c.id + ".chapter_subtitle", c.subtitle);
+            for (var i : c.images) {
+                text(main, "image." + i.id() + ".title", i.raw().getString("title", ""));
+            }
             for (Quest q : c.quests) {
                 text(main, "quest." + q.id + ".title", q.title);
                 text(main, "quest." + q.id + ".quest_subtitle", q.subtitle);
@@ -297,7 +326,7 @@ public final class UpstreamExporter {
     }
 
     private static boolean isObjectKey(String key) {
-        return key.startsWith("quest.") || key.startsWith("chapter.") || key.startsWith("chapter_group.") || key.startsWith("reward_table.");
+        return key.startsWith("quest.") || key.startsWith("image.") || key.startsWith("chapter.") || key.startsWith("chapter_group.") || key.startsWith("reward_table.");
     }
 
     private static void text(Map<String, DataNode> table, String key, String value) {

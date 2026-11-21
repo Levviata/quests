@@ -166,10 +166,17 @@ public final class Definitions {
         public double y;
         public String shape = "";
         public double size = 1.0;
+        /** Stacking on the map: a higher z is drawn over (and hides) a lower one; at the same z the bigger quest is on top. */
+        public double z;
         public DataNode.Compound icon = DataNode.Compound.empty();
         public final List<Task> tasks = new ArrayList<>();
         public final List<Reward> rewards = new ArrayList<>();
         public final List<String> dependencies = new ArrayList<>();
+        /**
+         * Curved dependency lines: for a dependency id, the two Bezier control points [x1, y1, x2, y2] in grid units
+         * (the first sits by the dependency, the second by this quest). Not final, so the history copies it.
+         */
+        public java.util.Map<String, List<Double>> depControlPts = new java.util.LinkedHashMap<>();
         public DependencyMode dependencyMode = DependencyMode.ALL_COMPLETED;
         /** If above 0, this many dependencies suffice instead of the mode's default. */
         public int minRequiredDependencies;
@@ -230,6 +237,17 @@ public final class Definitions {
         public boolean defaultHideDependencyLines;
         /** The quest the chapter opens centred on (empty: none). */
         public String autofocusId = "";
+        /** No pop-up when a quest of the chapter completes. */
+        public boolean disableToast;
+        /** Quest text stays hidden until the quest is completed (quests may say otherwise). */
+        public boolean hideTextUntilComplete;
+        /** Whether item tasks of the chapter take the items; default: the book's setting. */
+        public Tristate defaultConsumeItems = Tristate.DEFAULT;
+        /** The size new quests of the chapter start with. */
+        public double defaultQuestSize = 1.0;
+        /** The quest window is at least this wide (0: the usual width). */
+        public int minWindowWidth;
+        public List<String> tags = new ArrayList<>();
         /** Shape for quests that do not name one (empty: the book's default). */
         public String defaultQuestShape = "";
         public final List<Quest> quests = new ArrayList<>();

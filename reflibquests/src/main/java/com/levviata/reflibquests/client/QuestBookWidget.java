@@ -58,8 +58,8 @@ import com.levviata.reflibquests.net.QuestNet;
 @SideOnly(Side.CLIENT)
 final class QuestBookWidget extends Widget {
 
-    private static final int LIST_W = 150;
-    private static final int DETAIL_W = 230;
+    private static final int LIST_W = 99;
+    private static final int DETAIL_W = 205;
     private static final int HEADER = 22;
     private static final double GRID = 26.0;
     /** Chapter pictures were drawn about 12% too large next to the quests in side-by-side checks. */
@@ -71,6 +71,23 @@ final class QuestBookWidget extends Widget {
     // state survives screen rebuilds (window resize) and re-opening
     private static String chapterId = "";
     private static String selectedQuest = "";
+    /** Quests picked with Ctrl + click (edit mode), and the ones last copied. */
+    private static final java.util.Set<String> SELECTION = new java.util.LinkedHashSet<>();
+    private static final List<String> COPIED = new ArrayList<>();
+    private static String selectionChapter = "";
+    /** Ctrl + R: lines through the grid spot under the mouse, out to the edges of the map. */
+    private static boolean crosshairs;
+    /** Quests viewed, oldest first; Backspace goes back through them. */
+    private static final List<String> VIEWED = new ArrayList<>();
+    private static String viewedTop = "";
+
+    /** The picked quests belong to one chapter: switching chapters drops them. */
+    private static void syncSelection(Chapter chapter) {
+        if (!chapter.id.equals(selectionChapter)) {
+            SELECTION.clear();
+            selectionChapter = chapter.id;
+        }
+    }
     private static int stateVersion = -1;
     private static final Map<String, ViewTransform> VIEWS = new HashMap<>();
     private static int listScroll;
@@ -93,7 +110,7 @@ final class QuestBookWidget extends Widget {
     private static String lastListChapter = "";
     private static final java.util.Set<String> EXPANDED_GROUPS = new java.util.HashSet<>();
     private static boolean searching;
-    private static final StringBuilder QUERY = new StringBuilder();
+    private static final TextEditor QUERY = new TextEditor("", 48);
     private static String cachedQuery = null;
     private static int cachedBookVersion = -1;
     private static TeamProgress cachedProgress;
@@ -114,26 +131,65 @@ final class QuestBookWidget extends Widget {
     private double ghostX;
     private double ghostY;
 
+    /** The quests that travel with the one being moved (when it is one of several picked ones). */
+    private final List<Quest> moveGroup = new ArrayList<>();
+
     private void startQuestMove(Quest q) {
+        playClick();
         movingQuest = q;
         ghostX = q.x;
         ghostY = q.y;
         pressedOnMap = false;
+        moveGroup.clear();
+        QuestBook book = ClientQuests.book();
+        Chapter chapter = book == null ? null : currentChapter(book);
+        if (chapter != null && SELECTION.contains(q.id) && SELECTION.size() > 1) {
+            for (Quest other : chapter.quests) {
+                if (SELECTION.contains(other.id) && other != q) {
+                    moveGroup.add(other);
+                }
+            }
+        }
     }
 
     /** Drop the quest at the highlighted place, or leave it where it was. */
     private void endQuestMove(boolean keep) {
         Quest q = movingQuest;
         movingQuest = null;
+        List<Quest> group = new ArrayList<>(moveGroup);
+        moveGroup.clear();
         if (q == null) {
             return;
         }
+        if (keep) {
+            playClick(); // the quest is dropped
+        }
         if (keep && (ghostX != q.x || ghostY != q.y)) {
+            double dx = ghostX - q.x;
+            double dy = ghostY - q.y;
+            List<DataNode> moves = new ArrayList<>();
+            for (Quest other : group) {
+                other.x += dx;
+                other.y += dy;
+                moves.add(DataNode.Compound.empty().with("id", other.id).with("x", other.x).with("y", other.y));
+            }
             q.x = ghostX;
             q.y = ghostY;
-            send("move_quest", args("id", q.id, "x", q.x, "y", q.y));
+            if (group.isEmpty()) {
+                send("move_quest", args("id", q.id, "x", q.x, "y", q.y));
+            } else {
+                moves.add(DataNode.Compound.empty().with("id", q.id).with("x", q.x).with("y", q.y));
+                send("move_quests", DataNode.Compound.empty().with("moves", new DataNode.Lst(moves))); // one step in the history
+            }
         }
     }
+
+    /** A box being dragged with the middle button to pick quests: where it started, in screen pixels. */
+    private boolean boxing;
+    private int boxButton = 2;
+    private int boxX0;
+    private int boxY0;
+
     private Rect clip;
 
     private record Hit(Rect rect, Runnable action, String tip, Runnable right) {
@@ -175,7 +231,19 @@ final class QuestBookWidget extends Widget {
 
     /** The chapter panel floats over the left edge of the map; it can be folded away with the arrow tab. */
     private int listWidth() {
-        return (int) Math.round(LIST_W * listAnim);
+        return (int) Math.round(listFull * listAnim);
+    }
+
+    /** The panel is as wide as its longest chapter name (FTB Quests puts no limit on it), never narrower than the base width. */
+    private int listFull = LIST_W;
+
+    private void updateListFull(FontRenderer fr, QuestBook book) {
+        int need = LIST_W;
+        for (Chapter c : visibleChapters(book)) {
+            String name = RichText.stripCodes(c.title.isEmpty() ? c.id : c.title);
+            need = Math.max(need, 2 + 3 + (c.groupId.isEmpty() ? 0 : 8) + 19 + fr.getStringWidth(name) + 19);
+        }
+        listFull = Math.min(need, Math.max(LIST_W, bounds.width() - 60)); // the map keeps some room
     }
 
     private Rect listRect() {
@@ -210,7 +278,10 @@ final class QuestBookWidget extends Widget {
     private Rect detailRect() {
         int h = Math.max(70, Math.min(bounds.height() - 40, detailContentHeight));
         int cx = bounds.x() + bounds.width() / 2;
-        return new Rect(cx - DETAIL_W / 2, bounds.y() + (bounds.height() - h) / 2, DETAIL_W, h);
+        QuestBook rb = ClientQuests.book();
+        Chapter shownIn = rb == null || selectedQuest.isEmpty() ? null : rb.chapterOf(selectedQuest);
+        int w = shownIn == null ? DETAIL_W : Math.min(bounds.width() - 20, Math.max(DETAIL_W, shownIn.minWindowWidth)); // the chapter's minimum width
+        return new Rect(cx - w / 2, bounds.y() + (bounds.height() - h) / 2, w, h);
     }
 
     private boolean detailOpen() {
@@ -220,8 +291,8 @@ final class QuestBookWidget extends Widget {
     private static List<Chapter> visibleChapters(QuestBook book) {
         List<Chapter> out = new ArrayList<>();
         for (Chapter c : book.chapters()) {
-            if (!c.alwaysInvisible) {
-                out.add(c);
+            if (!c.alwaysInvisible || isEditing()) {
+                out.add(c); // an invisible chapter is listed while editing
             }
         }
         return out;
@@ -294,7 +365,7 @@ final class QuestBookWidget extends Widget {
 
     private Chapter currentChapter(QuestBook book) {
         Chapter c = book.chapter(chapterId);
-        return c != null && !c.alwaysInvisible ? c : null;
+        return c != null && (!c.alwaysInvisible || isEditing()) ? c : null;
     }
 
     // ------------------------------------------------------------------ drawing
@@ -335,6 +406,13 @@ final class QuestBookWidget extends Widget {
             chapterId = chapters.isEmpty() ? "" : chapters.get(0).id;
         }
         Chapter chapter = currentChapter(book);
+        if (!selectedQuest.isEmpty() && !selectedQuest.equals(viewedTop)) {
+            viewedTop = selectedQuest; // every quest opened goes on the Backspace list
+            VIEWED.add(selectedQuest);
+            if (VIEWED.size() > 500) {
+                VIEWED.remove(0);
+            }
+        }
         Rect map = mapRect();
         if (chapter == null) {
             fr.drawStringWithShadow("This quest book has no chapters.", map.x() + 140, map.y() + 10, 0xAAAAAA);
@@ -419,13 +497,13 @@ final class QuestBookWidget extends Widget {
     private static void toggleSearch() {
         searching = !searching;
         if (searching) {
-            QUERY.setLength(0);
+            QUERY.replaceAllText("");
             cachedQuery = null;
         }
     }
 
     private void refreshResults(QuestBook book, TeamProgress p) {
-        String q = QUERY.toString();
+        String q = QUERY.text();
         if (!q.equals(cachedQuery) || cachedBookVersion != ClientQuests.bookVersion() || cachedProgress != p) {
             cachedQuery = q;
             cachedBookVersion = ClientQuests.bookVersion();
@@ -451,6 +529,19 @@ final class QuestBookWidget extends Widget {
 
     private record SearchRow(boolean chapter, String id, String chapterId, String title, String shown, DataNode.Compound icon) {}
 
+    private static ItemStack searchFallbackIcon(SearchRow row) {
+        QuestBook b = ClientQuests.book();
+        if (b == null) {
+            return null;
+        }
+        if (row.chapter()) {
+            Chapter c = b.chapter(row.id());
+            return c == null ? null : chapterIconFromQuests(c);
+        }
+        Quest q = b.quest(row.id());
+        return q == null ? null : QuestText.iconOf(q);
+    }
+
     private static List<SearchRow> searchRows = List.of();
     private static String rowsQuery = null;
     private static int rowsVersion = -1;
@@ -459,7 +550,7 @@ final class QuestBookWidget extends Widget {
     private static final int SEARCH_ROW = 14;
 
     private void buildRows(QuestBook book, TeamProgress p) {
-        String q = QUERY.toString();
+        String q = QUERY.text();
         if (q.equals(rowsQuery) && rowsVersion == ClientQuests.bookVersion() && rowsProgress == p) {
             return;
         }
@@ -476,7 +567,7 @@ final class QuestBookWidget extends Widget {
         List<SearchRow> chapters = new ArrayList<>();
         List<SearchRow> quests = new ArrayList<>();
         for (Chapter c : book.chapters()) {
-            if (c.alwaysInvisible) {
+            if (c.alwaysInvisible && !isEditing()) {
                 continue;
             }
             String plain = RichText.stripCodes(c.title.isEmpty() ? c.id : c.title);
@@ -551,7 +642,7 @@ final class QuestBookWidget extends Widget {
         Rect field = new Rect(win.x() + 6, win.y() + 20, win.width() - 26, 14);
         Gui.drawRect(field.x(), field.y(), field.x() + field.width(), field.y() + field.height(), 0xFF4C7BC4);
         boolean caret = (System.currentTimeMillis() / 500) % 2 == 0;
-        fr.drawStringWithShadow(fr.trimStringToWidth(QUERY + (caret ? "_" : ""), field.width() - 8, true), field.x() + 4, field.y() + 3, 0xFFFFFF);
+        RewardTablesScreen.drawFieldText(fr, field, QUERY);
         Rect list = new Rect(win.x() + 6, win.y() + 38, win.width() - 22, win.height() - 44);
         Gui.drawRect(list.x(), list.y(), list.x() + list.width(), list.y() + list.height(), 0xFF181A20);
         int visible = list.height() / SEARCH_ROW;
@@ -563,7 +654,7 @@ final class QuestBookWidget extends Widget {
             if (rr.contains(mouseX, mouseY)) {
                 Gui.drawRect(rr.x(), rr.y(), rr.x() + rr.width(), rr.y() + rr.height(), 0x55FFFFFF);
             }
-            ItemStack icon = row.icon().entries().isEmpty() ? null : QuestText.stackOf(row.icon());
+            ItemStack icon = row.icon().entries().isEmpty() ? searchFallbackIcon(row) : QuestText.stackOf(row.icon());
             int tx = rr.x() + 3;
             if (icon != null && !icon.isEmpty()) {
                 drawItem(icon, tx, rr.y() + 3, 0.5f);
@@ -572,7 +663,7 @@ final class QuestBookWidget extends Widget {
             Ui.drawText(fr, row.shown(), tx, rr.y() + 3, 0xFFE060, rr.x() + rr.width() - tx - 3);
             hits.add(new Hit(rr, () -> pickRow(row), null));
         }
-        if (searchRows.isEmpty() && QUERY.length() > 0) {
+        if (searchRows.isEmpty() && QUERY.text().length() > 0) {
             fr.drawStringWithShadow("Nothing found", list.x() + 5, list.y() + 5, 0x888888);
         }
         // scroll bar
@@ -712,15 +803,17 @@ final class QuestBookWidget extends Widget {
                     fr.drawStringWithShadow("<", undo.x() + 7, undo.y() + 6, canUndo ? 0xFFFFFF : 0x666666);
                 }
                 hits.add(new Hit(redo, () -> redoEdit(),
-                        canRedo ? "Redo" + (ClientQuests.redoLabel().isEmpty() ? "" : ": " + ClientQuests.redoLabel()) : "Nothing to redo"));
+                        canRedo ? String.join("\n", ChangeLog.historyTip(false, "Ctrl + Y", ClientQuests.redoLabel())) : "Nothing to redo"));
                 hits.add(new Hit(undo, () -> undoEdit(),
-                        canUndo ? "Undo" + (TableEdits.hasPending() || ClientQuests.undoLabel().isEmpty() ? "" : ": " + ClientQuests.undoLabel()) : "Nothing to undo"));
+                        canUndo ? String.join("\n", ChangeLog.historyTip(true, "Ctrl + Z", TableEdits.hasPending() ? "" : ClientQuests.undoLabel())) : "Nothing to undo"));
                 Rect cog = new Rect(x, by - 44, 20, 20);
                 Ui.vanillaButton(cog, cog.contains(mouseX, mouseY));
                 if (!Ui.questsGui("settings", cog.x() + 2, cog.y() + 2, 16, 16, 0xFFDBDBDB)) {
                     fr.drawStringWithShadow("S", cog.x() + 7, cog.y() + 6, 0xFFFFFF);
                 }
                 hits.add(new Hit(cog, () -> openMenu(lastMouseX, lastMouseY,
+                        new MenuItem("Edit File", "", "settings",  false,
+                                () -> mc().displayGuiScreen(new BookSettingsScreen(mc().currentScreen, ClientQuests.book()))),
                         new MenuItem("Edit Reward Tables", "", "collect_rewards", false,
                                 () -> mc().displayGuiScreen(new RewardTablesScreen(mc().currentScreen))),
                         new MenuItem("Save on Server now", "", "", false, () -> send("save_now", DataNode.Compound.empty()))), "Settings"));
@@ -746,11 +839,14 @@ final class QuestBookWidget extends Widget {
         if (listWidth() <= 0) {
             return;
         }
-        Rect r = new Rect(bounds.x() - (LIST_W - listWidth()), bounds.y(), LIST_W, bounds.height());
-        QuestArt.tile(QuestArt.DIRT, r.x(), r.y(), r.width(), r.height(), 32, 0xFF383838);
+        updateListFull(fr, book);
+        Rect r = new Rect(bounds.x() - (listFull - listWidth()), bounds.y(), listFull, bounds.height());
+        QuestArt.tile(QuestArt.DIRT_BLOCK, r.x(), r.y(), r.width(), r.height(), 32, 0xFF7A7A7A); // dirt behind the chapters
+        QuestArt.tile(QuestArt.GRASS, r.x(), r.y(), r.width(), 24, 32, 0xFF5A8A3C); // grass behind the title
         Gui.drawRect(r.x() + r.width() - 1, r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF000000);
         Gui.drawRect(r.x() + r.width() - 2, r.y(), r.x() + r.width() - 1, r.y() + r.height(), 0xFF555555);
-        // title row: book icon, title, pin
+        // title row: book icon, title, + (editing), pin; set apart from the list by a frame
+        hotbarRim(new Rect(r.x() + 2, r.y() + 2, r.width() - 6, 20), 0.55f);
         ItemStack bookIcon = QuestText.stackOf(book.settings.get("icon"));
         int titleX = r.x() + 6;
         if (bookIcon != null) {
@@ -759,6 +855,15 @@ final class QuestBookWidget extends Widget {
         }
         Ui.drawText(fr, RichText.toRainbowAware(book.settings.getString("title", "Quest Book")), titleX, r.y() + 8, 0xFFFFFF, r.width() - (titleX - r.x()) - 22);
         Rect pinBox = new Rect(r.x() + r.width() - 17, r.y() + 6, 10, 10);
+        if (isEditing()) {
+            Rect plusBox = new Rect(pinBox.x() - 15, r.y() + 6, 10, 10);
+            if (!Ui.icon(Ui.LIBRARY, "textures/icons/add.png", plusBox.x() - 1, plusBox.y() - 1, 12, 12, 0xFFFFFFFF)) {
+                fr.drawStringWithShadow("+", plusBox.x() + 2, plusBox.y() + 1, 0x7BD21E);
+            }
+            final int menuAtX = plusBox.x();
+            final int menuAtY = plusBox.y() + 12;
+            hits.add(new Hit(plusBox, () -> addMenu(menuAtX, menuAtY), "Add a chapter or a chapter group"));
+        }
         if (!Ui.questsGui("pin", pinBox.x(), pinBox.y(), 10, 10, listPinned ? 0xFFF8BD1C : 0xFFDBDBDB)) {
             fr.drawStringWithShadow("P", pinBox.x() + 2, pinBox.y() + 1, listPinned ? 0xF8BD1C : 0xDBDBDB);
         }
@@ -767,7 +872,7 @@ final class QuestBookWidget extends Widget {
             ClientPrefs.chapterPanelPinned = listPinned;
             ClientPrefs.save();
         }, listPinned ? "Let the chapter panel hide" : "Keep the chapter panel open"));
-        Rect body = new Rect(r.x(), r.y() + 22, r.width() - 1, r.height() - 22);
+        Rect body = new Rect(r.x(), r.y() + 24, r.width() - 1, r.height() - 24);
         scissor(body);
         int y = body.y() + 2 - listScroll;
         final int top = y;
@@ -808,20 +913,21 @@ final class QuestBookWidget extends Widget {
                 continue;
             }
             boolean open = EXPANDED_GROUPS.contains(g.id);
-            Rect row = new Rect(body.x() + 2, y, body.width() - 4, 14);
-            if (row.contains(mouseX, mouseY)) {
-                Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0x28999999);
-            }
-            if (!Ui.questsGui(open ? "arrow_expanded" : "arrow_collapsed", row.x() + 3, row.y() + 3, 8, 8, 0xFFDDDDDD)) {
-                fr.drawString(open ? "v" : ">", row.x() + 3, row.y() + 3, 0xBBBBBB);
-            }
+            Rect row = new Rect(body.x() + 2, y, body.width() - 4, 16);
             Chapter parentChapter = g.raw.getString("chapter", "").isEmpty() ? null : book.chapter(g.raw.getString("chapter", ""));
-            if (parentChapter != null && parentChapter.id.equals(chapterId)) {
-                Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF808080);
-                Gui.drawRect(row.x() + 1, row.y() + 1, row.x() + row.width() - 1, row.y() + row.height() - 1, 0xFF000000);
+            boolean groupSelected = parentChapter != null && parentChapter.id.equals(chapterId);
+            if (groupSelected) {
+                Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF88898B);
+                Gui.drawRect(row.x() + 1, row.y() + 1, row.x() + row.width() - 1, row.y() + row.height() - 1, 0xFF4C4F55);
+            } else if (row.contains(mouseX, mouseY)) {
+                Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF4C5055);
+            }
+            // drawn after the selection, so the arrow stays while the chapter that holds the group is open
+            if (!Ui.questsGui(open ? "arrow_expanded" : "arrow_collapsed", row.x() + 4, row.y() + 5, 8, 8, 0xFFDDDDDD)) {
+                fr.drawString(open ? "v" : ">", row.x() + 4, row.y() + 5, 0xBBBBBB);
             }
             String groupTitle = parentChapter != null ? parentChapter.title : g.title;
-            Ui.drawText(fr, groupTitle.isEmpty() ? g.id : RichText.toRainbowAware(groupTitle), row.x() + 14, row.y() + 3,
+            Ui.drawText(fr, groupTitle.isEmpty() ? g.id : RichText.toRainbowAware(groupTitle), row.x() + 14, row.y() + 5,
                     parentChapter != null ? 0xFFFFFF : 0xD0D0D0, row.width() - 16);
             final String gid = g.id;
             final String parentId = parentChapter == null ? "" : parentChapter.id;
@@ -832,6 +938,7 @@ final class QuestBookWidget extends Widget {
                         Chapter parent = group.raw.getString("chapter", "").isEmpty() ? null : ClientQuests.book().chapter(group.raw.getString("chapter", ""));
                         mc().displayGuiScreen(parent != null ? TextEditScreen.forChapter(parent) : TextEditScreen.forGroup(group));
                     }),
+                    new MenuItem("Hold in Chapter...", "", "", false, () -> chooseHoldingChapter(gid)),
                     new MenuItem("Move Up", "", "lib:up", false, () -> send("move_group", args("id", gid, "by", -1))),
                     new MenuItem("Move Down", "", "lib:down", false, () -> send("move_group", args("id", gid, "by", 1))),
                     new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(gid)),
@@ -845,7 +952,17 @@ final class QuestBookWidget extends Widget {
                     EXPANDED_GROUPS.add(gid);
                 }
             }, null, groupMenu));
-            y += 15;
+            if (isEditing()) {
+                Rect plus = new Rect(row.x() + row.width() - 14 - (listBar != null ? 7 : 0), row.y() + 4, 10, 10);
+                if (!Ui.icon(Ui.LIBRARY, "textures/icons/add.png", plus.x() - 1, plus.y() - 1, 12, 12, 0xFFFFFFFF)) {
+                    fr.drawStringWithShadow("+", plus.x() + 2, plus.y() + 1, 0x7BD21E);
+                }
+                final int promptX = plus.x();
+                final int promptY = plus.y() + 12;
+                hits.add(new Hit(plus, () -> mc().displayGuiScreen(new NamePrompt(mc().currentScreen, promptX, promptY, "Chapter", 120,
+                        name -> send("create_chapter", args("title", name, "group", gid)))), "Add a chapter to this group"));
+            }
+            y += 16;
             if (open) {
                 for (Chapter c : inGroup) {
                     y = chapterRow(fr, book, p, c, body, y, 8, mouseX, mouseY);
@@ -854,6 +971,7 @@ final class QuestBookWidget extends Widget {
         }
         listContentHeight = y - top + 4;
         int viewH = body.height();
+        listScroll = Math.max(0, Math.min(listScroll, Math.max(0, listContentHeight - viewH))); // snaps back to what is there
         listBar = null;
         if (listContentHeight > viewH) {
             // the game's own list scroll bar, thin; click or drag it to scroll
@@ -867,9 +985,56 @@ final class QuestBookWidget extends Widget {
             listBarThumb = th;
         }
         unscissor();
-        if (isEditing()) {
-            drawChapterEditButtons(fr);
+    }
+
+
+    /** The game's button click, for what the player presses in the quest book. */
+    private static void playClick() {
+        mc().getSoundHandler().playSound(net.minecraft.client.audio.PositionedSoundRecord.getMasterRecord(
+                net.minecraft.init.SoundEvents.UI_BUTTON_CLICK, 1.0f));
+    }
+
+    private static final net.minecraft.util.ResourceLocation WIDGETS = new net.minecraft.util.ResourceLocation("textures/gui/widgets.png");
+
+    /** The bottom edge of the hotbar's selected-slot border, stretched under a row; alpha makes it see-through. */
+    private static void hotbarRim(Rect r, float alpha) {
+        mc().getTextureManager().bindTexture(WIDGETS);
+        GlStateManager.enableBlend();
+        GlStateManager.color(1f, 1f, 1f, alpha);
+        int c = 3;
+        Gui.drawScaledCustomSizeModalRect(r.x() + c, r.y() + r.height() - c, c, 22 + 24 - c, 24 - 2 * c, c, r.width() - 2 * c, c, 256, 256);
+        GlStateManager.color(1f, 1f, 1f, 1f);
+    }
+
+    /** The + in the title row: a chapter or a chapter group, each asking for its name in a small box. */
+    private void addMenu(int x, int y) {
+        GuiScreen screen = mc().currentScreen;
+        openMenu(x, y,
+                new MenuItem("Chapter", "", "lib:add", false, () -> mc().displayGuiScreen(new NamePrompt(screen, x, y, "Chapter", 120,
+                        name -> send("create_chapter", args("title", name))))),
+                new MenuItem("Chapter Group", "", "lib:add", false, () -> mc().displayGuiScreen(new NamePrompt(screen, x, y, "Chapter Group", 120,
+                        name -> send("create_group", args("title", name, "id", RewardTablesScreen.newId()))))));
+    }
+
+    /** A menu of the chapters that can hold a group, and "no chapter" to let it go. */
+    private void chooseHoldingChapter(String groupId) {
+        QuestBook book = ClientQuests.book();
+        if (book == null) {
+            return;
         }
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("(no chapter)", "", "", false, () -> send("set_group_chapter", args("id", groupId, "chapter", ""))));
+        for (Chapter c : book.chapters()) {
+            if (c.groupId.equals(groupId)) {
+                continue; // a chapter cannot hold the group it is in
+            }
+            final String cid = c.id;
+            items.add(new MenuItem(RichText.stripCodes(c.title.isEmpty() ? c.id : c.title), "", "", false,
+                    () -> send("set_group_chapter", args("id", groupId, "chapter", cid))));
+        }
+        menu = items;
+        menuX = lastMouseX;
+        menuY = lastMouseY;
     }
 
     /** A menu with every group (and "no group") to put a chapter into. */
@@ -892,22 +1057,23 @@ final class QuestBookWidget extends Widget {
     }
 
     private int chapterRow(FontRenderer fr, QuestBook book, TeamProgress p, Chapter c, Rect body, int y, int indent, int mouseX, int mouseY) {
-        Rect row = new Rect(body.x() + 2, y, body.width() - 4, 14);
+        Rect row = new Rect(body.x() + 2, y, body.width() - 4, 16);
         boolean selected = c.id.equals(chapterId);
         boolean hover = row.contains(mouseX, mouseY);
         if (hover && !selected) {
-            Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0x28999999);
+            Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF4C5055);
         }
         if (selected) {
-            // the game's own list selection: grey frame around black
-            Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF808080);
-            Gui.drawRect(row.x() + 1, row.y() + 1, row.x() + row.width() - 1, row.y() + row.height() - 1, 0xFF000000);
+            // FTB Quests 26.1.2: a grey frame around a lighter fill
+            Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF88898B);
+            Gui.drawRect(row.x() + 1, row.y() + 1, row.x() + row.width() - 1, row.y() + row.height() - 1, 0xFF4C4F55);
         }
         int tx = row.x() + 3 + indent;
-        ItemStack icon = c.icon.entries().isEmpty() ? null : QuestText.stackOf(c.icon);
+        // the chapter's own icon; without one, the icon of its only quest, or the quests' icons one after the other
+        ItemStack icon = c.icon.entries().isEmpty() ? chapterIconFromQuests(c) : QuestText.stackOf(c.icon);
         if (icon != null && !icon.isEmpty()) {
-            drawItem(icon, tx, row.y() + 1, 0.75f);
-            tx += 14;
+            drawItem(icon, tx, row.y(), 1f);
+            tx += 19;
         }
         UUID me = mc().player == null ? null : mc().player.getUniqueID();
         ProgressEngine engine = ClientQuests.engine();
@@ -917,31 +1083,32 @@ final class QuestBookWidget extends Widget {
         boolean alert = CHAPTER_ALERT.getOrDefault(c.id, false);
         int barRoom = listBar != null ? 7 : 0;
         int textRight = row.x() + row.width() - (alert ? 16 : 3) - barRoom;
-        Ui.drawText(fr, c.title.isEmpty() ? c.id : RichText.toRainbowAware(c.title), tx, row.y() + 3, hover ? 0xFFFFA0 : 0xFFFFFF, textRight - tx);
+        int nameColour = 0xFFFFFF;
+        if (p != null) {
+            if (QuestRules.chapterCompleted(p, c)) {
+                nameColour = 0x00AA00; // completed: dark green
+            } else if (c.quests.stream().anyMatch(cq -> p.isStarted(cq.id) || p.isCompleted(cq.id))) {
+                nameColour = 0x00AAAA; // started: teal
+            }
+        }
+        Ui.drawText(fr, c.title.isEmpty() ? c.id : RichText.toRainbowAware(c.title), tx, row.y() + 4, hover ? 0xFFFFA0 : nameColour, textRight - tx);
         if (alert) {
-            Ui.alert(row.x() + row.width() - 14 - barRoom, row.y() + 1, 12);
+            Ui.alert(row.x() + row.width() - 14 - barRoom, row.y() + 3, 12);
         }
         final String id = c.id;
-        Runnable rightClick = !isEditing() ? null : () -> openMenu(lastMouseX, lastMouseY,
-                new MenuItem("Chapter Properties", "", "settings", false, () -> mc().displayGuiScreen(new ChapterPropertiesScreen(mc().currentScreen, c))),
-                new MenuItem("Move Up", "", "lib:up", false, () -> send("move_chapter", args("id", id, "by", -1))),
-                new MenuItem("Move Down", "", "lib:down", false, () -> send("move_chapter", args("id", id, "by", 1))),
-                new MenuItem("Move to Group...", "", "", false, () -> chooseGroup(id)),
-                new MenuItem("Reset Progress", "", "lib:refresh", false, () -> send("reset_progress", args("chapter", id))),
-                new MenuItem("Complete Instantly", "", "lib:check", false, () -> send("complete_quest", args("chapter", id))),
-                new MenuItem("Copy ID", () -> GuiScreen.setClipboardString(id)),
-                new MenuItem("Delete Chapter", "", "", true, () -> {
-                    send("delete_chapter", args("id", id));
-                    if (id.equals(chapterId)) {
-                        chapterId = "";
-                        selectedQuest = "";
-                    }
-                }));
+        Runnable rightClick = !isEditing() ? null : () -> chapterMenu(c);
         hits.add(new Hit(row, () -> {
             chapterId = id;
             selectedQuest = "";
         }, null, rightClick));
-        return y + 15;
+        if (isEditing() && c.quests.isEmpty()) {
+            Rect cross = new Rect(row.x() + row.width() - 14 - barRoom - (alert ? 14 : 0), row.y() + 4, 10, 10);
+            if (!Ui.questsGui("close", cross.x(), cross.y(), 10, 10, 0xFFFFFFFF)) {
+                fr.drawStringWithShadow("x", cross.x() + 2, cross.y() + 1, 0xFF5555);
+            }
+            // the cross only shows that the chapter has no quests; clicking it does nothing
+        }
+        return y + 16;
     }
 
     private void drawMap(FontRenderer fr, QuestBook book, ProgressEngine engine, TeamProgress p, Chapter chapter, Rect map) {
@@ -954,6 +1121,7 @@ final class QuestBookWidget extends Widget {
             hoverImageSince = System.currentTimeMillis();
         }
         hoverImage = nowOver;
+        refreshLinkNodes(book, chapter);
         drawChapterImages(v, chapter, map);
         if (movingQuest != null) {
             drawMoveGrid(v, map);
@@ -985,20 +1153,19 @@ final class QuestBookWidget extends Widget {
                 int tint = 0xFFA39C96; // calm by default
                 int flow = 0;          // lines are still, unless a quest is hovered
                 if (q.id.equals(focus)) {
-                    tint = 0xFF7DB4FF; // a dependency of the focused quest: blue, moving forward towards the focused quest
+                    tint = 0xFF00C4C4; // a dependency of the focused quest: cyan, moving forward towards the focused quest
                     flow = 1;
                 } else if (depId.equals(focus)) {
-                    tint = 0xFFFFAE5C; // a dependant of the focused quest: orange, moving on to the dependant
+                    tint = 0xFFC4C400; // a dependant of the focused quest: yellow, moving on to the dependant
                     flow = 1;
                 }
-                double thick = Math.max(2.0, Math.min(5.0, zoom * 2.6));
-                ladderLine(dx, dy, sx, sy, Math.max(3.0, Math.min(8.0, zoom * 3.6)), tint, flow);
+                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(3.0, Math.min(8.0, zoom * 3.6)), tint, flow);
             }
         }
         if (movingQuest != null && chapter.quests.contains(movingQuest)) {
             drawMoveTarget(book, chapter, v); // under the quests, so the one being moved is never covered by it
         }
-        for (Quest q : chapter.quests) {
+        for (Quest q : drawOrder(chapter)) {
             double size = NODE * q.size * zoom;
             double sx = v.screenX(q.x * GRID) - size / 2;
             double sy = v.screenY(q.y * GRID) - size / 2;
@@ -1006,6 +1173,7 @@ final class QuestBookWidget extends Widget {
                     || !shown(book, p, q)) {
                 continue;
             }
+            GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT); // whatever was drawn before must not poke through this quest
             State state = stateOf(book, engine, p, q);
             int x = (int) Math.round(sx);
             int y = (int) Math.round(sy);
@@ -1017,12 +1185,15 @@ final class QuestBookWidget extends Widget {
             int body = lockedByDeps ? 0xFF4A4C52 : 0xFF9C9EA6;
             int edge = selected ? 0xFFFFFFFF : state == State.DONE ? 0xFF6BD36B : lockedByDeps ? 0xFF5E6066 : 0xFFC9CBD2;
             // hovering lights the node up a little; the opened quest slides back and forth between its plain and lit colours
-            boolean beingMoved = movingQuest != null && movingQuest.id.equals(q.id);
-            float glow = beingMoved ? questPulse() : q.id.equals(hoverQuest) ? 1f : selected ? questPulse() : 0f;
+            boolean beingMoved = movingQuest != null && (movingQuest.id.equals(q.id) || moveGroup.contains(q));
+            boolean picked = isEditing() && SELECTION.contains(q.id); // picked in the editor: pulses like an opened quest
+            float glow = beingMoved ? questPulse() : q.id.equals(hoverQuest) ? 1f : selected || picked ? questPulse() : 0f;
             if (glow > 0f) {
-                body = lighten(body, 0.24f * glow);
-                edge = lighten(edge, 0.24f * glow);
+                float strength = q.id.equals(hoverQuest) && !selected && !picked && !beingMoved ? 0.24f : 0.7f; // a pick pulses plain to bright
+                body = lighten(body, strength * glow);
+                edge = lighten(edge, strength * glow);
             }
+
             if (QuestArt.hasShape(shape)) {
                 // art from the player's own FTB Quests jar: the shape tinted by state, with its outline on top
                 net.minecraft.util.ResourceLocation solid = Ui.opaqueShape(shape);
@@ -1038,7 +1209,7 @@ final class QuestBookWidget extends Widget {
                 drawQuestIcon(q, x + (s - iconSize) / 2f, y + (s - iconSize) / 2f, iconSize, state == State.DONE);
             }
             // the small lock sits on top of the icon: a quest whose dependencies are not all completed yet
-            if (lockedByDeps && s >= 14 && ClientPrefs.showLockIcon && !q.hideLockIcon) {
+            if (lockedByDeps && s >= 14 && book.settings.getBool("show_lock_icons", ClientPrefs.showLockIcon) && !q.hideLockIcon) {
                 int lock = Math.max(7, s / 3);
                 GlStateManager.pushMatrix();
                 GlStateManager.translate(0, 0, 400);
@@ -1056,7 +1227,43 @@ final class QuestBookWidget extends Widget {
                 }
             }
         }
-        if (isEditing() && movingQuest == null && mouseOnMap && hoverQuest.isEmpty() && hoverImage.isEmpty() && menu.isEmpty()) {
+        syncSelection(chapter);
+        if (boxing) {
+            int bx0 = Math.min(boxX0, lastMouseX);
+            int by0 = Math.min(boxY0, lastMouseY);
+            int bx1 = Math.max(boxX0, lastMouseX);
+            int by1 = Math.max(boxY0, lastMouseY);
+            rect(bx0, by0, bx1 - bx0, by1 - by0, 0x33FFFFFF);
+            rect(bx0, by0, bx1 - bx0, 1, 0xCCFFFFFF);
+            rect(bx0, by1, bx1 - bx0, 1, 0xCCFFFFFF);
+            rect(bx0, by0, 1, by1 - by0, 0xCCFFFFFF);
+            rect(bx1, by0, 1, by1 - by0 + 1, 0xCCFFFFFF);
+        }
+        if (!imgMode.isEmpty()) {
+            drawImageMode(fr, book, v, chapter);
+        }
+        if (!resizeQuest.isEmpty()) {
+            drawResize(fr, book, v, zoom);
+        }
+        if (!bezierQuest.isEmpty()) {
+            if (!bezierGrabDep.isEmpty()) {
+                double[] c = bezierPts.get(bezierGrabDep);
+                if (c != null && Mouse.isButtonDown(0)) {
+                    c[bezierGrabIndex * 2] = v.worldX(lastMouseX) / GRID;
+                    c[bezierGrabIndex * 2 + 1] = v.worldY(lastMouseY) / GRID;
+                } else {
+                    bezierGrabDep = "";
+                }
+            }
+            drawBezierHandles(fr, book, v);
+        }
+        if (crosshairs && isEditing() && mouseOnMap) {
+            int cxl = (int) Math.round(v.screenX(Math.round(v.worldX(lastMouseX) / GRID * 2.0) / 2.0 * GRID));
+            int cyl = (int) Math.round(v.screenY(Math.round(v.worldY(lastMouseY) / GRID * 2.0) / 2.0 * GRID));
+            rect(cxl, map.y(), 1, map.height(), 0x88FFFFFF);
+            rect(map.x(), cyl, map.width(), 1, 0x88FFFFFF);
+        }
+        if (isEditing() && movingQuest == null && !boxing && mouseOnMap && hoverQuest.isEmpty() && hoverImage.isEmpty() && menu.isEmpty()) {
             // hovering free space in edit mode: the rim of the quest a click would create, snapped to the grid
             Quest sample = new Quest("_");
             String rimShape = QuestArt.shapeName(book, chapter, sample);
@@ -1065,12 +1272,12 @@ final class QuestBookWidget extends Widget {
             int rx = (int) Math.round(v.screenX(Math.round(v.worldX(lastMouseX) / GRID * 2.0) / 2.0 * GRID) - rsize / 2);
             int ry = (int) Math.round(v.screenY(Math.round(v.worldY(lastMouseY) / GRID * 2.0) / 2.0 * GRID) - rsize / 2);
             if (QuestArt.hasShape(rimShape)) {
-                QuestArt.quad(QuestArt.shapeTexture(rimShape, "outline"), rx, ry, rs, rs, 0xCCFFFFFF);
+                QuestArt.quad(QuestArt.shapeTexture(rimShape, "outline"), rx, ry, rs, rs, 0x58FFFFFF);
             } else {
-                rect(rx, ry, rs, 1, 0xCCFFFFFF);
-                rect(rx, ry + rs - 1, rs, 1, 0xCCFFFFFF);
-                rect(rx, ry, 1, rs, 0xCCFFFFFF);
-                rect(rx + rs - 1, ry, 1, rs, 0xCCFFFFFF);
+                rect(rx, ry, rs, 1, 0x58FFFFFF);
+                rect(rx, ry + rs - 1, rs, 1, 0x58FFFFFF);
+                rect(rx, ry, 1, rs, 0x58FFFFFF);
+                rect(rx + rs - 1, ry, 1, rs, 0x58FFFFFF);
             }
         }
     }
@@ -1094,20 +1301,313 @@ final class QuestBookWidget extends Widget {
 
     /** The place a quest being moved will land on: its shape, pale, with no border; drawn under the quests. */
     private void drawMoveTarget(QuestBook book, Chapter chapter, ViewTransform v) {
-        double gsize = NODE * movingQuest.size * v.zoom();
-        int gs = Math.max(4, (int) Math.round(gsize));
-        int gx = (int) Math.round(v.screenX(ghostX * GRID) - gsize / 2);
-        int gy = (int) Math.round(v.screenY(ghostY * GRID) - gsize / 2);
-        String gshape = QuestArt.shapeName(book, chapter, movingQuest);
-        if (QuestArt.hasShape(gshape)) {
-            net.minecraft.util.ResourceLocation solid = Ui.opaqueShape(gshape);
-            QuestArt.quad(solid != null ? solid : QuestArt.shapeTexture(gshape, "background"), gx, gy, gs, gs, 0x55FFFFFF);
-        } else {
-            rect(gx, gy, gs, gs, 0x55FFFFFF);
+        List<Quest> all = new ArrayList<>();
+        all.add(movingQuest);
+        all.addAll(moveGroup);
+        for (Quest mq : all) {
+            double gsize = NODE * mq.size * v.zoom();
+            int gs = Math.max(4, (int) Math.round(gsize));
+            int gx = (int) Math.round(v.screenX((ghostX + (mq.x - movingQuest.x)) * GRID) - gsize / 2);
+            int gy = (int) Math.round(v.screenY((ghostY + (mq.y - movingQuest.y)) * GRID) - gsize / 2);
+            String gshape = QuestArt.shapeName(book, chapter, mq);
+            if (QuestArt.hasShape(gshape)) {
+                net.minecraft.util.ResourceLocation solid = Ui.opaqueShape(gshape);
+                QuestArt.quad(solid != null ? solid : QuestArt.shapeTexture(gshape, "background"), gx, gy, gs, gs, 0x55FFFFFF);
+            } else {
+                rect(gx, gy, gs, gs, 0x55FFFFFF);
+            }
         }
     }
 
     /** 0 to 1 and back to 0 in a straight line, once every two seconds. */
+
+    private static int mixColour(int a, int b, float t) {
+        int r = Math.round((a >> 16 & 255) * (1 - t) + (b >> 16 & 255) * t);
+        int g = Math.round((a >> 8 & 255) * (1 - t) + (b >> 8 & 255) * t);
+        int bl = Math.round((a & 255) * (1 - t) + (b & 255) * t);
+        return 0xFF000000 | r << 16 | g << 8 | bl;
+    }
+
+    /** The control points of a line in grid units: the working ones while they are being edited, else the saved ones. */
+    private double[] controlPoints(Quest q, String depId) {
+        if (bezierQuest.equals(q.id) && bezierPts.containsKey(depId)) {
+            return bezierPts.get(depId);
+        }
+        List<Double> saved = q.depControlPts.get(depId);
+        return saved == null || saved.size() != 4 ? null : new double[] {saved.get(0), saved.get(1), saved.get(2), saved.get(3)};
+    }
+
+    /** One dependency line: straight, or along its Bezier curve from the dependency (dx, dy) to the quest (sx, sy). */
+    private void drawDependency(Quest q, String depId, double dx, double dy, double sx, double sy, ViewTransform v, double thick, int tint, int flow) {
+        double[] c = controlPoints(q, depId);
+        if (c == null) {
+            ladderLine(dx, dy, sx, sy, thick, tint, flow);
+            return;
+        }
+        int n = 40;
+        double[] xs = new double[n + 1];
+        double[] ys = new double[n + 1];
+        double c1x = v.screenX(c[0] * GRID);
+        double c1y = v.screenY(c[1] * GRID);
+        double c2x = v.screenX(c[2] * GRID);
+        double c2y = v.screenY(c[3] * GRID);
+        for (int i = 0; i <= n; i++) {
+            double t = i / (double) n;
+            double u = 1 - t;
+            xs[i] = u * u * u * dx + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * sx;
+            ys[i] = u * u * u * dy + 3 * u * u * t * c1y + 3 * u * t * t * c2y + t * t * t * sy;
+        }
+        ladderPath(xs, ys, n + 1, thick, tint, flow);
+    }
+
+    /** As {@link #ladderLine}, along a bent path; the texture runs on without a break from one piece to the next. */
+    private static void ladderPath(double[] xs, double[] ys, int count, double thickness, int argb, int flow) {
+        if (count < 2) {
+            return;
+        }
+        double phase = (System.currentTimeMillis() % 20000L) / 20000.0 * 8.0;
+        double[] nx = new double[count];
+        double[] ny = new double[count];
+        double[] vv = new double[count];
+        double along = 0;
+        for (int i = 0; i < count; i++) {
+            int a = Math.max(0, i - 1);
+            int b = Math.min(count - 1, i + 1);
+            double tx = xs[b] - xs[a];
+            double ty = ys[b] - ys[a];
+            double len = Math.sqrt(tx * tx + ty * ty);
+            if (len < 1e-6) {
+                tx = 1;
+                ty = 0;
+                len = 1;
+            }
+            nx[i] = -ty / len * thickness / 2;
+            ny[i] = tx / len * thickness / 2;
+            if (i > 0) {
+                along += Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]);
+            }
+            vv[i] = along / (thickness * 8) - flow * phase;
+        }
+        mc().getTextureManager().bindTexture(LADDER);
+        GlStateManager.disableCull();
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.color((argb >> 16 & 255) / 255f, (argb >> 8 & 255) / 255f, (argb & 255) / 255f, 1f);
+        net.minecraft.client.renderer.Tessellator tess = net.minecraft.client.renderer.Tessellator.getInstance();
+        net.minecraft.client.renderer.BufferBuilder bb = tess.getBuffer();
+        bb.begin(GL11.GL_QUADS, net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_TEX);
+        for (int i = 0; i + 1 < count; i++) {
+            bb.pos(xs[i] + nx[i], ys[i] + ny[i], 0).tex(2 / 16.0, vv[i]).endVertex();
+            bb.pos(xs[i + 1] + nx[i + 1], ys[i + 1] + ny[i + 1], 0).tex(2 / 16.0, vv[i + 1]).endVertex();
+            bb.pos(xs[i + 1] - nx[i + 1], ys[i + 1] - ny[i + 1], 0).tex(4 / 16.0, vv[i + 1]).endVertex();
+            bb.pos(xs[i] - nx[i], ys[i] - ny[i], 0).tex(4 / 16.0, vv[i]).endVertex();
+        }
+        tess.draw();
+        GlStateManager.color(1f, 1f, 1f, 1f);
+        GlStateManager.enableCull();
+    }
+
+    // ------------------------------------------------------------------ Bezier editing
+
+    /** The quest whose dependency lines are being bent, and the working control points of each ({@code x1, y1, x2, y2}, grid units). */
+    private String bezierQuest = "";
+    private final java.util.Map<String, double[]> bezierPts = new java.util.LinkedHashMap<>();
+    /** The handle being dragged: the dependency id and 0 (by the dependency) or 1 (by the quest), or empty. */
+    private String bezierGrabDep = "";
+    private int bezierGrabIndex;
+
+    private void startBezier(Quest q) {
+        QuestBook book = ClientQuests.book();
+        Chapter chapter = book == null ? null : currentChapter(book);
+        if (chapter == null) {
+            return;
+        }
+        bezierQuest = q.id;
+        bezierPts.clear();
+        bezierGrabDep = "";
+        selectedQuest = "";
+        for (String depId : q.dependencies) {
+            Quest dep = book.quest(depId);
+            if (dep == null || book.chapterOf(depId) != chapter) {
+                continue;
+            }
+            List<Double> saved = q.depControlPts.get(depId);
+            bezierPts.put(depId, saved != null && saved.size() == 4
+                    ? new double[] {saved.get(0), saved.get(1), saved.get(2), saved.get(3)}
+                    : new double[] {dep.x, dep.y, q.x, q.y}); // untouched handles sit on their quests: a straight line
+        }
+    }
+
+    private void endBezier(boolean accept) {
+        QuestBook book = ClientQuests.book();
+        Quest q = book == null ? null : book.quest(bezierQuest);
+        if (accept && q != null) {
+            DataNode.Compound points = DataNode.Compound.empty();
+            for (java.util.Map.Entry<String, double[]> e : bezierPts.entrySet()) {
+                Quest dep = book.quest(e.getKey());
+                double[] c = e.getValue();
+                boolean straight = dep != null && c[0] == dep.x && c[1] == dep.y && c[2] == q.x && c[3] == q.y;
+                if (straight) {
+                    continue; // both handles still on their quests
+                }
+                List<DataNode> nums = new ArrayList<>();
+                for (double d : c) {
+                    nums.add(new DataNode.Dbl(Math.round(d * 1000.0) / 1000.0));
+                }
+                points = points.with(e.getKey(), new DataNode.Lst(nums));
+            }
+            send("set_bezier", DataNode.Compound.empty().with("id", q.id).with("points", points));
+        }
+        bezierQuest = "";
+        bezierPts.clear();
+        bezierGrabDep = "";
+    }
+
+    /** The handle under a point: {dependency id, index} or null. */
+    private Object[] handleAt(ViewTransform v, int mouseX, int mouseY) {
+        for (java.util.Map.Entry<String, double[]> e : bezierPts.entrySet()) {
+            double[] c = e.getValue();
+            for (int i = 1; i >= 0; i--) {
+                double hx = v.screenX(c[i * 2] * GRID);
+                double hy = v.screenY(c[i * 2 + 1] * GRID);
+                if (Math.abs(mouseX - hx) <= 8 && Math.abs(mouseY - hy) <= 8) {
+                    return new Object[] {e.getKey(), i};
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Handles and their thin lines on top of the quests, and the hint at the top right. */
+    private void drawBezierHandles(FontRenderer fr, QuestBook book, ViewTransform v) {
+        Quest q = book.quest(bezierQuest);
+        if (q == null) {
+            return;
+        }
+        for (java.util.Map.Entry<String, double[]> e : bezierPts.entrySet()) {
+            Quest dep = book.quest(e.getKey());
+            if (dep == null) {
+                continue;
+            }
+            double[] c = e.getValue();
+            double[][] anchors = {{dep.x, dep.y}, {q.x, q.y}};
+            for (int i = 0; i < 2; i++) {
+                double ax = v.screenX(anchors[i][0] * GRID);
+                double ay = v.screenY(anchors[i][1] * GRID);
+                double hx = v.screenX(c[i * 2] * GRID);
+                double hy = v.screenY(c[i * 2 + 1] * GRID);
+                lineBetween(ax, ay, hx, hy, 0xAA7678B8);
+            }
+        }
+        for (java.util.Map.Entry<String, double[]> e : bezierPts.entrySet()) {
+            double[] c = e.getValue();
+            for (int i = 0; i < 2; i++) {
+                double hx = v.screenX(c[i * 2] * GRID);
+                double hy = v.screenY(c[i * 2 + 1] * GRID);
+                if (!Ui.icon(Ui.LIBRARY, "textures/icons/marker.png", hx - 8, hy - 8, 16, 16, 0xFFFFFFFF)) {
+                    rect((int) hx - 3, (int) hy - 3, 7, 7, 0xFF66CCFF);
+                }
+            }
+        }
+        String hint = "B\u00e9zier Editing | [Enter] Accept | [Esc] Cancel";
+        fr.drawStringWithShadow(hint, bounds.x() + bounds.width() - fr.getStringWidth(hint) - 34, bounds.y() + 6, 0xFFFFFF);
+    }
+
+    /** A thin line, one pixel wide, between two screen points. */
+    private static void lineBetween(double x1, double y1, double x2, double y2, int argb) {
+        GlStateManager.disableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.color((argb >> 16 & 255) / 255f, (argb >> 8 & 255) / 255f, (argb & 255) / 255f, (argb >>> 24) / 255f);
+        GL11.glLineWidth(1.5f);
+        net.minecraft.client.renderer.Tessellator tess = net.minecraft.client.renderer.Tessellator.getInstance();
+        net.minecraft.client.renderer.BufferBuilder bb = tess.getBuffer();
+        bb.begin(GL11.GL_LINES, net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION);
+        bb.pos(x1, y1, 0).endVertex();
+        bb.pos(x2, y2, 0).endVertex();
+        tess.draw();
+        GlStateManager.color(1f, 1f, 1f, 1f);
+        GlStateManager.enableTexture2D();
+    }
+
+
+    // ------------------------------------------------------------------ resizing a quest
+
+    /** The quest being resized (a dot at its corner is dragged), its size before, and whether the dot is held. */
+    private String resizeQuest = "";
+    private double resizeBefore;
+    private boolean resizeGrab;
+
+    private void startResize(Quest q) {
+        resizeQuest = q.id;
+        resizeBefore = q.size;
+        resizeGrab = false;
+        selectedQuest = "";
+    }
+
+    private static String sizeText(double v) {
+        return new java.math.BigDecimal(v).setScale(4, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
+    }
+
+    private void endResize(boolean accept) {
+        QuestBook book = ClientQuests.book();
+        Quest q = book == null ? null : book.quest(resizeQuest);
+        if (q != null) {
+            double now = q.size;
+            q.size = resizeBefore;
+            if (accept && now != resizeBefore) {
+                q.size = now;
+                send("set_prop", args("id", q.id, "key", "size", "value", String.valueOf(now)));
+            }
+        }
+        resizeQuest = "";
+        resizeGrab = false;
+    }
+
+    /** The dot at the lower right corner of the quest, and the box at the top right that says what the size is. */
+    private void drawResize(FontRenderer fr, QuestBook book, ViewTransform v, double zoom) {
+        Quest q = book.quest(resizeQuest);
+        if (q == null) {
+            resizeQuest = "";
+            return;
+        }
+        double cx = v.screenX(q.x * GRID);
+        double cy = v.screenY(q.y * GRID);
+        if (resizeGrab && Mouse.isButtonDown(0)) {
+            double base = NODE * zoom;
+            double size = 2 * Math.max(lastMouseX - cx, lastMouseY - cy) / base;
+            if (!GuiScreen.isCtrlKeyDown()) {
+                size = Math.round(size * 16.0) / 16.0; // snaps to sixteenths unless Ctrl is held
+            }
+            q.size = Math.max(0.0625, Math.min(64.0, size));
+        }
+        double half = NODE * q.size * zoom / 2;
+        if (!Ui.icon(Ui.LIBRARY, "textures/icons/marker.png", cx + half - 8, cy + half - 8, 16, 16, 0xFFFFFFFF)) {
+            rect((int) (cx + half) - 3, (int) (cy + half) - 3, 7, 7, 0xFF66CCFF);
+        }
+        String l1 = "Size: " + sizeText(q.size) + " x " + sizeText(q.size);
+        String l2 = "Ctrl: disable snapping (1/16 steps)";
+        String l3 = "Esc: cancel";
+        int w = Math.max(fr.getStringWidth(l1), Math.max(fr.getStringWidth(l2), fr.getStringWidth(l3))) + 12;
+        int bx = bounds.x() + bounds.width() - w - 34; // left of the column of buttons
+        int by = bounds.y() + 6;
+        Gui.drawRect(bx, by, bx + w, by + 38, 0xE0101010);
+        fr.drawStringWithShadow(l1, bx + 6, by + 4, 0xFFFFFF);
+        fr.drawStringWithShadow(l2, bx + 6, by + 15, GuiScreen.isCtrlKeyDown() ? 0xFFFF55 : 0xFFFFFF);
+        fr.drawStringWithShadow(l3, bx + 6, by + 26, 0xFFFFFF);
+    }
+
+    private boolean overResizeDot(ViewTransform v, int mouseX, int mouseY) {
+        QuestBook book = ClientQuests.book();
+        Quest q = book == null ? null : book.quest(resizeQuest);
+        if (q == null) {
+            return false;
+        }
+        double half = NODE * q.size * v.zoom() / 2;
+        double hx = v.screenX(q.x * GRID) + half;
+        double hy = v.screenY(q.y * GRID) + half;
+        return Math.abs(mouseX - hx) <= 9 && Math.abs(mouseY - hy) <= 9;
+    }
+
     private static float questPulse() {
         float t = (System.currentTimeMillis() % 2000L) / 2000f;
         return t < 0.5f ? t * 2f : 2f - t * 2f;
@@ -1168,6 +1668,152 @@ final class QuestBookWidget extends Widget {
             }
         }
         return null;
+    }
+
+    // ------------------------------------------------------------------ pictures: the menu, resizing and rotating
+
+    /** What a right click on a picture offers in edit mode. */
+    private void imageMenu(Definitions.ChapterImage target) {
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem(target.raw().getString("image", "?"), "", "", false, null));
+        items.add(new MenuItem("Edit", "", "settings", true, () -> mc().displayGuiScreen(new ImagePropertiesScreen(mc().currentScreen, target))));
+        items.add(new MenuItem("Move", "", "lib:up", false, () -> {
+            movingImage = target.id();
+            movingOrigX = target.raw().getDouble("x", 0);
+            movingOrigY = target.raw().getDouble("y", 0);
+        }));
+        items.add(new MenuItem("Resize", "", "lib:expand", false, () -> startImageMode("resize", target)));
+        items.add(new MenuItem("Rotate", "", "lib:refresh", false, () -> startImageMode("rotate", target)));
+        items.add(new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(target.id())));
+        items.add(new MenuItem("Delete", "", "lib:remove", false, () -> send("delete_image", args("id", target.id()))));
+        menu = items;
+        menuX = lastMouseX;
+        menuY = lastMouseY;
+    }
+
+    private String imgMode = "";
+    private String imgModeId = "";
+    private Definitions.ChapterImage imgBefore;
+    private boolean imgGrab;
+
+    private void startImageMode(String mode, Definitions.ChapterImage img) {
+        imgMode = mode;
+        imgModeId = img.id();
+        imgBefore = img;
+        imgGrab = false;
+    }
+
+    private Definitions.ChapterImage imageById(Chapter c, String id) {
+        for (Definitions.ChapterImage i : c.images) {
+            if (i.id().equals(id)) {
+                return i;
+            }
+        }
+        return null;
+    }
+
+    private void replaceImageRaw(Chapter c, String id, DataNode.Compound raw) {
+        for (int i = 0; i < c.images.size(); i++) {
+            if (c.images.get(i).id().equals(id)) {
+                c.images.set(i, new Definitions.ChapterImage(id, raw));
+                return;
+            }
+        }
+    }
+
+    private void endImageMode(boolean accept) {
+        QuestBook book = ClientQuests.book();
+        Chapter c = book == null ? null : currentChapter(book);
+        Definitions.ChapterImage now = c == null ? null : imageById(c, imgModeId);
+        if (c != null && now != null && imgBefore != null) {
+            if (accept) {
+                DataNode.Compound props = DataNode.Compound.empty();
+                for (String key : List.of("width", "height", "rotation")) {
+                    double before = imgBefore.raw().getDouble(key, key.equals("rotation") ? 0 : 1);
+                    double after = now.raw().getDouble(key, before);
+                    if (before != after) {
+                        props = props.with(key, after);
+                    }
+                }
+                if (!props.entries().isEmpty()) {
+                    send("set_image_props", args("id", imgModeId).with("props", props));
+                }
+            } else {
+                replaceImageRaw(c, imgModeId, imgBefore.raw());
+            }
+        }
+        imgMode = "";
+        imgModeId = "";
+        imgBefore = null;
+        imgGrab = false;
+    }
+
+    private static String degrees(double d) {
+        return new java.math.BigDecimal(d).setScale(2, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
+    }
+
+    /** The handle of the mode: the lower right corner when resizing, a point above the picture when rotating. */
+    private double[] imageHandle(Definitions.ChapterImage img, ViewTransform v) {
+        DataNode.Compound raw = img.raw();
+        double cx = v.screenX(raw.getDouble("x", 0) * GRID);
+        double cy = v.screenY(raw.getDouble("y", 0) * GRID);
+        double w = raw.getDouble("width", 1) * GRID * IMAGE_SCALE * v.zoom();
+        double h = raw.getDouble("height", 1) * GRID * IMAGE_SCALE * v.zoom();
+        if (imgMode.equals("resize")) {
+            return new double[] {cx + w / 2, cy + h / 2};
+        }
+        double a = Math.toRadians(raw.getDouble("rotation", 0));
+        double r = h / 2 + 14;
+        return new double[] {cx + Math.sin(a) * r, cy - Math.cos(a) * r};
+    }
+
+    /** Updates the picture while the handle is held, draws the handle and the hint box. */
+    private void drawImageMode(FontRenderer fr, QuestBook book, ViewTransform v, Chapter chapter) {
+        Definitions.ChapterImage img = imageById(chapter, imgModeId);
+        if (img == null) {
+            imgMode = "";
+            return;
+        }
+        DataNode.Compound raw = img.raw();
+        double cx = v.screenX(raw.getDouble("x", 0) * GRID);
+        double cy = v.screenY(raw.getDouble("y", 0) * GRID);
+        boolean ctrl = GuiScreen.isCtrlKeyDown();
+        if (imgGrab && Mouse.isButtonDown(0)) {
+            if (imgMode.equals("resize")) {
+                double unit = GRID * IMAGE_SCALE * v.zoom();
+                double nw = 2 * (lastMouseX - cx) / unit;
+                double nh = 2 * (lastMouseY - cy) / unit;
+                if (!ctrl) {
+                    nw = Math.round(nw * 16.0) / 16.0;
+                    nh = Math.round(nh * 16.0) / 16.0;
+                }
+                replaceImageRaw(chapter, imgModeId, raw.with("width", Math.max(0.0625, Math.min(200, nw))).with("height", Math.max(0.0625, Math.min(200, nh))));
+            } else {
+                double angle = Math.toDegrees(Math.atan2(lastMouseY - cy, lastMouseX - cx)) + 90;
+                if (!ctrl) {
+                    angle = Math.round(angle / 15.0) * 15.0; // snaps to 15 degree steps
+                }
+                angle = ((angle % 360) + 360) % 360;
+                replaceImageRaw(chapter, imgModeId, raw.with("rotation", angle));
+            }
+            img = imageById(chapter, imgModeId);
+            raw = img.raw();
+        }
+        double[] handle = imageHandle(img, v);
+        if (!Ui.icon(Ui.LIBRARY, "textures/icons/marker.png", handle[0] - 8, handle[1] - 8, 16, 16, 0xFFFFFFFF)) {
+            rect((int) handle[0] - 3, (int) handle[1] - 3, 7, 7, 0xFF66CCFF);
+        }
+        String l1 = imgMode.equals("resize")
+                ? "Size: " + degrees(raw.getDouble("width", 1)) + " x " + degrees(raw.getDouble("height", 1))
+                : "Rotation: " + degrees(raw.getDouble("rotation", 0)) + "\u00b0";
+        String l2 = imgMode.equals("resize") ? "Ctrl: disable snapping (1/16 steps)" : "Ctrl: disable snapping (15\u00b0 steps)";
+        int w = Math.max(fr.getStringWidth(l1), Math.max(fr.getStringWidth(l2), fr.getStringWidth("Esc: cancel"))) + 12;
+        int bx = bounds.x() + bounds.width() - w - 34;
+        int by = bounds.y() + 6;
+        Gui.drawRect(bx, by, bx + w, by + 38, 0xE0101010);
+        fr.drawStringWithShadow(l1, bx + 6, by + 4, 0xFFFFFF);
+        fr.drawStringWithShadow(l2, bx + 6, by + 15, ctrl ? 0xFFFF55 : 0xFFFFFF);
+        fr.drawStringWithShadow("Esc: cancel", bx + 6, by + 26, 0xFFFFFF);
     }
 
     private void replaceImage(Chapter chapter, String id, double x, double y) {
@@ -1310,7 +1956,15 @@ final class QuestBookWidget extends Widget {
             GlStateManager.pushMatrix();
             GlStateManager.translate(cx, cy, 0);
             GlStateManager.rotate((float) raw.getDouble("rotation", 0), 0, 0, 1);
-            QuestArt.quad(loc, -w / 2, -h / 2, w, h, alpha << 24 | 0xFFFFFF, true); // large pictures are scaled smoothly
+            // large pictures are scaled smoothly; small ones (sprites) stay sharp
+            mc.getTextureManager().bindTexture(loc);
+            boolean sprite = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH) <= 128
+                    && GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT) <= 128;
+            if (sprite) {
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+            }
+            QuestArt.quad(loc, -w / 2, -h / 2, w, h, alpha << 24 | 0xFFFFFF, !sprite);
             GlStateManager.popMatrix();
             if (isEditing() && (img.id().equals(hoverImage) || img.id().equals(movingImage))) {
                 // outline of the picture being pointed at or moved
@@ -1367,7 +2021,8 @@ final class QuestBookWidget extends Widget {
     private static void drawItem(ItemStack stack, float x, float y, float scale) {
         GlStateManager.pushMatrix();
         GlStateManager.translate(x, y, 0);
-        GlStateManager.scale(scale, scale, scale);
+        // the model sits 200 units deep, scaled: a big icon would leave the depth range and be cut, so it is never scaled in depth
+        GlStateManager.scale(scale, scale, Math.min(scale, 1f));
         RenderHelper.enableGUIStandardItemLighting();
         mc().getRenderItem().zLevel = 100f;
         mc().getRenderItem().renderItemAndEffectIntoGUI(stack, 0, 0);
@@ -1381,6 +2036,7 @@ final class QuestBookWidget extends Widget {
     private void drawDetail(FontRenderer fr, QuestBook book, ProgressEngine engine, TeamProgress p) {
         Quest q = book.quest(selectedQuest);
         Rect r = detailRect();
+        Ui.shadow(r);
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF0E0F12);
         Gui.drawRect(r.x() + 1, r.y() + 1, r.x() + r.width() - 1, r.y() + r.height() - 1, 0xF51F2228);
         if (!selectedQuest.equals(lastDetailQuest)) {
@@ -1523,7 +2179,10 @@ final class QuestBookWidget extends Widget {
             return;
         }
         Task first = q.tasks.get(0);
-        if (first.type().equals("checkmark")) {
+        ItemStack named = QuestText.taskIcon(first);
+        if (named != null && !first.type().equals("item")) {
+            drawItem(named, x, y, size / 16f); // a task with an icon of its own, or a kill task's spawn egg
+        } else if (first.type().equals("checkmark")) {
             Ui.taskCheck(x, y, size, done);
         } else if (first.type().equals("item")) {
             ItemStack s = QuestText.stackOf(first.params().get("item"));
@@ -1555,7 +2214,10 @@ final class QuestBookWidget extends Widget {
     }
 
     private void drawTaskIcon(FontRenderer fr, Task t, boolean done, int x, int y) {
-        if (t.type().equals("checkmark")) {
+        ItemStack named = t.type().equals("item") || t.type().equals("checkmark") ? null : QuestText.taskIcon(t);
+        if (named != null) {
+            drawItem(named, x + 1, y + 1, 1f);
+        } else if (t.type().equals("checkmark")) {
             if (!Ui.taskCheck(x + 1, y + 1, 16, done)) {
                 iconBox(fr, "v", x, y);
             }
@@ -1605,8 +2267,16 @@ final class QuestBookWidget extends Widget {
             case "all_table":
                 drawItem(new ItemStack(net.minecraft.init.Blocks.CHEST), x + 1, y + 1, 1f);
                 break;
-            default:
-                iconBox(fr, rw.type().isEmpty() ? "?" : rw.type().substring(0, 1).toUpperCase(java.util.Locale.ROOT), x, y);
+            default: {
+                ItemStack own = pm.get("icon") instanceof DataNode.Compound ic && !ic.entries().isEmpty() ? QuestText.stackOf(ic) : null;
+                if (own != null) {
+                    drawItem(own, x + 1, y + 1, 1f);
+                } else if (rw.type().equals("command")) {
+                    drawItem(new ItemStack(net.minecraft.init.Blocks.COMMAND_BLOCK), x + 1, y + 1, 1f);
+                } else {
+                    iconBox(fr, rw.type().isEmpty() ? "?" : rw.type().substring(0, 1).toUpperCase(java.util.Locale.ROOT), x, y);
+                }
+            }
         }
     }
 
@@ -1697,10 +2367,10 @@ final class QuestBookWidget extends Widget {
 
     private MenuItem[] editMenu(Quest q) {
         return new MenuItem[] {
-            new MenuItem("Title", "[T]", "guide", false, () -> startInline("title", q)),
-            new MenuItem("Subtitle", "[S]", "guide", false, () -> startInline("subtitle", q)),
-            new MenuItem("Description", "[D]", "guide", false, () -> mc().displayGuiScreen(new DescriptionEditorScreen(mc().currentScreen, q))),
-            new MenuItem("Add Text Line", "[L]", "guide", true, () -> startInline("line", q)),
+            new MenuItem("Title", "[T]", "lib:notes", false, () -> startInline("title", q)),
+            new MenuItem("Subtitle", "[S]", "lib:notes", false, () -> startInline("subtitle", q)),
+            new MenuItem("Description", "[D]", "lib:notes", false, () -> mc().displayGuiScreen(new DescriptionEditorScreen(mc().currentScreen, q))),
+            new MenuItem("Add Text Line", "[L]", "lib:notes", true, () -> startInline("line", q)),
             new MenuItem("Add Page Break", "[P]", "pagebreak", false, () -> appendPage(q)),
             new MenuItem("Add Image", "[I]", "lib:art", false, () -> mc().displayGuiScreen(
                     new InsertDialogs.ImageDialog(mc().currentScreen, tag -> appendLine(q, tag)))),
@@ -1716,7 +2386,12 @@ final class QuestBookWidget extends Widget {
         inlineKind = kind;
         inlineQuest = q.id;
         inlineScroll = 0;
-        INLINE = new TextEditor(kind.equals("title") ? q.title : kind.equals("subtitle") ? q.subtitle : "", 4000);
+        INLINE = new TextEditor(codesAsTyped(kind.equals("title") ? q.title : kind.equals("subtitle") ? q.subtitle : ""), 4000);
+    }
+
+    /** Legacy files write colour codes with the section sign, which the font would draw as colour and hide; the editor shows them as &6. */
+    static String codesAsTyped(String text) {
+        return text.replace('§', '&');
     }
 
     private static boolean inlineOn(String kind, Quest q) {
@@ -1876,19 +2551,25 @@ final class QuestBookWidget extends Widget {
         Gui.drawRect(r.x() + 1, y + secH, right - 1, y + secH + 1, 0xFF0E0F12);
         boolean hasDeps = !q.dependencies.isEmpty();
         List<Quest> dependants = dependantsOf(book, q);
-        Rect left = new Rect(r.x() + 3, y + 3, 16, 16);
-        // small arrows (a third of the old size, then 18% larger); the click area fits the arrow with 4 px to spare
-        double arrow = 16 * 0.33 * 1.18;
+        Rect left = new Rect(r.x() + 1, y + 3, 16, 16);
+        // the arrows as FTB Quests 26.1.2 draws them (measured at GUI scale 3: the 16 px texture shows at about 13 GUI px);
+        // the click area fits the arrow with 4 px to spare
+        double arrow = 13;
         int leeway = 4;
         double leftX = left.x() + (16 - arrow) / 2;
         double leftY = left.y() + (16 - arrow) / 2;
-        if (!Ui.questsGui("arrow_left", leftX, leftY, arrow, arrow, hasDeps ? 0xFFFFFFFF : 0x44FFFFFF)) {
+        // a locked quest: the dependencies arrow slides between white and dark red; with nothing to show an arrow is dark
+        int leftTint = !hasDeps ? 0xFF1B1D1E : 0xFFFFFFFF;
+        if (hasDeps && !ClientQuests.progress().isCompleted(q.id) && !QuestRules.dependenciesMet(book, ClientQuests.progress(), q)) {
+            leftTint = mixColour(0xFFFFFFFF, 0xFFAA0000, (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 400.0)));
+        }
+        if (!Ui.questsGui("arrow_left", leftX, leftY, arrow, arrow, leftTint)) {
             fr.drawString("<", left.x() + 5, left.y() + 4, hasDeps ? 0xFFFFFF : 0x555555);
         }
-        Rect rightArrow = new Rect(right - 19, y + 3, 16, 16);
+        Rect rightArrow = new Rect(right - 17, y + 3, 16, 16);
         double rightX = rightArrow.x() + (16 - arrow) / 2;
         double rightY = rightArrow.y() + (16 - arrow) / 2;
-        if (!Ui.questsGui("arrow_right", rightX, rightY, arrow, arrow, !dependants.isEmpty() ? 0xFFFFFFFF : 0x44FFFFFF)) {
+        if (!Ui.questsGui("arrow_right", rightX, rightY, arrow, arrow, !dependants.isEmpty() ? 0xFFFFFFFF : 0xFF1B1D1E)) {
             fr.drawString(">", rightArrow.x() + 5, rightArrow.y() + 4, !dependants.isEmpty() ? 0xFFFFFF : 0x555555);
         }
         int hitSize = (int) Math.ceil(arrow) + 2 * leeway;
@@ -1949,6 +2630,16 @@ final class QuestBookWidget extends Widget {
                         act = () -> JeiBridge.showRecipes(recipeOf);
                     }
                 }
+            } else if (t.type().equals("xp")) {
+                boolean points = t.params().getBool("points", false);
+                long xpLeft = t.maxProgress() - p.taskProgress(t.id());
+                long have = mc().player == null ? 0 : points ? mc().player.experienceTotal : mc().player.experienceLevel;
+                tip.append("§f").append(points ? "XP: " : "XP Levels: ").append(have >= xpLeft ? "§a" : "§c").append(t.maxProgress());
+                tip.append("\n§a").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
+                if (!done && canWork) {
+                    tip.append("\n\n§e§nClick to submit");
+                    act = () -> QuestNet.submit(t.id());
+                }
             } else {
                 tip.append(QuestText.task(t));
                 if (!done && canWork && t.type().equals("checkmark")) {
@@ -1965,9 +2656,7 @@ final class QuestBookWidget extends Widget {
             final String taskId = t.id();
             final Definitions.Task taskRef = t;
             addHitR(new Rect(sx, sy, 18, 18), act, tip.toString(), !isEditing() ? null
-                    : () -> openMenu(lastMouseX, lastMouseY,
-                            new MenuItem("Edit", "", "settings", false, () -> mc().displayGuiScreen(new TaskRewardScreen(mc().currentScreen, taskRef, null))),
-                            new MenuItem("Delete task", () -> send("remove_task", args("id", taskId)))));
+                    : () -> taskMenu(q, taskRef));
         }
         if (isEditing()) {
             int i = q.tasks.size();
@@ -1979,15 +2668,7 @@ final class QuestBookWidget extends Widget {
                 iconBox(fr, "+", sx, sy);
             }
             final String owner = q.id;
-            addHit(plus, () -> openMenu(plus.x(), plus.y() + 18,
-                    new MenuItem("Select Task Type", "", "", false, null),
-                    new MenuItem("Item (the item you hold)", () -> send("add_task", args("id", owner, "type", "item"))),
-                    new MenuItem("Checkmark", () -> send("add_task", args("id", owner, "type", "checkmark"))),
-                    new MenuItem("XP Levels", () -> send("add_task", args("id", owner, "type", "xp", "params", args("value", 5, "points", false)))),
-                    new MenuItem("Kill", () -> send("add_task", args("id", owner, "type", "kill", "params", args("entity", "minecraft:zombie", "value", 10)))),
-                    new MenuItem("Visit Dimension", () -> send("add_task", args("id", owner, "type", "dimension", "params", args("dimension", "minecraft:the_nether")))),
-                    new MenuItem("Visit Biome", () -> send("add_task", args("id", owner, "type", "biome", "params", args("biome", "minecraft:plains")))),
-                    new MenuItem("Find Structure", () -> send("add_task", args("id", owner, "type", "structure", "params", args("structure", "minecraft:village"))))),
+            addHit(plus, () -> openMenu(lastMouseX, lastMouseY, taskTypeMenu(owner)),
                     "Add a task");
         }
         for (int i = 0; i < q.rewards.size(); i++) {
@@ -2022,9 +2703,7 @@ final class QuestBookWidget extends Widget {
                     : recipeOf != null && jeiEnabled(book, q) ? () -> JeiBridge.showRecipes(recipeOf) : () -> { };
             final String rewardId = rw.id();
             addHitR(new Rect(sx, sy, 18, 18), act, tip, !isEditing() ? null
-                    : () -> openMenu(lastMouseX, lastMouseY,
-                            new MenuItem("Edit", "", "settings", false, () -> mc().displayGuiScreen(new TaskRewardScreen(mc().currentScreen, null, target))),
-                            new MenuItem("Delete reward", () -> send("remove_reward", args("id", rewardId)))));
+                    : () -> rewardMenu(q, target));
         }
         if (isEditing()) {
             int i = q.rewards.size();
@@ -2036,14 +2715,7 @@ final class QuestBookWidget extends Widget {
                 iconBox(fr, "+", sx, sy);
             }
             final String owner = q.id;
-            addHit(plus, () -> openMenu(plus.x(), plus.y() + 18,
-                    new MenuItem("Select Reward Type", "", "", false, null),
-                    new MenuItem("Item (the item you hold)", () -> send("add_reward", args("id", owner, "type", "item"))),
-                    new MenuItem("Command", () -> send("add_reward", args("id", owner, "type", "command", "params", args("command", "/say Hi, @p!")))),
-                    new MenuItem("Advancement", () -> send("add_reward", args("id", owner, "type", "advancement", "params", args("advancement", "minecraft:story/root")))),
-                    new MenuItem("Toast", () -> send("add_reward", args("id", owner, "type", "toast", "params", args("description", "Well done!")))),
-                    new MenuItem("10 XP", () -> send("add_reward", args("id", owner, "type", "xp", "params", args("xp", 10)))),
-                    new MenuItem("1 XP level", () -> send("add_reward", args("id", owner, "type", "xp_levels", "params", args("xp_levels", 1))))),
+            addHit(plus, () -> openMenu(lastMouseX, lastMouseY, rewardTypeMenu(owner)),
                     "Add a reward");
         }
         y += secH + 1;
@@ -2065,7 +2737,7 @@ final class QuestBookWidget extends Widget {
                 Ui.drawText(fr, sub, r.x() + r.width() / 2 - sw / 2, y + 4, 0xAAAAAA, r.width() - 12);
                 y += 16;
             }
-            boolean textHidden = !isEditing() && !p.isCompleted(q.id) && q.hideTextUntilComplete.resolve(false);
+            boolean textHidden = !isEditing() && !p.isCompleted(q.id) && textHiddenRule(book, q);
             if (!q.description.isEmpty() && !textHidden) {
                 y += 4;
                 int dw = r.width() - 14;
@@ -2138,7 +2810,7 @@ final class QuestBookWidget extends Widget {
         }
         // a quest with nothing to read (no subtitle, text or choices) has no body below its tasks and rewards
         boolean bare = details && q.subtitle.isEmpty() && !q.optional
-                && (q.description.isEmpty() || !isEditing() && !p.isCompleted(q.id) && q.hideTextUntilComplete.resolve(false)) && choiceFor.isEmpty()
+                && (q.description.isEmpty() || !isEditing() && !p.isCompleted(q.id) && textHiddenRule(ClientQuests.book(), q)) && choiceFor.isEmpty()
                 && !isEditing() && !inlineOn("line", q);
         detailContentHeight = bare ? y - top + bar + 1 : y + 4 - top + bar + 1;
         clip = null;
@@ -2358,13 +3030,13 @@ final class QuestBookWidget extends Widget {
         }
         QuestBook book = ClientQuests.book();
         Chapter chapter = book == null ? null : currentChapter(book);
-        int right = bounds.x() + bounds.width() - 30 - (propsOpen() ? DETAIL_W : 0);
+        int right = bounds.x() + bounds.width();
+        int numbersRight = right - 30; // the numbers stop before the player preferences button
         int left = bounds.x() + listWidth();
         int stripH = 12;
         int stripY = bounds.y() + bounds.height() - stripH;
         ChangeLog.draw(fr, left, stripY, right - left);
-        Gui.drawRect(left, stripY - 1, right, stripY, 0xFF3A3A3A);
-        Gui.drawRect(left, stripY, right, stripY + stripH, 0xE0000000);
+        Gui.drawRect(left, stripY, right, stripY + stripH, 0x4D000000);
         if (chapter == null) {
             return;
         }
@@ -2374,29 +3046,34 @@ final class QuestBookWidget extends Widget {
         double cy = v.worldY(map.y() + map.height() / 2.0) / GRID;
         double mx = Math.round(v.worldX(mouseX) / GRID * 2.0) / 2.0;
         double my = Math.round(v.worldY(mouseY) / GRID * 2.0) / 2.0;
-        int selected = chapter.quests.stream().anyMatch(q -> q.id.equals(selectedQuest)) ? 1 : 0;
+        int selected = SELECTION.isEmpty() ? (chapter.quests.stream().anyMatch(q -> q.id.equals(selectedQuest)) ? 1 : 0)
+                : (int) chapter.quests.stream().filter(q -> SELECTION.contains(q.id)).count();
         ClientPrefs.ensureLoaded();
         String lang = ClientPrefs.localeOverride.isEmpty()
                 ? mc().gameSettings.language.toLowerCase(java.util.Locale.ROOT) + " [Auto]"
                 : ClientPrefs.localeOverride + " [Manual]";
         GlStateManager.pushMatrix();
-        GlStateManager.translate(left + 6, stripY + 3, 0);
-        GlStateManager.scale(0.75f, 0.75f, 1f);
+        GlStateManager.translate(left + 6, stripY + 4, 0);
+        GlStateManager.scale(0.5f, 0.5f, 1f);
         int x = 0;
         String[] parts = {
             String.format(java.util.Locale.ROOT, "Cursor: [%+.2f, %+.2f]", mx, my),
             "Selected: " + selected + "/" + chapter.quests.size(),
             "Lang: " + lang,
         };
+        String center = String.format(java.util.Locale.ROOT, "Center: [%.2f, %.2f]", cx, cy);
+        int room = Math.round((numbersRight - 6 - (left + 6)) / 0.5f) - fr.getStringWidth(center) - 40; // what the left side may use
         for (String part : parts) {
+            if (x + fr.getStringWidth(part) > room) {
+                break; // never runs into the centre numbers
+            }
             fr.drawStringWithShadow(part, x, 0, 0xFFFFFF);
             x += fr.getStringWidth(part) + 40;
         }
         GlStateManager.popMatrix();
-        String center = String.format(java.util.Locale.ROOT, "Center: [%.2f, %.2f]", cx, cy);
         GlStateManager.pushMatrix();
-        GlStateManager.scale(0.75f, 0.75f, 1f);
-        fr.drawStringWithShadow(center, (right - 6) / 0.75f - fr.getStringWidth(center), (stripY + 3) / 0.75f, 0xFFFFFF);
+        GlStateManager.scale(0.5f, 0.5f, 1f);
+        fr.drawStringWithShadow(center, (numbersRight - 6) / 0.5f - fr.getStringWidth(center), (stripY + 4) / 0.5f, 0xFFFFFF);
         GlStateManager.popMatrix();
     }
 
@@ -2409,6 +3086,7 @@ final class QuestBookWidget extends Widget {
     private void undoEdit() {
         if (ClientQuests.undoCount() > 0 || TableEdits.hasPending()) {
             ChangeLog.add("Undo", "", TableEdits.hasPending() ? "" : ClientQuests.undoLabel());
+            ChangeLog.noteUndo();
             send("undo", DataNode.Compound.empty());
         }
     }
@@ -2416,6 +3094,7 @@ final class QuestBookWidget extends Widget {
     private void redoEdit() {
         if (ClientQuests.redoCount() > 0 && !TableEdits.hasPending()) {
             ChangeLog.add("Redo", "", ClientQuests.redoLabel());
+            ChangeLog.noteRedo();
             send("redo", DataNode.Compound.empty());
         }
     }
@@ -2483,6 +3162,287 @@ final class QuestBookWidget extends Widget {
         menuY = y;
     }
 
+
+    // ------------------------------------------------------------------ right-click menus of tasks and rewards
+
+    private static MenuItem menuHeader(String text) {
+        return new MenuItem("\"" + text + "\"", "", "", false, null);
+    }
+
+    /** What a right click on a task offers in edit mode, in FTB's order. */
+    private void taskMenu(Quest q, Task t) {
+        TeamProgress p = ClientQuests.progress();
+        boolean done = p != null && QuestRules.taskDone(p, t);
+        int at = q.tasks.indexOf(t);
+        List<MenuItem> items = new ArrayList<>();
+        items.add(menuHeader(RichText.stripCodes(QuestText.task(t))));
+        items.add(new MenuItem("Move Left", "", "lib:left", true, () -> {
+            if (at > 0) {
+                send("move_task", args("id", t.id(), "by", -1));
+            }
+        }));
+        items.add(new MenuItem("Move Right", "", "lib:right", false, () -> {
+            if (at < q.tasks.size() - 1) {
+                send("move_task", args("id", t.id(), "by", 1));
+            }
+        }));
+        if (t.type().equals("item")) {
+            items.add(new MenuItem("Grab Copy of Item", "", "lib:add_gray", false, () -> grabCopy(q, t)));
+            items.add(new MenuItem("Use Task Icon as Quest Icon", "", "settings", false,
+                    () -> send("set_icon", args("kind", "quest", "id", q.id, "mode", "task", "task", t.id()))));
+        }
+        items.add(new MenuItem("Edit", "", "settings", false, () -> mc().displayGuiScreen(new TaskRewardScreen(mc().currentScreen, t, null))));
+        items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickTask(q, t)));
+        items.add(new MenuItem("Delete", "", "lib:remove", false, () -> send("remove_task", args("id", t.id()))));
+        if (done) {
+            items.add(new MenuItem("Reset Progress", "", "lib:undo", false, () -> send("reset_task", args("id", t.id()))));
+        } else {
+            items.add(new MenuItem("Complete Instantly", "", "lib:check", false, () -> send("complete_task", args("id", t.id()))));
+        }
+        items.add(new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(t.id())));
+        menu = items;
+        menuX = lastMouseX;
+        menuY = lastMouseY;
+    }
+
+    /** Takes a copy of the task's item; a collection or ore dictionary entry first asks which of its items. */
+    private void grabCopy(Quest q, Task t) {
+        DataNode spec = t.params().get("item");
+        List<com.levviata.reflibquests.game.ItemResolver.Resolved> set = com.levviata.reflibquests.game.ItemSet.resolveAll(spec, ClientQuests.idMap());
+        boolean collection = com.levviata.reflibquests.game.ItemSet.isFilter(spec) || set.size() > 1;
+        if (!collection || set.isEmpty()) {
+            send("grab_item", args("id", t.id(), "index", 0));
+            return;
+        }
+        final List<ItemStack> shown = new ArrayList<>();
+        for (com.levviata.reflibquests.game.ItemResolver.Resolved res : set) {
+            shown.add(res.toStack(1));
+        }
+        String name = t.params().getString("title", "");
+        if (name.isEmpty()) {
+            name = com.levviata.reflibquests.game.ItemSet.suggestedName(spec);
+        }
+        final String shownName = name.isEmpty() ? QuestText.title(q) : RichText.toRainbowAware(name);
+        mc().displayGuiScreen(ValidItemsScreen.forCopying(mc().currentScreen, shownName, shown, index -> {
+            ItemStack chosen = shown.get(index);
+            String regName = chosen.getItem().getRegistryName() == null ? "" : chosen.getItem().getRegistryName().toString();
+            send("grab_item", args("id", t.id(), "index", index, "item", regName, "damage", chosen.getMetadata()));
+        }));
+    }
+
+    /** What a right click on a reward offers in edit mode. */
+    private void rewardMenu(Quest q, Reward rw) {
+        int at = q.rewards.indexOf(rw);
+        List<MenuItem> items = new ArrayList<>();
+        items.add(menuHeader(RichText.stripCodes(QuestText.reward(rw))));
+        items.add(new MenuItem("Move Left", "", "lib:left", true, () -> {
+            if (at > 0) {
+                send("move_reward", args("id", rw.id(), "by", -1));
+            }
+        }));
+        items.add(new MenuItem("Move Right", "", "lib:right", false, () -> {
+            if (at < q.rewards.size() - 1) {
+                send("move_reward", args("id", rw.id(), "by", 1));
+            }
+        }));
+        items.add(new MenuItem("Edit", "", "settings", false, () -> mc().displayGuiScreen(new TaskRewardScreen(mc().currentScreen, null, rw))));
+        items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickReward(rw)));
+        items.add(new MenuItem("Delete", "", "lib:remove", false, () -> send("remove_reward", args("id", rw.id()))));
+        items.add(new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(rw.id())));
+        menu = items;
+        menuX = lastMouseX;
+        menuY = lastMouseY;
+    }
+
+    /** A setting with several values, opened as a list where it was clicked; the current one has a check mark. */
+    private MenuItem quickList(String label, String sendOp, String id, String key, List<String> labels, List<String> values, String current) {
+        return new MenuItem(label, "", "settings", false, () -> {
+            List<MenuItem> options = new ArrayList<>();
+            options.add(new MenuItem(label, "", "", false, null));
+            for (int i = 0; i < labels.size(); i++) {
+                final String value = values.get(i);
+                options.add(new MenuItem(labels.get(i), "", value.equalsIgnoreCase(current) ? "lib:check" : "", i == 0,
+                        () -> send(sendOp, args("id", id, "key", key, "value", value))));
+            }
+            menu = options;
+            menuX = lastMouseX;
+            menuY = lastMouseY;
+        });
+    }
+
+    private void quickTask(Quest q, Task t) {
+        List<MenuItem> items = new ArrayList<>();
+        items.add(menuHeader(RichText.stripCodes(QuestText.task(t))));
+        boolean toastOff = t.params().getBool("disable_toast", false);
+        items.add(new MenuItem("Disable Completion Toast", "", toastOff ? "lib:check" : "lib:check@dim", true,
+                () -> send("set_task_prop", args("id", t.id(), "key", "disable_toast", "value", String.valueOf(!toastOff)))));
+        boolean optional = t.optionalTask();
+        items.add(new MenuItem("Optional Task", "", optional ? "lib:check" : "lib:check@dim", false,
+                () -> send("set_task_prop", args("id", t.id(), "key", "optional_task", "value", String.valueOf(!optional)))));
+        if (t.type().equals("item")) {
+            items.add(quickList("Consume Items", "set_task_prop", t.id(), "consume_items", TRI_LABELS, TRI_VALUES, triOf(t, "consume_items")));
+            items.add(quickList("Only Detect From Crafting", "set_task_prop", t.id(), "only_from_crafting", TRI_LABELS, TRI_VALUES, triOf(t, "only_from_crafting")));
+            String match = t.params().getString("match_components", "default");
+            items.add(quickList("Match Data Components", "set_task_prop", t.id(), "match_components",
+                    List.of("Default", "Fuzzy", "Exact"), List.of("default", "fuzzy", "exact"), match));
+            boolean taskScreen = t.params().getBool("task_screen_only", false);
+            items.add(new MenuItem("Only From Task Screen", "", taskScreen ? "lib:check" : "lib:check@dim", false,
+                    () -> send("set_task_prop", args("id", t.id(), "key", "task_screen_only", "value", String.valueOf(!taskScreen)))));
+        }
+        menu = items;
+        menuX = lastMouseX;
+        menuY = lastMouseY;
+    }
+
+    private static String triOf(Task t, String key) {
+        return !t.params().has(key) ? "default" : t.params().getBool(key, false) ? "true" : "false";
+    }
+
+    private MenuItem rewardSwitch(Reward rw, String label, String key, boolean first) {
+        boolean on = rw.params().getBool(key, false);
+        return new MenuItem(label, "", on ? "lib:check" : "lib:check@dim", first,
+                () -> send("set_reward_prop", args("id", rw.id(), "key", key, "value", String.valueOf(!on))));
+    }
+
+    private void quickReward(Reward rw) {
+        List<MenuItem> items = new ArrayList<>();
+        items.add(menuHeader(RichText.stripCodes(QuestText.reward(rw))));
+        String team = !rw.params().has("team_reward") ? "default" : rw.params().getBool("team_reward", false) ? "true" : "false";
+        MenuItem first = quickList("Per-Team Reward", "set_reward_prop", rw.id(), "team_reward", TRI_LABELS, TRI_VALUES, team);
+        items.add(new MenuItem(first.label(), "", first.icon(), true, first.action()));
+        List<String> labels = List.of("Default", "Disabled", "Enabled", "Enabled, No Toast", "Enabled, Invisible");
+        List<String> values = List.of("default", "disabled", "enabled", "no_toast", "invisible");
+        items.add(quickList("Auto-claim", "set_reward_prop", rw.id(), "auto", labels, values, rw.params().getString("auto", "default")));
+        items.add(rewardSwitch(rw, "Exclude from Claim All", "exclude_from_claim_all", false));
+        items.add(rewardSwitch(rw, "Ignore reward blocking", "ignore_reward_blocking", false));
+        items.add(rewardSwitch(rw, "Disable Reward Screen Blur", "disable_reward_screen_blur", false));
+        items.add(rewardSwitch(rw, "Only One", "only_one", false));
+        menu = items;
+        menuX = lastMouseX;
+        menuY = lastMouseY;
+    }
+
+
+    /** The icons of a chapter's quests, rebuilt every couple of seconds (a chapter can have a thousand quests). */
+    private static final Map<String, Object[]> CHAPTER_ICON_CACHE = new HashMap<>();
+
+    /** The only quest's icon, or the quests' icons in turn; null for an empty chapter. */
+    private static ItemStack chapterIconFromQuests(Chapter c) {
+        long now = System.currentTimeMillis();
+        Object[] cached = CHAPTER_ICON_CACHE.get(c.id);
+        if (cached == null || now - (Long) cached[0] > 2000 || (Integer) cached[1] != c.quests.size()) {
+            List<ItemStack> icons = new ArrayList<>();
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (Quest q : c.quests) {
+                ItemStack s = QuestText.iconOf(q);
+                if (s != null && !s.isEmpty() && seen.add(s.getItem().getRegistryName() + "/" + s.getMetadata()) && icons.size() < 40) {
+                    icons.add(s);
+                }
+            }
+            cached = new Object[] {now, c.quests.size(), icons};
+            CHAPTER_ICON_CACHE.put(c.id, cached);
+        }
+        @SuppressWarnings("unchecked")
+        List<ItemStack> icons = (List<ItemStack>) cached[2];
+        return icons.isEmpty() ? null : icons.get((int) ((now / 1200) % icons.size()));
+    }
+
+    /** What a right click on a chapter offers in edit mode, in FTB's order. */
+    private void chapterMenu(Chapter c) {
+        QuestBook book = ClientQuests.book();
+        TeamProgress p = ClientQuests.progress();
+        if (book == null) {
+            return;
+        }
+        final String id = c.id;
+        List<Chapter> siblings = new ArrayList<>();
+        for (Chapter o : book.chapters()) {
+            if (o.groupId.equals(c.groupId)) {
+                siblings.add(o);
+            }
+        }
+        int at = siblings.indexOf(c);
+        boolean canUp = at > 0;
+        boolean canDown = at >= 0 && at < siblings.size() - 1;
+        boolean done = p != null && QuestRules.chapterCompleted(p, c);
+        List<MenuItem> items = new ArrayList<>();
+        items.add(menuHeader(RichText.stripCodes(c.title.isEmpty() ? c.id : c.title)));
+        items.add(new MenuItem("Move", "", canUp ? "lib:up" : "lib:up@off", true, canUp ? () -> send("move_chapter", args("id", id, "by", -1)) : () -> { }));
+        items.add(new MenuItem("Move", "", canDown ? "lib:down" : "lib:down@off", false, canDown ? () -> send("move_chapter", args("id", id, "by", 1)) : () -> { }));
+        items.add(new MenuItem("Change Group", "", "lib:color_rgb", false, () -> chooseGroup(id)));
+        items.add(new MenuItem("Edit", "", "settings", false, () -> mc().displayGuiScreen(new ChapterPropertiesScreen(mc().currentScreen, c))));
+        items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickChapter(c)));
+        items.add(new MenuItem("Delete", "", "lib:remove", false, () -> {
+            Runnable doDelete = () -> {
+                send("delete_chapter", args("id", id));
+                if (id.equals(chapterId)) {
+                    chapterId = "";
+                    selectedQuest = "";
+                }
+            };
+            if (c.quests.isEmpty()) {
+                doDelete.run();
+            } else {
+                openMenu(lastMouseX, lastMouseY,
+                        menuHeader(RichText.stripCodes(c.title.isEmpty() ? c.id : c.title)),
+                        new MenuItem("Really delete this chapter?", "", "lib:remove", true, doDelete),
+                        new MenuItem("Keep it", "", "", false, () -> { }));
+            }
+        }));
+        items.add(new MenuItem("Reset Progress", "", "lib:undo", false, () -> send("reset_progress", args("chapter", id))));
+        items.add(new MenuItem("Complete Instantly", "", "lib:check", false, () -> send("complete_quest", args("chapter", id))));
+        items.add(new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(id)));
+        menu = items;
+        menuX = lastMouseX;
+        menuY = lastMouseY;
+    }
+
+    private MenuItem chapterSwitch(Chapter c, String label, String key, boolean on) {
+        return new MenuItem(label, "", on ? "lib:check" : "lib:check@dim", false,
+                () -> send("set_chapter_prop", args("id", c.id, "key", key, "value", String.valueOf(!on))));
+    }
+
+    /** "Quick Edit Properties..." of a chapter, in FTB's order: its switches, and the settings with several values as lists. */
+    private void quickChapter(Chapter c) {
+        List<MenuItem> items = new ArrayList<>();
+        items.add(menuHeader(RichText.stripCodes(c.title.isEmpty() ? c.id : c.title)));
+        MenuItem first = chapterSwitch(c, "Disable Completion Toast", "disable_toast", c.disableToast);
+        items.add(new MenuItem(first.label(), "", first.icon(), true, first.action()));
+        items.add(chapterList(c, "Default Quest Shape", "shape", SHAPE_LABELS_Q, SHAPE_VALUES_Q,
+                c.defaultQuestShape.equals("default") ? "" : c.defaultQuestShape));
+        items.add(chapterSwitch(c, "Always Invisible", "always_invisible", c.alwaysInvisible));
+        items.add(chapterSwitch(c, "Default 'Hide Dependency Lines'", "hide_dep_lines", c.defaultHideDependencyLines));
+        items.add(chapterSwitch(c, "Hide Quest Details Until Startable", "hide_details", c.hideQuestDetailsUntilStartable));
+        items.add(chapterSwitch(c, "Hide Quests Until Dependencies Visible", "hide_deps_visible", c.hideQuestUntilDepsVisible));
+        items.add(chapterSwitch(c, "Hide Quests Until Dependencies Complete", "hide_deps_complete", c.hideQuestUntilDepsComplete));
+        items.add(chapterSwitch(c, "Hide Text Until Quest is Completed", "hide_text", c.hideTextUntilComplete));
+        items.add(chapterList(c, "Default 'Progression Mode'", "progression_mode", List.of("Default", "Linear", "Flexible"),
+                List.of("DEFAULT", "LINEAR", "FLEXIBLE"), c.progressionMode.name()));
+        items.add(chapterSwitch(c, "Default 'Repeatable Quest'", "repeatable", c.defaultRepeatable));
+        items.add(chapterList(c, "Default Item Task 'Consume Items'", "consume_items", TRI_LABELS, TRI_VALUES,
+                c.defaultConsumeItems.name().toLowerCase(java.util.Locale.ROOT)));
+        items.add(chapterSwitch(c, "Sequential Task Completion", "sequential", c.requireSequentialTasks));
+        menu = items;
+        menuX = lastMouseX;
+        menuY = lastMouseY;
+    }
+
+    /** A chapter setting with several values: a gear that opens the values where it was clicked. */
+    private MenuItem chapterList(Chapter c, String label, String key, List<String> labels, List<String> values, String current) {
+        return new MenuItem(label, "", "settings", false, () -> {
+            List<MenuItem> options = new ArrayList<>();
+            options.add(menuHeader(label));
+            for (int i = 0; i < labels.size(); i++) {
+                final String value = values.get(i);
+                options.add(new MenuItem(labels.get(i), "", value.equalsIgnoreCase(current) ? "lib:check" : "", i == 0,
+                        () -> send("set_chapter_prop", args("id", c.id, "key", key, "value", value))));
+            }
+            menu = options;
+            menuX = lastMouseX;
+            menuY = lastMouseY;
+        });
+    }
+
     /** The right-click menu of a quest in edit mode: a title, then what can be done with it. */
     private void questMenu(Quest target, int x, int y) {
         TeamProgress p = ClientQuests.progress();
@@ -2491,6 +3451,7 @@ final class QuestBookWidget extends Widget {
         items.add(new MenuItem("\"" + QuestText.titlePlain(target) + "\"", "", "", false, null));
         items.add(new MenuItem("Edit", "", "settings", true, () -> selectedQuest = target.id));
         items.add(new MenuItem("Move", "", "lib:up", false, () -> startQuestMove(target)));
+        items.add(new MenuItem("Resize", "", "lib:expand", false, () -> startResize(target)));
         items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickProperties(target, lastMouseX, lastMouseY)));
         items.add(new MenuItem("Add Dependency", "", "lib:add", false, () -> linkFrom = target.id));
         items.add(new MenuItem("Delete", "", "lib:remove", false, () -> openMenu(x, y,
@@ -2502,21 +3463,89 @@ final class QuestBookWidget extends Widget {
                     }
                 }),
                 new MenuItem("Keep it", "", "", false, () -> { }))));
-        items.add(new MenuItem("Reset Progress", "", "lib:refresh", false, () -> send("reset_progress", args("id", target.id))));
+        items.add(new MenuItem("Reset Progress", "", "lib:undo", false, () -> send("reset_progress", args("id", target.id))));
         if (!done) {
             items.add(new MenuItem("Complete Instantly", "", "lib:check", false, () -> send("complete_quest", args("id", target.id))));
+            if (!target.dependencies.isEmpty()) {
+                items.add(new MenuItem("Complete Instantly (+Dependencies)", "", "lib:check", false,
+                        () -> send("complete_quest", args("id", target.id, "deps", true))));
+            }
         }
         Chapter focusChapter = ClientQuests.book() == null ? null : ClientQuests.book().chapter(chapterId);
         if (focusChapter != null) {
             boolean focused = target.id.equals(focusChapter.autofocusId);
             final String fcId = focusChapter.id;
-            items.add(new MenuItem(focused ? "Clear Autofocused Quest" : "Set as Autofocused Quest", "", "", false,
+            items.add(new MenuItem(focused ? "Clear Autofocused Quest" : "Set as Autofocused Quest", "", "lib:marker", false,
                     () -> send("set_chapter_prop", args("id", fcId, "key", "autofocus", "value", focused ? "" : target.id))));
+        }
+        QuestBook bezBook = ClientQuests.book();
+        boolean hasDeps = bezBook != null && target.dependencies.stream().anyMatch(d -> bezBook.chapterOf(d) == bezBook.chapterOf(target.id));
+        if (hasDeps) {
+            items.add(new MenuItem("Edit B\u00e9zier Control Points", "", "lib:star", false, () -> startBezier(target)));
+        }
+        if (!target.depControlPts.isEmpty()) {
+            items.add(new MenuItem("Clear B\u00e9zier Control Points", "", "", false,
+                    () -> send("set_bezier", DataNode.Compound.empty().with("id", target.id).with("points", DataNode.Compound.empty()))));
         }
         items.add(new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(target.id)));
         menu = items;
         menuX = x;
         menuY = y;
+    }
+
+
+    private static MenuItem typeItem(String label, String icon, Runnable action) {
+        return new MenuItem(label, "", icon, false, action);
+    }
+
+    private static MenuItem typeOff(String label, String icon) {
+        return new MenuItem(label, "", icon + "@off", false, () -> { });
+    }
+
+    /** FTB's "Select Task Type" list, in its order. Types without support yet are listed greyed out. */
+    private static MenuItem[] taskTypeMenu(String owner) {
+        return new MenuItem[] {
+            typeItem("Item", "item:diamond", () -> send("add_task", args("id", owner, "type", "item"))),
+            typeItem("Custom", "lib:color_hsb", () -> send("add_task", args("id", owner, "type", "custom"))),
+            typeItem("XP Levels", "item:experience_bottle", () -> send("add_task", args("id", owner, "type", "xp", "params", args("value", 5, "points", false)))),
+            typeItem("Visit Dimension", "item:ender_eye", () -> send("add_task", args("id", owner, "type", "dimension", "params", args("dimension", "minecraft:the_nether")))),
+            typeOff("Stat", "item:iron_sword"),
+            typeItem("Kill Entity", "item:diamond_sword", () -> send("add_task", args("id", owner, "type", "kill", "params", args("entity", "minecraft:zombie", "value", 10)))),
+            typeItem("Location", "item:stone_pressure_plate", () -> send("add_task", args("id", owner, "type", "location"))),
+            typeItem("Checkmark", "check_gray", () -> send("add_task", args("id", owner, "type", "checkmark"))),
+            typeItem("Advancement", "item:wheat", () -> send("add_task", args("id", owner, "type", "advancement", "params", args("advancement", "minecraft:story/root")))),
+            typeItem("Observation", "item:painting", () -> send("add_task", args("id", owner, "type", "observation", "params", args("observation_type", "block", "to_observe", "minecraft:stone", "timer", 0)))),
+            typeItem("Visit Biome", "item:sapling", () -> send("add_task", args("id", owner, "type", "biome", "params", args("biome", "minecraft:plains")))),
+            typeItem("Find Structure", "item:paper", () -> send("add_task", args("id", owner, "type", "structure", "params", args("structure", "minecraft:village")))),
+            typeOff("Stage", "lib:controller"),
+            typeOff("Fluid", "item:bucket"),
+            typeOff("Interaction", "item:diamond_pickaxe"),
+            typeOff("Forge Energy", "item:redstone_block"),
+        };
+    }
+
+    /** FTB's "Select Reward Type" list, in its order. Table rewards ask which table to use. */
+    private MenuItem[] rewardTypeMenu(String owner) {
+        return new MenuItem[] {
+            typeItem("Item", "item:diamond", () -> send("add_reward", args("id", owner, "type", "item"))),
+            typeItem("Choice Reward", "lib:color_rgb", () -> chooseTable(owner, "choice")),
+            typeItem("All Table Reward", "lib:color_hsb", () -> chooseTable(owner, "all_table")),
+            typeItem("Random Reward", "lib:dice", () -> chooseTable(owner, "random")),
+            typeItem("Loot Reward", "lib:money_bag", () -> chooseTable(owner, "loot")),
+            typeItem("Command", "item:command_block", () -> send("add_reward", args("id", owner, "type", "command", "params", args("command", "/say Hi, @p!")))),
+            typeItem("Custom", "lib:color_hsb", () -> send("add_reward", args("id", owner, "type", "custom"))),
+            typeItem("XP", "item:experience_bottle", () -> send("add_reward", args("id", owner, "type", "xp", "params", args("xp", 10)))),
+            typeItem("XP Levels", "item:experience_bottle", () -> send("add_reward", args("id", owner, "type", "xp_levels", "params", args("xp_levels", 1)))),
+            typeItem("Advancement", "item:wheat", () -> send("add_reward", args("id", owner, "type", "advancement", "params", args("advancement", "minecraft:story/root")))),
+            typeItem("Toast", "item:sign", () -> send("add_reward", args("id", owner, "type", "toast", "params", args("description", "Well done!")))),
+            typeOff("Stage", "lib:controller"),
+        };
+    }
+
+    /** The "Select Reward Table" panel (with a search box) for a Choice, All Table, Random or Loot reward. */
+    private void chooseTable(String owner, String type) {
+        mc().displayGuiScreen(new SelectRewardTableScreen(mc().currentScreen,
+                tid -> send("add_reward", args("id", owner, "type", type, "params", args("table_id", tid)))));
     }
 
     private void openMenu(int x, int y, MenuItem... items) {
@@ -2540,14 +3569,15 @@ final class QuestBookWidget extends Widget {
         return new Rect(x, y, w, h);
     }
 
-    private static final int MENU_ROW = 15;
+    private static final int MENU_ROW = 13;
 
     private void drawMenu(FontRenderer fr, int mouseX, int mouseY) {
         if (menu.isEmpty()) {
             return;
         }
         Rect box = menuRect(menu);
-        Ui.box(box, 0xFA23262D);
+        Ui.shadow(box);
+        Ui.box(box, 0xFF2F343B);
         int y = box.y() + 2;
         for (MenuItem m : menu) {
             if (m.separator()) {
@@ -2555,7 +3585,8 @@ final class QuestBookWidget extends Widget {
                 y += 6;
             }
             Rect row = new Rect(box.x() + 1, y, box.width() - 2, MENU_ROW);
-            boolean hover = m.action() != null && row.contains(mouseX, mouseY); // a header (no action) is only a title
+            boolean off = m.icon().endsWith("@off"); // listed for completeness, not available yet
+            boolean hover = m.action() != null && !off && row.contains(mouseX, mouseY); // a header (no action) is only a title
             int tx = box.x() + 6;
             if (m.action() == null) {
                 tx += 16;
@@ -2565,15 +3596,25 @@ final class QuestBookWidget extends Widget {
                 if (iconName.endsWith("@dim")) {
                     iconName = iconName.substring(0, iconName.length() - 4);
                     iconColor = 0x66FFFFFF; // switched off
+                } else if (off) {
+                    iconName = iconName.substring(0, iconName.length() - 4);
+                    iconColor = 0x66FFFFFF;
                 }
-                if (iconName.startsWith("lib:")) {
+                if (iconName.startsWith("item:")) {
+                    net.minecraft.item.Item menuItem = net.minecraft.item.Item.getByNameOrId(iconName.substring(5));
+                    if (menuItem != null) {
+                        drawItem(new ItemStack(menuItem), tx, y + 1, 0.75f);
+                    }
+                } else if (iconName.startsWith("gui:")) {
+                    Ui.icon(Ui.LIBRARY, "textures/gui/" + iconName.substring(4) + ".png", tx, y + 2, 12, 12, iconColor);
+                } else if (iconName.startsWith("lib:")) {
                     Ui.icon(Ui.LIBRARY, "textures/icons/" + iconName.substring(4) + ".png", tx, y + 2, 12, 12, iconColor);
                 } else {
                     Ui.questsGui(iconName, tx, y + 2, 12, 12, iconColor);
                 }
                 tx += 16;
             }
-            fr.drawStringWithShadow(m.label(), tx, y + 4, hover ? 0xFFFF55 : 0xFFFFFF);
+            fr.drawStringWithShadow(m.label(), tx, y + 4, off ? 0x8A8D96 : hover ? 0xFFFF55 : 0xFFFFFF);
             if (!m.shortcut().isEmpty()) {
                 fr.drawString(m.shortcut(), box.x() + box.width() - fr.getStringWidth(m.shortcut()) - 5, y + 4, 0x6F7384);
             }
@@ -2645,33 +3686,6 @@ final class QuestBookWidget extends Widget {
         fr.drawStringWithShadow(label, x + 4, y + 2, 0xFFFFFF);
         addHit(r, action, null);
         return x + w + 3;
-    }
-
-    private void drawChapterEditButtons(FontRenderer fr) {
-        Rect r = listRect();
-        QuestBook book = ClientQuests.book();
-        Chapter c = book == null ? null : currentChapter(book);
-        int y = r.y() + r.height() - 4 * 15 - 3;
-        Gui.drawRect(r.x(), y - 3, r.x() + r.width(), r.y() + r.height(), 0xFF22222E);
-        int x = r.x() + 4;
-        button(fr, x, y, "+ New chapter", () -> mc().displayGuiScreen(TextEditScreen.newChapter()));
-        y += 15;
-        button(fr, x, y, "+ New group", () -> mc().displayGuiScreen(TextEditScreen.newGroup()));
-        y += 15;
-        if (c != null) {
-            final Chapter chapter = c;
-            button(fr, x, y, "Rename", () -> mc().displayGuiScreen(TextEditScreen.forChapter(chapter)));
-            y += 15;
-            button(fr, x, y, confirmDeleteChapter ? "Really delete?" : "Delete chapter", () -> {
-                if (confirmDeleteChapter) {
-                    send("delete_chapter", args("id", chapter.id));
-                    confirmDeleteChapter = false;
-                    selectedQuest = "";
-                } else {
-                    confirmDeleteChapter = true;
-                }
-            });
-        }
     }
 
     private void drawEditDetail(FontRenderer fr, QuestBook book) {
@@ -2785,8 +3799,19 @@ final class QuestBookWidget extends Widget {
     }
 
     private static boolean consumes(QuestBook book, Task t) {
-        return t.params().has("consume_items") ? t.params().getBool("consume_items", false)
-                : book.settings.getBool("default_consume_items", false);
+        if (t.params().has("consume_items")) {
+            return t.params().getBool("consume_items", false);
+        }
+        boolean fallback = book.settings.getBool("default_consume_items", false);
+        Quest owner = book.questOfTask(t.id());
+        Chapter in = owner == null ? null : book.chapterOf(owner.id);
+        return in == null ? fallback : in.defaultConsumeItems.resolve(fallback);
+    }
+
+    /** Whether the quest's text stays hidden until it is completed: its own setting, then the chapter's. */
+    private static boolean textHiddenRule(QuestBook book, Quest q) {
+        Chapter in = book.chapterOf(q.id);
+        return q.hideTextUntilComplete.resolve(in != null && in.hideTextUntilComplete);
     }
 
     private int button(FontRenderer fr, int x, int y, String label, Runnable action) {
@@ -2811,6 +3836,52 @@ final class QuestBookWidget extends Widget {
 
     // ------------------------------------------------------------------ input
 
+    /** The quests from the bottom of the stack to the top: by Z, and at the same Z the smaller ones first. */
+    private List<Quest> drawOrder(Chapter chapter) {
+        List<Quest> order = new ArrayList<>(chapter.quests);
+        order.addAll(linkNodes);
+        order.sort(java.util.Comparator.<Quest>comparingDouble(q -> q.z).thenComparingDouble(q -> q.size));
+        return order;
+    }
+
+    /** The quest links of the chapter on show, as copies of their quests standing where the links are. Rebuilt every frame. */
+    private final List<Quest> linkNodes = new ArrayList<>();
+    private final java.util.Map<Quest, String> linkIds = new java.util.IdentityHashMap<>();
+
+    private void refreshLinkNodes(QuestBook book, Chapter chapter) {
+        linkNodes.clear();
+        linkIds.clear();
+        int n = 0;
+        for (Definitions.QuestLink l : chapter.links) {
+            Quest orig = book.quest(l.linkedQuest());
+            if (orig == null || n++ >= 200) {
+                continue;
+            }
+            Quest copy = com.levviata.reflibquests.model.DeepCopy.quest(orig, orig.id);
+            copy.x = l.x();
+            copy.y = l.y();
+            double own = l.raw().getDouble("size", 0);
+            copy.size = own > 0 ? own : orig.size;
+            copy.dependencies.clear(); // no lines run to a link
+            copy.depControlPts = new java.util.LinkedHashMap<>();
+            linkNodes.add(copy);
+            linkIds.put(copy, l.id());
+        }
+    }
+
+    /** What a right click on a quest link offers in edit mode. */
+    private void linkMenu(Quest link) {
+        final String linkId = linkIds.get(link);
+        List<MenuItem> items = new ArrayList<>();
+        items.add(menuHeader(RichText.stripCodes(QuestText.titlePlain(link))));
+        items.add(new MenuItem("Edit Linked Quest", "", "settings", true, () -> focusQuest(link.id)));
+        items.add(new MenuItem("Delete", "", "lib:remove", false, () -> send("delete_link", args("id", linkId))));
+        items.add(new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(linkId)));
+        menu = items;
+        menuX = lastMouseX;
+        menuY = lastMouseY;
+    }
+
     private Quest questAt(int mx, int my) {
         QuestBook book = ClientQuests.book();
         TeamProgress p = ClientQuests.progress();
@@ -2823,8 +3894,9 @@ final class QuestBookWidget extends Widget {
             return null;
         }
         ViewTransform v = viewFor(chapter, map);
-        for (int i = chapter.quests.size() - 1; i >= 0; i--) {
-            Quest q = chapter.quests.get(i);
+        List<Quest> order = drawOrder(chapter);
+        for (int i = order.size() - 1; i >= 0; i--) {
+            Quest q = order.get(i);
             double size = Math.max(4, NODE * q.size * v.zoom());
             double cx = v.screenX(q.x * GRID);
             double cy = v.screenY(q.y * GRID);
@@ -2858,6 +3930,38 @@ final class QuestBookWidget extends Widget {
 
     @Override
     protected boolean onClick(int mouseX, int mouseY, int button) {
+        if (!imgMode.isEmpty()) {
+            QuestBook ib = ClientQuests.book();
+            Chapter ic = ib == null ? null : currentChapter(ib);
+            Definitions.ChapterImage target = ic == null ? null : imageById(ic, imgModeId);
+            if (button == 0 && target != null) {
+                double[] h = imageHandle(target, viewFor(ic, mapRect()));
+                if (Math.abs(mouseX - h[0]) <= 9 && Math.abs(mouseY - h[1]) <= 9) {
+                    imgGrab = true;
+                }
+            }
+            return true; // nothing else is clicked meanwhile
+        }
+        if (!resizeQuest.isEmpty()) {
+            QuestBook rb = ClientQuests.book();
+            Chapter rc = rb == null ? null : currentChapter(rb);
+            if (button == 0 && rc != null && overResizeDot(viewFor(rc, mapRect()), mouseX, mouseY)) {
+                resizeGrab = true;
+            }
+            return true; // nothing else is clicked while a quest is being resized
+        }
+        if (!bezierQuest.isEmpty()) {
+            QuestBook bk = ClientQuests.book();
+            Chapter ch = bk == null ? null : currentChapter(bk);
+            if (button == 0 && ch != null) {
+                Object[] h = handleAt(viewFor(ch, mapRect()), mouseX, mouseY);
+                if (h != null) {
+                    bezierGrabDep = (String) h[0];
+                    bezierGrabIndex = (Integer) h[1];
+                }
+            }
+            return true; // nothing else is clicked while a curve is being bent
+        }
         if (!inlineKind.isEmpty()) {
             inlineKind = ""; // clicking elsewhere leaves the in-place field without saving
             return true;
@@ -2893,6 +3997,9 @@ final class QuestBookWidget extends Widget {
                     y += m.separator() ? 6 : 0;
                     if (mouseY >= y && mouseY < y + MENU_ROW) {
                         if (m.action() != null) {
+                            if (!m.icon().endsWith("@off")) {
+                                playClick();
+                            }
                             m.action().run();
                         }
                         break;
@@ -2912,6 +4019,7 @@ final class QuestBookWidget extends Widget {
             Hit h = hits.get(i);
             if (h.rect().contains(mouseX, mouseY)) {
                 if (button == 0) {
+                    playClick();
                     h.action().run();
                 } else if (button == 1 && h.right() != null) {
                     h.right().run();
@@ -2929,19 +4037,13 @@ final class QuestBookWidget extends Widget {
                 Chapter here = currentChapter(ClientQuests.book());
                 Definitions.ChapterImage image = hit == null && here != null ? imageAt(here, viewFor(here, mapRect()), mouseX, mouseY) : null;
                 if (image != null) {
-                    final Definitions.ChapterImage target = image;
-                    openMenu(mouseX, mouseY,
-                            new MenuItem("Move", "", "", false, () -> {
-                                movingImage = target.id();
-                                movingOrigX = target.raw().getDouble("x", 0);
-                                movingOrigY = target.raw().getDouble("y", 0);
-                            }),
-                            new MenuItem("Copy ID", "", "", false, () -> GuiScreen.setClipboardString(target.id())),
-                            new MenuItem("Delete", "", "", true, () -> send("delete_image", args("id", target.id()))));
+                    imageMenu(image);
                 } else if (hit == null) {
                     final int cx = mouseX;
                     final int cy = mouseY;
                     openMenu(mouseX, mouseY, new MenuItem("New Quest", () -> createQuestAt(cx, cy)));
+                } else if (linkIds.containsKey(hit)) {
+                    linkMenu(hit);
                 } else {
                     questMenu(hit, mouseX, mouseY);
                 }
@@ -2956,7 +4058,35 @@ final class QuestBookWidget extends Widget {
             }
             // like upstream: a middle click on a quest starts moving it; the left button opens it or pans the map
             if (button == 2 && hit != null) {
-                startQuestMove(hit);
+                if (!linkIds.containsKey(hit)) {
+                    startQuestMove(hit);
+                }
+                return true;
+            }
+            if (button == 2) {
+                boxing = true; // middle drag on free space picks the quests inside the box
+                boxButton = 2;
+                boxX0 = mouseX;
+                boxY0 = mouseY;
+                return true;
+            }
+            boolean alt = org.lwjgl.input.Keyboard.isKeyDown(Keyboard.KEY_LMENU) || org.lwjgl.input.Keyboard.isKeyDown(Keyboard.KEY_RMENU);
+            if (button == 0 && alt && hit == null) {
+                boxing = true; // Alt + left drag that starts on free space does the same
+                boxButton = 0;
+                boxX0 = mouseX;
+                boxY0 = mouseY;
+                return true;
+            }
+            if (button == 0 && Keyboard.isKeyDown(Keyboard.KEY_RMENU) && hit != null) {
+                // Right Alt + click: the quest goes on the clipboard, Ctrl + V puts a copy where the mouse is
+                COPIED.clear();
+                COPIED.add(hit.id);
+                mc().getToastGui().add(new QuestToast("Copied object:", QuestText.titlePlain(hit), null, true));
+                return true;
+            }
+            if (button == 0 && Keyboard.isKeyDown(Keyboard.KEY_LMENU) && hit != null) {
+                mc().displayGuiScreen(new QuestPropertiesScreen(mc().currentScreen, hit)); // Left Alt + click: properties editor
                 return true;
             }
         }
@@ -2990,13 +4120,72 @@ final class QuestBookWidget extends Widget {
             draggingListBar = false;
             return true;
         }
+        if (boxing && button == boxButton) {
+            boxing = false;
+            QuestBook book = ClientQuests.book();
+            Chapter chapter = book == null ? null : currentChapter(book);
+            if (chapter != null) {
+                ViewTransform v = viewFor(chapter, mapRect());
+                int x0 = Math.min(boxX0, mouseX);
+                int x1 = Math.max(boxX0, mouseX);
+                int y0 = Math.min(boxY0, mouseY);
+                int y1 = Math.max(boxY0, mouseY);
+                boolean toggle = GuiScreen.isCtrlKeyDown();
+                if (!toggle) {
+                    SELECTION.clear();
+                }
+                for (Quest q : chapter.quests) {
+                    double qx = v.screenX(q.x * GRID);
+                    double qy = v.screenY(q.y * GRID);
+                    if (qx >= x0 && qx <= x1 && qy >= y0 && qy <= y1) {
+                        if (toggle && !SELECTION.add(q.id)) {
+                            SELECTION.remove(q.id);
+                        } else if (!toggle) {
+                            SELECTION.add(q.id);
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+        if (!imgMode.isEmpty()) {
+            if (imgGrab && button == 0) {
+                endImageMode(true); // letting go of the handle sets it
+            }
+            return true;
+        }
+        if (!resizeQuest.isEmpty()) {
+            if (resizeGrab && button == 0) {
+                endResize(true); // letting go of the dot sets the size
+            }
+            return true;
+        }
+        if (!bezierQuest.isEmpty()) {
+            bezierGrabDep = "";
+            return true;
+        }
         if (!pressedOnMap || button != 0) {
             return false; // only a left press opens a quest; a middle or right release never does
         }
         pressedOnMap = false;
         if (!moved) {
             Quest q = questAt(mouseX, mouseY);
+            if (q != null) {
+                playClick();
+            }
+            if (isEditing() && GuiScreen.isCtrlKeyDown() && q != null) {
+                if (!SELECTION.remove(q.id)) {
+                    SELECTION.add(q.id); // Ctrl + click picks or drops a quest without opening it
+                }
+                return true;
+            }
             selectedQuest = q == null ? "" : q.id;
+            if (q != null) {
+                Chapter owner = ClientQuests.book() == null ? null : ClientQuests.book().chapterOf(q.id);
+                if (owner != null && !owner.id.equals(chapterId)) {
+                    focusQuest(q.id); // a quest link opens its quest in the chapter that quest is in
+                }
+            }
         }
         return true;
     }
@@ -3096,16 +4285,219 @@ final class QuestBookWidget extends Widget {
         }
         List<String> lines = new ArrayList<>();
         boolean details = QuestRules.detailsVisible(book, p, q);
+        if (Keyboard.isKeyDown(Keyboard.KEY_F1)) {
+            // F1 held: extended quest info: the id, when the quest was started and when it was completed
+            String idShown = linkIds.containsKey(q) ? (isEditing() ? linkIds.get(q) : null) : q.id;
+            if (idShown != null) {
+                lines.add("\u00a78" + idShown);
+            }
+            java.text.SimpleDateFormat when = new java.text.SimpleDateFormat("dd MMM yyyy, HH:mm:ss", java.util.Locale.ENGLISH);
+            Long startedAt = p.startedAt(q.id);
+            Long completedAt = p.completedAt(q.id);
+            if (startedAt != null) {
+                lines.add("\u00a7fStarted: \u00a77" + when.format(new java.util.Date(startedAt)));
+            }
+            if (completedAt != null) {
+                lines.add("\u00a7fCompleted: \u00a77" + when.format(new java.util.Date(completedAt)));
+            }
+        }
         lines.add("§f" + (details ? QuestText.title(q) : "???")); // white unless the title has colours of its own
         if (details && !q.subtitle.isEmpty()) {
             lines.add("§7" + RichText.toRainbowAware(q.subtitle)); // gray unless the subtitle has colours of its own
         }
         State s = stateOf(book, engine, p, q);
+        if (s != State.DONE && !QuestRules.dependenciesMet(book, p, q)) {
+            lines.add("\u00a77[Locked: uncompleted dependencies]");
+        }
         return lines;
+    }
+
+
+    /** Keys for everyone: Tab and Shift + Tab change chapter, Space centres the map again. */
+    private boolean generalKey(int keyCode) {
+        QuestBook book = ClientQuests.book();
+        if (book == null) {
+            return false;
+        }
+        if (keyCode == Keyboard.KEY_TAB) {
+            List<Chapter> chapters = visibleChapters(book);
+            if (chapters.isEmpty()) {
+                return true;
+            }
+            int at = 0;
+            for (int i = 0; i < chapters.size(); i++) {
+                if (chapters.get(i).id.equals(chapterId)) {
+                    at = i;
+                }
+            }
+            int next = (at + (GuiScreen.isShiftKeyDown() ? -1 : 1) + chapters.size()) % chapters.size();
+            chapterId = chapters.get(next).id;
+            selectedQuest = "";
+            return true;
+        }
+        if (!GuiScreen.isCtrlKeyDown() && (keyCode == Keyboard.KEY_LEFT || keyCode == Keyboard.KEY_RIGHT
+                || keyCode == Keyboard.KEY_UP || keyCode == Keyboard.KEY_DOWN)) {
+            Chapter chapter = currentChapter(book);
+            if (chapter != null) {
+                // the camera moves one grid step (half a unit); the rim under the mouse follows because it snaps to the grid
+                Rect map = mapRect();
+                ViewTransform v = viewFor(chapter, map);
+                double mx = map.x() + map.width() / 2.0;
+                double my = map.y() + map.height() / 2.0;
+                double dx = keyCode == Keyboard.KEY_LEFT ? -0.5 : keyCode == Keyboard.KEY_RIGHT ? 0.5 : 0;
+                double dy = keyCode == Keyboard.KEY_UP ? -0.5 : keyCode == Keyboard.KEY_DOWN ? 0.5 : 0;
+                v.centerOn(v.worldX(mx) + dx * GRID, v.worldY(my) + dy * GRID, mx, my);
+            }
+            return true;
+        }
+        if (keyCode == Keyboard.KEY_SPACE && !chapterId.isEmpty()) {
+            VIEWS.remove(chapterId); // the chapter is centred again as when it was first opened
+            return true;
+        }
+        return false;
+    }
+
+    /** Editor keys for the quests picked with Ctrl + click. @return true if the key was used */
+    private boolean selectionKey(int keyCode) {
+        QuestBook book = ClientQuests.book();
+        Chapter chapter = book == null ? null : currentChapter(book);
+        if (chapter == null) {
+            return false;
+        }
+        syncSelection(chapter);
+        boolean ctrl = GuiScreen.isCtrlKeyDown();
+        SELECTION.removeIf(id -> chapter.quests.stream().noneMatch(q -> q.id.equals(id)) && book.quest(id) == null);
+        if (ctrl && keyCode == Keyboard.KEY_A) {
+            chapter.quests.forEach(q -> SELECTION.add(q.id));
+            return true;
+        }
+        if (!SELECTION.isEmpty() && (keyCode == Keyboard.KEY_ESCAPE || ctrl && keyCode == Keyboard.KEY_D)) {
+            SELECTION.clear();
+            return true;
+        }
+        if (ctrl && !SELECTION.isEmpty() && (keyCode == Keyboard.KEY_LEFT || keyCode == Keyboard.KEY_RIGHT
+                || keyCode == Keyboard.KEY_UP || keyCode == Keyboard.KEY_DOWN)) {
+            // Ctrl + arrows: the picked quests move one grid step (half a unit, as when they snap)
+            double stepX = keyCode == Keyboard.KEY_LEFT ? -0.5 : keyCode == Keyboard.KEY_RIGHT ? 0.5 : 0;
+            double stepY = keyCode == Keyboard.KEY_UP ? -0.5 : keyCode == Keyboard.KEY_DOWN ? 0.5 : 0;
+            List<DataNode> moves = new ArrayList<>();
+            for (Quest q : chapter.quests) {
+                if (SELECTION.contains(q.id)) {
+                    moves.add(DataNode.Compound.empty().with("id", q.id).with("x", q.x + stepX).with("y", q.y + stepY));
+                }
+            }
+            if (!moves.isEmpty()) {
+                send("move_quests", DataNode.Compound.empty().with("moves", new DataNode.Lst(moves)));
+            }
+            return true;
+        }
+        if (ctrl && keyCode == Keyboard.KEY_C) {
+            COPIED.clear();
+            if (!SELECTION.isEmpty()) {
+                COPIED.addAll(SELECTION);
+            } else if (!hoverQuest.isEmpty()) {
+                COPIED.add(hoverQuest);
+            }
+            return !COPIED.isEmpty();
+        }
+        if (ctrl && keyCode == Keyboard.KEY_V && !COPIED.isEmpty()
+                && (Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU))) {
+            // + Alt: paste as quest links
+            ViewTransform lv = viewFor(chapter, mapRect());
+            double lx = Math.round(lv.worldX(lastMouseX) / GRID * 2.0) / 2.0;
+            double ly = Math.round(lv.worldY(lastMouseY) / GRID * 2.0) / 2.0;
+            double minX = Double.MAX_VALUE;
+            double minY = Double.MAX_VALUE;
+            for (String cid : COPIED) {
+                Quest src = book.quest(cid);
+                if (src != null) {
+                    minX = Math.min(minX, src.x);
+                    minY = Math.min(minY, src.y);
+                }
+            }
+            for (String cid : COPIED) {
+                Quest src = book.quest(cid);
+                if (src != null) {
+                    send("create_link", args("chapter", chapter.id, "quest", cid, "x", lx + (src.x - minX), "y", ly + (src.y - minY)));
+                }
+            }
+            return true;
+        }
+        if (ctrl && keyCode == Keyboard.KEY_V && !COPIED.isEmpty()) {
+            ViewTransform v = viewFor(chapter, mapRect());
+            double px = Math.round(v.worldX(lastMouseX) / GRID * 2.0) / 2.0;
+            double py = Math.round(v.worldY(lastMouseY) / GRID * 2.0) / 2.0;
+            List<DataNode> ids = new ArrayList<>();
+            COPIED.forEach(id -> ids.add(new DataNode.Str(id)));
+            // Shift: paste without the dependencies on quests that were not copied too
+            send("paste_quests", args("chapter", chapter.id, "x", px, "y", py, "deps", !GuiScreen.isShiftKeyDown())
+                    .with("ids", new DataNode.Lst(ids)));
+            return true;
+        }
+        boolean alt = Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU);
+        if (alt && !hoverQuest.isEmpty() && (keyCode == Keyboard.KEY_C || keyCode == Keyboard.KEY_R)) {
+            // Alt + C / Alt + R: force-complete or force-reset the quest under the mouse
+            send(keyCode == Keyboard.KEY_C ? "complete_quest" : "reset_progress", args("id", hoverQuest));
+            return true;
+        }
+        if (ctrl && keyCode == Keyboard.KEY_R) {
+            crosshairs = !crosshairs; // Toggle Crosshairs
+            return true;
+        }
+        if (ctrl && keyCode == Keyboard.KEY_S) {
+            send("save_now", DataNode.Compound.empty()); // Save Quests Now
+            return true;
+        }
+        if (keyCode == Keyboard.KEY_DELETE && (!SELECTION.isEmpty() || !hoverQuest.isEmpty())) {
+            final List<String> doomed = new ArrayList<>(SELECTION);
+            if (doomed.isEmpty()) {
+                doomed.add(hoverQuest); // nothing picked: the quest under the mouse
+            }
+            Runnable doDelete = () -> {
+                List<DataNode> doomedIds = new ArrayList<>();
+                doomed.forEach(id -> doomedIds.add(new DataNode.Str(id)));
+                send("delete_quests", DataNode.Compound.empty().with("ids", new DataNode.Lst(doomedIds)));
+                SELECTION.clear();
+                selectedQuest = "";
+            };
+            if (GuiScreen.isShiftKeyDown()) {
+                doDelete.run(); // Shift + Delete: no question asked
+            } else {
+                openMenu(lastMouseX, lastMouseY,
+                        new MenuItem("Delete " + doomed.size() + " quest" + (doomed.size() == 1 ? "" : "s") + "?", "", "lib:remove", true, doDelete),
+                        new MenuItem("Keep them", "", "", false, () -> { }));
+            }
+            return true;
+        }
+        return false;
     }
 
     @Override
     protected boolean onKey(char typed, int keyCode) {
+        if (!imgMode.isEmpty()) {
+            if (keyCode == Keyboard.KEY_ESCAPE) {
+                endImageMode(false);
+            }
+            return true;
+        }
+        if (!resizeQuest.isEmpty()) {
+            if (keyCode == Keyboard.KEY_ESCAPE) {
+                endResize(false);
+            }
+            return true;
+        }
+        if (!bezierQuest.isEmpty()) {
+            if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
+                endBezier(true);
+            } else if (keyCode == Keyboard.KEY_ESCAPE) {
+                endBezier(false);
+            }
+            return true;
+        }
+        if (boxing && keyCode == Keyboard.KEY_ESCAPE) {
+            boxing = false; // the box is dropped
+            return true;
+        }
         if (keyCode == Keyboard.KEY_ESCAPE && (!linkFrom.isEmpty() || confirmDelete || confirmDeleteChapter)) {
             linkFrom = "";
             confirmDelete = false;
@@ -3126,6 +4518,32 @@ final class QuestBookWidget extends Widget {
                 undoEdit();
             } else {
                 redoEdit();
+            }
+            return true;
+        }
+        if (isEditing() && inlineKind.isEmpty() && movingQuest == null && !searching && menu.isEmpty() && selectionKey(keyCode)) {
+            return true;
+        }
+        if (inlineKind.isEmpty() && movingQuest == null && !searching && menu.isEmpty() && !detailOpen() && generalKey(keyCode)) {
+            return true;
+        }
+        if (keyCode == Keyboard.KEY_BACK && inlineKind.isEmpty() && !searching && menu.isEmpty()) {
+            if (!ClientPrefs.backspaceHistory) {
+                // the preference is off: Backspace acts like Escape
+                if (detailOpen()) {
+                    selectedQuest = "";
+                } else {
+                    mc().displayGuiScreen(null);
+                }
+            } else if (detailOpen()) {
+                // while a quest is open: back to the one viewed before it; with none, the panel closes
+                if (!VIEWED.isEmpty()) {
+                    VIEWED.remove(VIEWED.size() - 1);
+                }
+                selectedQuest = VIEWED.isEmpty() ? "" : VIEWED.get(VIEWED.size() - 1);
+                viewedTop = selectedQuest;
+            } else {
+                mc().displayGuiScreen(null); // no panel: the quest book closes, as with Escape
             }
             return true;
         }
@@ -3201,12 +4619,8 @@ final class QuestBookWidget extends Widget {
             if (!searchRows.isEmpty()) {
                 pickRow(searchRows.get(0));
             }
-        } else if (keyCode == Keyboard.KEY_BACK) {
-            if (QUERY.length() > 0) {
-                QUERY.setLength(QUERY.length() - 1);
-            }
-        } else if (ChatAllowedCharacters.isAllowedCharacter(typed) && QUERY.length() < 48) {
-            QUERY.append(typed);
+        } else {
+            RewardTablesScreen.typeInto(QUERY, typed, keyCode, false);
         }
         return true; // typing goes to the search box, not to the game
     }

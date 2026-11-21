@@ -52,6 +52,22 @@ abstract class SettingsScreen extends GuiScreen {
         String tip = "";
         String def = "";
         String initial; // the value when the window was opened
+        /** False greys the row out and stops it being edited. */
+        Supplier<Boolean> enabled = () -> true;
+        /** Shown in the tooltip under the tip (FTB: "Value: ..." for texts, "Min:", "Max:"). */
+        boolean valueLine;
+        String min = "";
+        String max = "";
+        /** A line such as "ID: null" for the tooltip. */
+        Supplier<String> info;
+        /** Lists the options in the tooltip, the chosen one marked. */
+        boolean listOptions;
+        /** Texts shown without quotes. */
+        boolean plain;
+        /** How the value is displayed (for example a list as "[ 1 item ]"). */
+        java.util.function.Function<String, String> format;
+        /** A colour swatch after the value (the value is #RRGGBB). */
+        boolean swatch;
 
         Entry(Kind kind, String label) {
             this.kind = kind;
@@ -69,6 +85,47 @@ abstract class SettingsScreen extends GuiScreen {
             this.def = text;
             return this;
         }
+
+        Entry enabledIf(Supplier<Boolean> when) {
+            this.enabled = when;
+            return this;
+        }
+
+        Entry range(String lowest, String highest) {
+            this.min = lowest;
+            this.max = highest;
+            return this;
+        }
+
+        Entry showValue() {
+            this.valueLine = true;
+            return this;
+        }
+
+        Entry info(Supplier<String> line) {
+            this.info = line;
+            return this;
+        }
+
+        Entry listing() {
+            this.listOptions = true;
+            return this;
+        }
+
+        Entry plainText() {
+            this.plain = true;
+            return this;
+        }
+
+        Entry formatted(java.util.function.Function<String, String> how) {
+            this.format = how;
+            return this;
+        }
+
+        Entry withSwatch() {
+            this.swatch = true;
+            return this;
+        }
     }
 
     protected final GuiScreen parent;
@@ -76,7 +133,8 @@ abstract class SettingsScreen extends GuiScreen {
     protected final List<Entry> entries = new ArrayList<>();
     private int scroll;
     private Entry editing;
-    private final StringBuilder buffer = new StringBuilder();
+    private TextEditor edit = new TextEditor("", 120);
+    private Rect fieldRect;
     private final List<Object[]> hit = new ArrayList<>(); // {Rect, Runnable}
     private final List<Object[]> hoverRows = new ArrayList<>(); // {info box Rect, Entry}
     private record Change(Entry entry, String before, String after) {}
@@ -215,7 +273,8 @@ abstract class SettingsScreen extends GuiScreen {
             Ui.box(infoBox, infoBox.contains(mouseX, mouseY) ? 0xFF55607A : 0xFF3A4152);
             Ui.questsGui("info", infoBox.x() + 1, infoBox.y() + 1, 8, 8, 0xFFFFFFFF);
             hoverRows.add(new Object[] {infoBox, e});
-            fr.drawStringWithShadow(e.label, line.x() + 15, line.y() + 2, 0xFFFFFF);
+            boolean live = e.enabled.get();
+            fr.drawStringWithShadow(e.label, line.x() + 15, line.y() + 2, live ? 0xFFFFFF : 0x6E727C);
             String value = e.get.get();
             if (e.initial == null) {
                 e.initial = value;
@@ -223,10 +282,10 @@ abstract class SettingsScreen extends GuiScreen {
             int color;
             String shown;
             if (e == editing) {
-                boolean caret = (System.currentTimeMillis() / 500) % 2 == 0;
-                shown = buffer + (caret ? "_" : "");
+                shown = "";
                 color = 0xFFFFFFFF;
-                Gui.drawRect(valueX - 2, line.y(), line.x() + line.width() - 2, line.y() + ROW, 0xFF4C7BC4);
+                fieldRect = new Rect(valueX - 2, line.y(), line.x() + line.width() - 2 - (valueX - 2), ROW);
+                RewardTablesScreen.drawField(fr, fieldRect, edit);
             } else if (e.kind == Kind.BOOL) {
                 shown = value.equals("true") ? "True" : "False";
                 color = value.equals("true") ? GREEN : RED;
@@ -237,10 +296,29 @@ abstract class SettingsScreen extends GuiScreen {
                 shown = e.integer ? value : formatDouble(value);
                 color = PURPLE;
             } else {
-                shown = "\"" + value + "\"";
+                shown = e.plain ? value : "\"" + value + "\"";
                 color = ORANGE;
             }
+            if (e.format != null && e != editing) {
+                shown = e.format.apply(value);
+            }
+            if (e.swatch && e != editing) {
+                color = 0xFFAAAAAA;
+            }
+            if (!live) {
+                color = (color >> 1 & 0x7F7F7F) | 0xFF000000; // dimmed
+            }
             fr.drawStringWithShadow(fr.trimStringToWidth(shown, list.x() + list.width() - valueX - 52), valueX, line.y() + 2, color & 0xFFFFFF);
+            if (e.swatch && e != editing) {
+                int rgb = 0xFFFFFF;
+                try {
+                    rgb = Integer.parseInt(value.startsWith("#") ? value.substring(1) : value, 16) & 0xFFFFFF;
+                } catch (NumberFormatException ex) {
+                    // shown white
+                }
+                int sx = valueX + fr.getStringWidth(shown) + 6;
+                Gui.drawRect(sx, line.y() + 3, sx + 6, line.y() + 9, 0xFF000000 | rgb);
+            }
             if (showDefault() && e != editing && !value.equals(e.initial)) {
                 // "Default": back to what it was when this window opened
                 Rect back = new Rect(line.x() + line.width() - 46, line.y() + 1, 42, ROW - 1);
@@ -279,7 +357,7 @@ abstract class SettingsScreen extends GuiScreen {
         if (editing == null && list.contains(mouseX, mouseY)) {
             for (Object[] h : hoverRows) {
                 Entry e = (Entry) h[1];
-                if (((Rect) h[0]).contains(mouseX, mouseY) && (!e.tip.isEmpty() || !e.def.isEmpty())) {
+                if (((Rect) h[0]).contains(mouseX, mouseY) && (!e.tip.isEmpty() || !e.def.isEmpty() || e.info != null || e.valueLine || e.listOptions || !e.min.isEmpty())) {
                     List<String> lines = new ArrayList<>();
                     lines.add("§n" + e.label);
                     if (!e.tip.isEmpty()) {
@@ -287,8 +365,30 @@ abstract class SettingsScreen extends GuiScreen {
                             lines.add("§7§o" + t);
                         }
                     }
-                    if (!e.def.isEmpty()) {
-                        lines.add("§bDefault: §f" + e.def);
+                    lines.add("");
+                    if (e.info != null) {
+                        lines.add("§b" + e.info.get().replaceFirst(": ", ": §f"));
+                    }
+                    if (e.valueLine) {
+                        lines.add("§bValue: §f\"" + e.get.get() + "\"");
+                    }
+                    if ((!e.def.isEmpty() || e.valueLine) && e.info == null) {
+                        lines.add("§bDefault: §f" + (e.kind == Kind.TEXT && !e.plain ? "\"" + e.def + "\"" : e.def));
+                    }
+                    if (!e.min.isEmpty()) {
+                        lines.add("§bMin: §f" + e.min);
+                    }
+                    if (!e.max.isEmpty()) {
+                        lines.add("§bMax: §f" + e.max);
+                    }
+                    if (e.listOptions && e.kind == Kind.CHOICE) {
+                        lines.add("");
+                        for (String o : e.options) {
+                            lines.add(o.equals(e.get.get()) ? "§b+ " + o : "§8- " + o);
+                        }
+                    }
+                    while (lines.size() > 1 && lines.get(lines.size() - 1).isEmpty()) {
+                        lines.remove(lines.size() - 1);
                     }
                     ScaledResolution res = new ScaledResolution(mc);
                     Ui.drawTooltip(fr, lines, mouseX, mouseY, res.getScaledWidth(), res.getScaledHeight());
@@ -300,7 +400,11 @@ abstract class SettingsScreen extends GuiScreen {
 
     private static String formatDouble(String value) {
         try {
-            return String.format(java.util.Locale.ROOT, "%.2f", Double.parseDouble(value));
+            double d = Double.parseDouble(value);
+            if (d == Math.rint(d) && Math.abs(d) < 1e9) {
+                return String.valueOf((long) d); // whole numbers show without decimals
+            }
+            return String.format(java.util.Locale.getDefault(), "%.2f", d);
         } catch (NumberFormatException ex) {
             return value;
         }
@@ -318,6 +422,9 @@ abstract class SettingsScreen extends GuiScreen {
 
     private void activate(Entry e) {
         commitEdit();
+        if (!e.enabled.get()) {
+            return;
+        }
         switch (e.kind) {
             case BOOL:
                 change(e, String.valueOf(!Boolean.parseBoolean(e.get.get())));
@@ -330,8 +437,8 @@ abstract class SettingsScreen extends GuiScreen {
             case NUMBER:
             case TEXT:
                 editing = e;
-                buffer.setLength(0);
-                buffer.append(e.get.get());
+                edit = new TextEditor(e.get.get(), 120);
+                edit.selectAll();
                 break;
             default:
                 break;
@@ -372,7 +479,7 @@ abstract class SettingsScreen extends GuiScreen {
             return;
         }
         try {
-            change(editing, buffer.toString().trim());
+            change(editing, edit.text().trim());
         } catch (RuntimeException ignored) {
             // not a number: keep the old value
         }
@@ -395,6 +502,11 @@ abstract class SettingsScreen extends GuiScreen {
         if (mouseButton != 0) {
             return;
         }
+        if (editing != null && fieldRect != null && fieldRect.contains(mouseX, mouseY)) {
+            edit.setCaret(caretAt(mouseX), isShiftKeyDown());
+            draggingField = true;
+            return;
+        }
         for (int i = hit.size() - 1; i >= 0; i--) {
             Rect r = (Rect) hit.get(i)[0];
             if (r.contains(mouseX, mouseY)) {
@@ -405,6 +517,37 @@ abstract class SettingsScreen extends GuiScreen {
         commitEdit();
     }
 
+    private boolean draggingField;
+
+    /** The character position under an x coordinate in the open field. */
+    private int caretAt(int mouseX) {
+        String text = edit.text();
+        int caret = Math.min(edit.caret(), text.length());
+        int room = fieldRect.width() - 8;
+        int first = 0;
+        while (first < caret && fontRenderer.getStringWidth(text.substring(first, caret)) > room) {
+            first++;
+        }
+        int x = fieldRect.x() + 3;
+        int i = first;
+        while (i < text.length() && x + fontRenderer.getStringWidth(text.substring(first, i + 1)) - fontRenderer.getCharWidth(text.charAt(i)) / 2 < mouseX) {
+            i++;
+        }
+        return i;
+    }
+
+    @Override
+    protected void mouseClickMove(int mouseX, int mouseY, int button, long timeSinceLastClick) {
+        if (draggingField && editing != null && fieldRect != null) {
+            edit.setCaret(caretAt(mouseX), true);
+        }
+    }
+
+    @Override
+    protected void mouseReleased(int mouseX, int mouseY, int state) {
+        draggingField = false;
+    }
+
     @Override
     protected void keyTyped(char typed, int keyCode) throws IOException {
         if (editing != null) {
@@ -412,12 +555,8 @@ abstract class SettingsScreen extends GuiScreen {
                 editing = null;
             } else if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
                 commitEdit();
-            } else if (keyCode == Keyboard.KEY_BACK) {
-                if (buffer.length() > 0) {
-                    buffer.setLength(buffer.length() - 1);
-                }
-            } else if (ChatAllowedCharacters.isAllowedCharacter(typed) && buffer.length() < 120) {
-                buffer.append(typed);
+            } else {
+                RewardTablesScreen.typeInto(edit, typed, keyCode, false);
             }
             return;
         }

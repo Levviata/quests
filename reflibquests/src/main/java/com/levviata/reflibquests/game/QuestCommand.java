@@ -247,6 +247,20 @@ public final class QuestCommand extends CommandBase {
             return;
         }
         String questId = arg(args, 1);
+        com.levviata.reflibquests.model.Definitions.Chapter wholeChapter = qs.book().chapter(questId);
+        if (qs.book().quest(questId) == null && wholeChapter != null) {
+            // the id of a chapter: every quest in it (the original mod's command works on chapters too)
+            for (com.levviata.reflibquests.model.Definitions.Quest cq : new java.util.ArrayList<>(wholeChapter.quests)) {
+                if (sub.equals("complete")) {
+                    qs.apply(team, qs.engine().forceComplete(team, cq.id, System.currentTimeMillis()));
+                } else {
+                    qs.apply(team, qs.engine().resetQuest(team, cq.id));
+                }
+            }
+            say(sender, sub + " chapter " + questId + " done for " + target.getName() + "'s team");
+            ReflibQuestsMod.LOGGER.info("{} ran /rquests {} on chapter {}", sender.getName(), sub, questId);
+            return;
+        }
         if (qs.book().quest(questId) == null) {
             throw new CommandException("Unknown quest " + questId);
         }

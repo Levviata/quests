@@ -47,9 +47,14 @@ public final class ItemResolver {
         }
 
         public boolean matches(ItemStack have) {
+            return matches(have, false);
+        }
+
+        /** {@code exactNbt}: the stack's data must equal the item's, not just contain it. */
+        public boolean matches(ItemStack have, boolean exactNbt) {
             return !have.isEmpty() && have.getItem() == item
                     && (meta == OreDictionary.WILDCARD_VALUE || have.getMetadata() == meta)
-                    && (nbt == null || NBTUtil.areNBTEquals(nbt, have.getTagCompound(), true));
+                    && (nbt == null || NBTUtil.areNBTEquals(nbt, have.getTagCompound(), !exactNbt));
         }
     }
 
@@ -89,6 +94,10 @@ public final class ItemResolver {
             return null;
         }
         IdMap.ItemTarget target = map.item(id);
+        if (!target.name().equals(id) && ForgeRegistries.ITEMS.containsKey(new ResourceLocation(id))) {
+            // a name this game already has wins over a newer game's meaning of it ("grass" is the grass block here)
+            target = new IdMap.ItemTarget(id, 0, false);
+        }
         ResourceLocation rl = new ResourceLocation(target.name());
         if (!ForgeRegistries.ITEMS.containsKey(rl)) {
             return null;

@@ -221,8 +221,12 @@ public final class ItemSet {
 
     /** True if the stack is one of the accepted items. */
     public static boolean matches(List<ItemResolver.Resolved> set, ItemStack have) {
+        return matches(set, have, false);
+    }
+
+    public static boolean matches(List<ItemResolver.Resolved> set, ItemStack have, boolean exactNbt) {
         for (ItemResolver.Resolved r : set) {
-            if (r.matches(have)) {
+            if (r.matches(have, exactNbt)) {
                 return true;
             }
         }

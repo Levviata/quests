@@ -77,14 +77,14 @@ public final class QuestRules {
     }
 
     /**
-     * Dependency check. Dependencies on quests that do not exist are ignored; dependencies on optional quests
-     * are ignored (an optional quest never blocks anything). A quest with no remaining dependencies is open.
+     * Dependency check. Dependencies on quests that do not exist are ignored. An optional quest still has to be
+     * completed before the quests that depend on it, as in FTB Quests. A quest with no remaining dependencies is open.
      */
     public static boolean dependenciesMet(QuestBook book, TeamProgress p, Quest q) {
         List<Quest> required = new ArrayList<>();
         for (String id : q.dependencies) {
             Quest dep = book.quest(id);
-            if (dep != null && !dep.optional) {
+            if (dep != null) {
                 required.add(dep);
             }
         }
@@ -116,10 +116,20 @@ public final class QuestRules {
 
     /** Whether the quest is shown on the map at all. */
     public static boolean isVisible(QuestBook book, TeamProgress p, Quest q) {
-        return isVisible(book, p, q, new HashSet<>());
+        return isVisible(book, p, q, new HashSet<>(), new java.util.HashMap<>());
     }
 
-    private static boolean isVisible(QuestBook book, TeamProgress p, Quest q, Set<String> visiting) {
+    private static boolean isVisible(QuestBook book, TeamProgress p, Quest q, Set<String> visiting, java.util.Map<String, Boolean> memo) {
+        Boolean known = memo.get(q.id);
+        if (known != null) {
+            return known;
+        }
+        boolean result = visibleNow(book, p, q, visiting, memo);
+        memo.put(q.id, result);
+        return result;
+    }
+
+    private static boolean visibleNow(QuestBook book, TeamProgress p, Quest q, Set<String> visiting, java.util.Map<String, Boolean> memo) {
         if (p.isCompleted(q.id)) {
             return true;
         }
@@ -133,6 +143,28 @@ public final class QuestRules {
         if (q.invisibleUntilTasks > 0 && tasksDone(p, q) < q.invisibleUntilTasks) {
             return false;
         }
+        // a quest whose dependencies are all hidden is hidden as well
+        boolean anyDependency = false;
+        boolean anyVisible = false;
+        if (visiting.add(q.id)) {
+            try {
+                for (String id : q.dependencies) {
+                    Quest dep = book.quest(id);
+                    if (dep != null) {
+                        anyDependency = true;
+                        if (isVisible(book, p, dep, visiting, memo)) {
+                            anyVisible = true;
+                            break;
+                        }
+                    }
+                }
+            } finally {
+                visiting.remove(q.id);
+            }
+        }
+        if (anyDependency && !anyVisible) {
+            return false;
+        }
         boolean needDepsVisible = q.hideUntilDepsVisible.resolve(c != null && c.hideQuestUntilDepsVisible);
         if (needDepsVisible) {
             if (!visiting.add(q.id)) {
@@ -141,7 +173,7 @@ public final class QuestRules {
             try {
                 for (String id : q.dependencies) {
                     Quest dep = book.quest(id);
-                    if (dep != null && !isVisible(book, p, dep, visiting)) {
+                    if (dep != null && !isVisible(book, p, dep, visiting, memo)) {
                         return false;
                     }
                 }

@@ -250,7 +250,7 @@ public final class QuestServer {
             TeamProgress team = progressOf(player);
             long now = System.currentTimeMillis();
             for (com.levviata.reflibquests.model.Definitions.Quest cq : new java.util.ArrayList<>(ch.quests)) {
-                apply(team, op.equals("complete_quest") ? engine.forceComplete(team, cq.id, now) : engine.resetQuest(team, cq.id));
+                apply(team, op.equals("complete_quest") ? engine.forceComplete(team, cq.id, now, args.getBool("deps", false)) : engine.resetQuest(team, cq.id));
             }
             ReflibQuestsMod.LOGGER.info("{} ran {} on chapter {}", player.getName(), op, ch.id);
             return;
@@ -263,8 +263,55 @@ public final class QuestServer {
             }
             TeamProgress team = progressOf(player);
             long now = System.currentTimeMillis();
-            apply(team, op.equals("complete_quest") ? engine.forceComplete(team, questId, now) : engine.resetQuest(team, questId));
+            apply(team, op.equals("complete_quest") ? engine.forceComplete(team, questId, now, args.getBool("deps", false)) : engine.resetQuest(team, questId));
             ReflibQuestsMod.LOGGER.info("{} ran {} on {}", player.getName(), op, questId);
+            return;
+        }
+        if (op.equals("complete_task") || op.equals("reset_task")) {
+            String taskId = args.getString("id", "");
+            if (book.task(taskId) == null) {
+                player.sendMessage(new TextComponentString("[Quests] That task no longer exists."));
+                return;
+            }
+            TeamProgress team = progressOf(player);
+            long now = System.currentTimeMillis();
+            apply(team, op.equals("complete_task") ? engine.completeTask(team, taskId, now) : engine.resetTask(team, taskId));
+            ReflibQuestsMod.LOGGER.info("{} ran {} on task {}", player.getName(), op, taskId);
+            return;
+        }
+        if (op.equals("grab_item")) {
+            com.levviata.reflibquests.model.Definitions.Task grabbed = book.task(args.getString("id", ""));
+            com.levviata.reflib.api.data.DataNode spec = grabbed == null ? null : grabbed.params().get("item");
+            java.util.List<ItemResolver.Resolved> found = spec == null ? java.util.List.of() : ItemSet.resolveAll(spec, idMap);
+            if (found.isEmpty()) {
+                player.sendMessage(new TextComponentString("[Quests] That task has no item to copy."));
+                return;
+            }
+            // the player chose one of the task's items by its place in the list; the item itself is checked as well
+            int at = args.getInt("index", 0);
+            String wantId = args.getString("item", "");
+            ItemResolver.Resolved chosen = at >= 0 && at < found.size() ? found.get(at) : found.get(0);
+            if (!wantId.isEmpty()) {
+                int wantDamage = args.getInt("damage", 0);
+                ItemResolver.Resolved match = null;
+                for (ItemResolver.Resolved r : found) {
+                    String rid = r.toStack(1).getItem().getRegistryName() == null ? "" : r.toStack(1).getItem().getRegistryName().toString();
+                    if (rid.equals(wantId) && (r.toStack(1).getMetadata() == wantDamage || match == null)) {
+                        if (match == null || r.toStack(1).getMetadata() == wantDamage) {
+                            match = r;
+                        }
+                    }
+                }
+                if (match == null) {
+                    player.sendMessage(new TextComponentString("[Quests] That item is not one of the task's items."));
+                    return;
+                }
+                chosen = match;
+            }
+            net.minecraft.item.ItemStack copy = chosen.toStack(Math.max(1, chosen.count())); // a full copy, with its data
+            if (!player.addItemStackToInventory(copy)) {
+                player.dropItem(copy, false);
+            }
             return;
         }
         if (op.equals("undo") || op.equals("redo")) {
@@ -353,8 +400,12 @@ public final class QuestServer {
         if (resyncFirstAt == 0) {
             resyncFirstAt = now;
         }
-        resyncAt = now + 250;
+        // the first edit after a pause is sent on the next tick (adding a task shows at once); edits in quick succession wait for a pause
+        resyncAt = now - lastChangeAt > 300 ? now : now + 250;
+        lastChangeAt = now;
     }
+
+    private long lastChangeAt;
 
     private void flushTableSync() {
         if (resyncAt == 0) {
@@ -729,6 +780,9 @@ public final class QuestServer {
     }
 
     private boolean autoClaims(Reward r) {
+        if (book.settings.getBool("suppress_all_autoclaiming", false)) {
+            return false; // a setting for pack development: nothing is claimed by itself
+        }
         String mode = r.autoClaim();
         if (mode.equals("default")) {
             mode = book.settings.getString("default_autoclaim_rewards", "disabled");

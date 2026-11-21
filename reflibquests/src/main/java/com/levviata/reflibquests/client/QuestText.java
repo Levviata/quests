@@ -162,6 +162,40 @@ final class QuestText {
         return r == null ? null : r.toStack(Math.max(1, r.count()));
     }
 
+    /** The spawn egg of an entity, as the icon of a kill task. */
+    static ItemStack spawnEgg(String entityName) {
+        String id = entityName == null ? "" : ClientQuests.idMap().entity(entityName);
+        if (id.isEmpty()) {
+            return null;
+        }
+        net.minecraft.nbt.NBTTagCompound entity = new net.minecraft.nbt.NBTTagCompound();
+        entity.setString("id", id.contains(":") ? id : "minecraft:" + id);
+        net.minecraft.nbt.NBTTagCompound tag = new net.minecraft.nbt.NBTTagCompound();
+        tag.setTag("EntityTag", entity);
+        ItemStack egg = new ItemStack(net.minecraft.init.Items.SPAWN_EGG);
+        egg.setTagCompound(tag);
+        return egg;
+    }
+
+    /** The icon a task shows: the one it names itself, the spawn egg of a kill task, or the item of an item task; else null. */
+    @Nullable
+    static ItemStack taskIcon(Task t) {
+        DataNode own = t.params().get("icon");
+        if (own instanceof DataNode.Compound c && !c.entries().isEmpty()) {
+            ItemStack s = stackOf(c);
+            if (s != null) {
+                return s;
+            }
+        }
+        if (t.type().equals("kill")) {
+            return spawnEgg(t.params().getString("entity", ""));
+        }
+        if (t.type().equals("item")) {
+            return stackOf(t.params().get("item"));
+        }
+        return null;
+    }
+
     /** The quest's icon: its own, else the first item task's item, else the first item reward's item. */
     @Nullable
     static ItemStack iconOf(Quest q) {
@@ -172,11 +206,9 @@ final class QuestText {
             }
         }
         for (Task t : q.tasks) {
-            if (t.type().equals("item")) {
-                ItemStack s = stackOf(t.params().get("item"));
-                if (s != null) {
-                    return s;
-                }
+            ItemStack s = taskIcon(t);
+            if (s != null) {
+                return s;
             }
         }
         for (Reward r : q.rewards) {
@@ -223,6 +255,9 @@ final class QuestText {
 
     static String reward(Reward r) {
         DataNode.Compound p = r.params();
+        if (!r.type().equals("item") && !p.getString("title", "").isEmpty()) {
+            return p.getString("title", ""); // the name the author gave it ("100% Complete Chapter")
+        }
         switch (r.type()) {
             case "item": {
                 ItemStack s = stackOf(p.get("item"));

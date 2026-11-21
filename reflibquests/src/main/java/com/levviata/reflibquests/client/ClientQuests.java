@@ -116,6 +116,9 @@ public final class ClientQuests {
         redoCount = redo;
         undoLabel = undoText;
         redoLabel = redoText;
+        if (undo == 0 && redo == 0 && !TableEdits.hasPending()) {
+            ChangeLog.clearHistoryNotes(); // the server's history was emptied (a reload): the tooltips start again
+        }
     }
 
     public static int undoCount() {

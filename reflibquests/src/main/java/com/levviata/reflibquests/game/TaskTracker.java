@@ -73,9 +73,6 @@ public final class TaskTracker {
                 case "item":
                     pollItem(player, t, e);
                     break;
-                case "xp":
-                    quests.setTaskProgress(player, t, t.params().getBool("points", false) ? player.experienceTotal : player.experienceLevel);
-                    break;
                 case "dimension": {
                     var id = Names.dimensionId(t.params().getString("dimension", ""));
                     if (id.isPresent() && player.dimension == id.getAsInt()) {
@@ -162,8 +159,13 @@ public final class TaskTracker {
 
     private boolean consumes(Task t) {
         DataNode n = t.params().get("consume_items");
-        return n != null ? t.params().getBool("consume_items", false)
-                : quests.book().settings.getBool("default_consume_items", false);
+        if (n != null) {
+            return t.params().getBool("consume_items", false);
+        }
+        boolean fallback = quests.book().settings.getBool("default_consume_items", false);
+        com.levviata.reflibquests.model.Definitions.Quest owner = quests.book().questOfTask(t.id());
+        com.levviata.reflibquests.model.Definitions.Chapter in = owner == null ? null : quests.book().chapterOf(owner.id);
+        return in == null ? fallback : in.defaultConsumeItems.resolve(fallback); // the chapter's own default, then the book's
     }
 
     private void pollItem(EntityPlayerMP player, Task t, Entry e) {
@@ -174,14 +176,19 @@ public final class TaskTracker {
         if (set.isEmpty()) {
             return;
         }
-        quests.setTaskProgress(player, t, Math.min(t.maxProgress(), countItems(player, set)));
+        quests.setTaskProgress(player, t, Math.min(t.maxProgress(), countItems(player, set, exactNbt(t))));
     }
 
-    private static long countItems(EntityPlayerMP player, List<ItemResolver.Resolved> set) {
+    /** "Match Data Components" (the item's NBT in 1.12.2): Exact asks for equal data; otherwise the stack only has to contain it. */
+    private static boolean exactNbt(Task t) {
+        return t.params().getString("match_components", "default").equals("exact");
+    }
+
+    private static long countItems(EntityPlayerMP player, List<ItemResolver.Resolved> set, boolean exact) {
         long n = 0;
         for (int i = 0; i < player.inventory.mainInventory.size(); i++) {
             ItemStack s = player.inventory.mainInventory.get(i);
-            if (ItemSet.matches(set, s)) {
+            if (ItemSet.matches(set, s, exact)) {
                 n += s.getCount();
             }
         }
@@ -260,9 +267,38 @@ public final class TaskTracker {
         return QuestRules.taskDone(quests.progressOf(player), t) ? "Checked." : "You cannot do that task yet.";
     }
 
+    /** Hand in experience (levels, or points) for an experience task: the player pays what the task still needs. */
+    private String submitExperience(EntityPlayerMP player, Task t) {
+        TeamProgress team = quests.progressOf(player);
+        Quest q = quests.book().questOfTask(t.id());
+        if (team.isCompleted(q.id) || QuestRules.taskDone(team, t)) {
+            return "Already done.";
+        }
+        if (!QuestRules.canProgress(quests.book(), team, q) || !QuestRules.dependenciesMet(quests.book(), team, q)) {
+            return "That quest is not available yet.";
+        }
+        boolean points = t.params().getBool("points", false);
+        long need = t.maxProgress() - team.taskProgress(t.id());
+        long have = points ? player.experienceTotal : player.experienceLevel;
+        long take = Math.min(need, have);
+        if (take <= 0) {
+            return "You do not have enough experience.";
+        }
+        if (points) {
+            player.addExperience((int) -take);
+        } else {
+            player.addExperienceLevel((int) -take);
+        }
+        quests.addTaskProgress(player, t, take);
+        return "Handed in " + take + (points ? " XP point(s)." : " XP level(s).");
+    }
+
     /** Hand in items for a consuming item task. @return a message for the player */
     public String submit(EntityPlayerMP player, String taskId) {
         Task t = quests.book().task(taskId);
+        if (t != null && t.type().equals("xp")) {
+            return submitExperience(player, t);
+        }
         if (t == null || !t.type().equals("item")) {
             return "No item task '" + taskId + "'.";
         }
@@ -282,7 +318,7 @@ public final class TaskTracker {
         long taken = 0;
         for (int i = 0; i < player.inventory.mainInventory.size() && taken < need; i++) {
             ItemStack s = player.inventory.mainInventory.get(i);
-            if (ItemSet.matches(set, s)) {
+            if (ItemSet.matches(set, s, exactNbt(t))) {
                 int take = (int) Math.min(s.getCount(), need - taken);
                 s.shrink(take);
                 taken += take;

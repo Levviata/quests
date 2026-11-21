@@ -291,6 +291,195 @@ class BookEditorTest {
     }
 
     @Test
+    void pastedQuestsGetNewIdsAndKeepTheirLayoutAndInternalDependencies() {
+        Quest a = ed.createQuest(chapter.id, 1, 1);
+        Quest b = ed.createQuest(chapter.id, 3, 2);
+        Quest outside = ed.createQuest(chapter.id, 9, 9);
+        b.dependencies.add(a.id);
+        b.dependencies.add(outside.id);
+        java.util.List<String> made = ed.pasteQuests(chapter.id, java.util.List.of(a.id, b.id), 10, 10, true);
+        assertEquals(2, made.size());
+        Quest ca = book.quest(made.get(0));
+        Quest cb = book.quest(made.get(1));
+        assertEquals(10, ca.x);
+        assertEquals(10, ca.y);
+        assertEquals(12, cb.x);
+        assertEquals(11, cb.y);
+        assertEquals(java.util.List.of(ca.id, outside.id), cb.dependencies, "inner dependency follows the copy, outside one is kept");
+        assertEquals(1, ca.tasks.size());
+        assertEquals(false, ca.tasks.get(0).id().equals(a.tasks.get(0).id()), "tasks get new ids");
+        java.util.List<String> bare = ed.pasteQuests(chapter.id, java.util.List.of(b.id), 0, 0, false);
+        assertEquals(java.util.List.of(), book.quest(bare.get(0)).dependencies);
+        assertNull(ed.pasteQuests("nope", java.util.List.of(a.id), 0, 0, true));
+    }
+
+    @Test
+    void groupMoveAndDeleteAreSingleEditsAndAllOrNothing() {
+        Quest a = ed.createQuest(chapter.id, 1, 1);
+        Quest b = ed.createQuest(chapter.id, 3, 3);
+        DataNode.Compound moves = DataNode.Compound.empty().with("moves", new DataNode.Lst(java.util.List.of(
+                DataNode.Compound.empty().with("id", a.id).with("x", 2.0).with("y", 2.0),
+                DataNode.Compound.empty().with("id", b.id).with("x", 4.0).with("y", 4.0))));
+        assertEquals(OK, ed.moveQuests(moves));
+        assertEquals(2.0, a.x);
+        assertEquals(4.0, b.y);
+        DataNode.Compound bad = DataNode.Compound.empty().with("moves", new DataNode.Lst(java.util.List.of(
+                DataNode.Compound.empty().with("id", a.id).with("x", 9.0).with("y", 9.0),
+                DataNode.Compound.empty().with("id", "nope").with("x", 1.0).with("y", 1.0))));
+        assertEquals(NOT_FOUND, ed.moveQuests(bad));
+        assertEquals(2.0, a.x, "nothing moved because one entry was invalid");
+        assertEquals(OK, ed.deleteQuests(DataNode.Compound.empty().with("ids",
+                new DataNode.Lst(java.util.List.of(new DataNode.Str(a.id), new DataNode.Str(b.id))))));
+        assertNull(book.quest(a.id));
+        assertNull(book.quest(b.id));
+    }
+
+    @Test
+    void bezierPointsAreKeptPerDependencyAndSurviveCopyingAndTheFileFormat() {
+        Quest dep = ed.createQuest(chapter.id, -6.5, -1.5);
+        Quest q = ed.createQuest(chapter.id, -3, -1.5);
+        q.dependencies.add(dep.id);
+        DataNode.Compound pts = DataNode.Compound.empty().with(dep.id, new DataNode.Lst(java.util.List.of(
+                new DataNode.Dbl(-15.982142857142861), new DataNode.Dbl(-6.071428571428566),
+                new DataNode.Dbl(10.017857142857139), new DataNode.Dbl(2.750000000000007))));
+        assertEquals(OK, ed.setBezier(q.id, pts));
+        assertEquals(java.util.List.of(-15.982142857142861, -6.071428571428566, 10.017857142857139, 2.750000000000007), q.depControlPts.get(dep.id));
+        assertEquals(q.depControlPts, DeepCopy.quest(q, "COPY").depControlPts, "the history copies the curve");
+        assertEquals(q.depControlPts, ControlPoints.read(ControlPoints.write(q.depControlPts)), "the file format round-trips");
+        DataNode.Compound notADependency = DataNode.Compound.empty().with("nope", pts.get(dep.id));
+        assertEquals(INVALID, ed.setBezier(q.id, notADependency));
+        assertEquals(OK, ed.setBezier(q.id, DataNode.Compound.empty()));
+        assertEquals(true, q.depControlPts.isEmpty(), "an empty set makes the lines straight again");
+    }
+
+    @Test
+    void aChapterCanHoldAGroupButNotOneItIsIn() {
+        Chapter holder = ed.createChapter("Checklists");
+        Chapter inside = ed.createChapter("Inside");
+        var group = ed.createGroup("Held", "");
+        assertEquals(OK, ed.setChapterGroup(inside.id, group.id));
+        assertEquals(INVALID, ed.setGroupChapter(group.id, inside.id), "a chapter cannot hold the group it is in");
+        assertEquals(OK, ed.setGroupChapter(group.id, holder.id));
+        assertEquals(holder.id, group.raw.getString("chapter", ""));
+        assertEquals(NOT_FOUND, ed.setGroupChapter(group.id, "nope"));
+        assertEquals(OK, ed.setGroupChapter(group.id, ""));
+        assertEquals("", group.raw.getString("chapter", ""), "letting go clears it");
+    }
+
+    @Test
+    void tasksAndRewardsMoveOnePlaceAndStopAtTheEnds() {
+        Quest q = ed.createQuest(chapter.id, 0, 0);
+        String second = ed.addTask(q.id, "checkmark", DataNode.Compound.empty());
+        String first = q.tasks.get(0).id();
+        assertEquals(INVALID, ed.moveTask(first, -1), "already first");
+        assertEquals(OK, ed.moveTask(first, 1));
+        assertEquals(second, q.tasks.get(0).id());
+        assertEquals(INVALID, ed.moveTask(first, 1), "now last");
+        String r1 = ed.addReward(q.id, "xp", DataNode.Compound.empty().with("xp", 1));
+        String r2 = ed.addReward(q.id, "xp", DataNode.Compound.empty().with("xp", 2));
+        assertEquals(OK, ed.moveReward(r2, -1));
+        assertEquals(r2, q.rewards.get(0).id());
+        assertEquals(INVALID, ed.moveReward(r1, 1));
+    }
+
+    @Test
+    void newChapterPropertiesAreCheckedAndNewQuestsStartWithTheChapterSize() {
+        assertEquals(OK, ed.setChapterProp(chapter.id, "disable_toast", "true"));
+        assertEquals(true, chapter.disableToast);
+        assertEquals(OK, ed.setChapterProp(chapter.id, "hide_text", "true"));
+        assertEquals(OK, ed.setChapterProp(chapter.id, "consume_items", "true"));
+        assertEquals(Tristate.TRUE, chapter.defaultConsumeItems);
+        assertEquals(INVALID, ed.setChapterProp(chapter.id, "consume_items", "maybe"));
+        assertEquals(OK, ed.setChapterProp(chapter.id, "min_width", "300"));
+        assertEquals(300, chapter.minWindowWidth);
+        assertEquals(INVALID, ed.setChapterProp(chapter.id, "min_width", "-1"));
+        assertEquals(OK, ed.setChapterProp(chapter.id, "tags", " a, b ,,c"));
+        assertEquals(List.of("a", "b", "c"), chapter.tags);
+        assertEquals(OK, ed.setChapterProp(chapter.id, "quest_size", "1.5"));
+        assertEquals(INVALID, ed.setChapterProp(chapter.id, "quest_size", "0"));
+        assertEquals(1.5, ed.createQuest(chapter.id, 0, 0).size, "new quests start with the chapter's size");
+    }
+
+    @Test
+    void moreBookSettingsAreCheckedAndKept() {
+        assertEquals(OK, ed.setBookProp("pause_game", "true"));
+        assertEquals(true, book.settings.getBool("pause_game", false));
+        assertEquals(OK, ed.setBookProp("grid_scale", "0.5"));
+        assertEquals(INVALID, ed.setBookProp("grid_scale", "0"));
+        assertEquals(OK, ed.setBookProp("loot_monster", "600"));
+        assertEquals(600, book.settings.getCompound("loot_crate_no_drop").getInt("monster", 0));
+        assertEquals(OK, ed.setBookProp("tags", "a, b"));
+        assertEquals(2, book.settings.getList("tags").size());
+        assertEquals(INVALID, ed.setBookProp("emergency_items_cooldown", "x"));
+        assertEquals(OK, ed.setBookProp("lock_message", "Finish the earlier quests first"));
+    }
+
+    @Test
+    void questLinksAreCreatedAndRemovedAndPicturesTakeSeveralPropertiesAtOnce() {
+        Quest q = ed.createQuest(chapter.id, 0, 0);
+        Chapter other = ed.createChapter("Other");
+        String link = ed.createLink(other.id, q.id, 2.26, 3);
+        assertEquals(1, other.links.size());
+        assertEquals(2.5, other.links.get(0).x(), "links snap to the grid");
+        assertEquals(q.id, other.links.get(0).linkedQuest());
+        assertNull(ed.createLink(other.id, "nope", 0, 0));
+        assertEquals(OK, ed.deleteLink(link));
+        assertEquals(0, other.links.size());
+        chapter.images.add(new Definitions.ChapterImage("IMG1", DataNode.Compound.empty().with("image", "minecraft:x").with("x", 0.0).with("y", 0.0)));
+        DataNode.Compound props = DataNode.Compound.empty().with("width", 2.5).with("height", 1.25).with("rotation", 45.0).with("dev", "true");
+        assertEquals(OK, ed.setImageProps("IMG1", props));
+        DataNode.Compound raw = chapter.images.get(0).raw();
+        assertEquals(2.5, raw.getDouble("width", 0));
+        assertEquals(45.0, raw.getDouble("rotation", 0));
+        assertEquals(true, raw.getBool("dev", false));
+        assertEquals(INVALID, ed.setImageProps("IMG1", DataNode.Compound.empty().with("width", 0.0)));
+        assertEquals(INVALID, ed.setImageProps("IMG1", DataNode.Compound.empty().with("mystery", "1")));
+    }
+
+    @Test
+    void pictureKeysFromTheRealFilesAreKept() {
+        Quest q = ed.createQuest(chapter.id, 0, 0);
+        chapter.images.add(new Definitions.ChapterImage("IMG2", DataNode.Compound.empty().with("image", "minecraft:x").with("x", 0.0).with("y", 0.0)));
+        DataNode.Compound props = DataNode.Compound.empty().with("color", "#8BA66B").with("click_type", "open_uri").with("click_data", "123")
+                .with("corner", "true").with("dependency", q.id).with("position_locked", "true").with("text_on_image", "true")
+                .with("text_inset", "1").with("text_h_align", "end").with("text_v_align", "end").with("tags", "a, b");
+        assertEquals(OK, ed.setImageProps("IMG2", props));
+        DataNode.Compound raw = chapter.images.get(0).raw();
+        assertEquals(0x8BA66B, raw.getInt("color", 0));
+        assertEquals("open_uri", raw.getCompound("click_action").getString("type", ""));
+        assertEquals("123", raw.getCompound("click_action").getString("data", ""));
+        assertEquals(true, raw.getBool("corner", false));
+        assertEquals(q.id, raw.getString("dependency", ""));
+        assertEquals(1, raw.getInt("text_inset", 0));
+        assertEquals("end", raw.getString("text_h_align", ""));
+        assertEquals(2, raw.getList("tags").size());
+        assertEquals(INVALID, ed.setImageProps("IMG2", DataNode.Compound.empty().with("dependency", "NOPE")));
+        assertEquals(OK, ed.setImageProps("IMG2", DataNode.Compound.empty().with("click_type", "").with("click_data", "")));
+        assertEquals(false, chapter.images.get(0).raw().has("click_action"));
+    }
+
+    @Test
+    void zPositionDefaultsToZeroAndIsKept() {
+        Quest q = ed.createQuest(chapter.id, 0, 0);
+        assertEquals(0.0, q.z);
+        assertEquals(OK, ed.setProp(q.id, "z", "2.5"));
+        assertEquals(2.5, q.z);
+        assertEquals(2.5, DeepCopy.quest(q, "COPY").z);
+        assertEquals(INVALID, ed.setProp(q.id, "z", "5000"));
+    }
+
+    @Test
+    void questSizeGoesDownToASixteenthAndUpPastFive() {
+        Quest q = ed.createQuest(chapter.id, 0, 0);
+        assertEquals(OK, ed.setProp(q.id, "size", "0.0625"));
+        assertEquals(0.0625, q.size);
+        assertEquals(OK, ed.setProp(q.id, "size", "5.1615"));
+        assertEquals(5.1615, q.size);
+        assertEquals(INVALID, ed.setProp(q.id, "size", "0.03"));
+        assertEquals(INVALID, ed.setProp(q.id, "size", "1000"));
+    }
+
+    @Test
     void createQuestSnapsAndValidates() {
         Quest q = ed.createQuest(chapter.id, 1.26, -2.74);
         assertEquals(1.5, q.x);

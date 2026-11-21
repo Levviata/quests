@@ -34,7 +34,7 @@ final class History {
 
     /** Edits after which the order of the chapters or the list of groups must be put back as well. */
     private static final Set<String> LAYOUT_OPS = Set.of("create_chapter", "delete_chapter", "create_group", "rename_group", "delete_group",
-            "set_chapter_group", "move_chapter", "move_group");
+            "set_chapter_group", "move_chapter", "move_group", "set_group_chapter");
 
     /** A chapter as it was (null copy: it did not exist), and where in the book's list it stood. */
     record ChapterSnap(String id, int index, @Nullable Chapter copy) {}
@@ -92,13 +92,14 @@ final class History {
     /** Copy what the edit may change. Ops that do not change the book return null. */
     @Nullable
     static Open begin(QuestBook book, String op, DataNode.Compound a) {
-        if (op.equals("save_now") || op.equals("reset_progress") || op.equals("complete_quest") || op.equals("undo") || op.equals("redo")) {
+        if (op.equals("save_now") || op.equals("reset_progress") || op.equals("complete_quest") || op.equals("undo") || op.equals("redo") || op.equals("set_book_prop")
+                || op.equals("complete_task") || op.equals("reset_task") || op.equals("grab_item")) {
             return null;
         }
         Open o = new Open(op);
         String id = a.getString("id", "");
         switch (op) {
-            case "create_chapter", "create_table", "create_group", "rename_group", "move_chapter", "move_group" -> { }
+            case "create_chapter", "create_table", "create_group", "rename_group", "move_chapter", "move_group", "set_group_chapter" -> { }
             case "set_chapter_group" -> o.chapterIds.add(id);
             case "delete_group" -> {
                 for (Chapter c : book.chapters()) {
@@ -107,8 +108,35 @@ final class History {
                     }
                 }
             }
-            case "create_quest" -> o.chapterIds.add(a.getString("chapter", ""));
+            case "create_quest", "paste_quests" -> o.chapterIds.add(a.getString("chapter", ""));
+            case "move_quests" -> {
+                for (DataNode n : a.getList("moves")) {
+                    Chapter c = n instanceof DataNode.Compound m ? book.chapterOf(m.getString("id", "")) : null;
+                    if (c != null) {
+                        o.chapterIds.add(c.id);
+                    }
+                }
+            }
+            case "delete_quests" -> {
+                Set<String> gone = new LinkedHashSet<>();
+                for (DataNode n : a.getList("ids")) {
+                    if (n instanceof DataNode.Str sid) {
+                        gone.add(sid.value());
+                        Chapter c = book.chapterOf(sid.value());
+                        if (c != null) {
+                            o.chapterIds.add(c.id);
+                        }
+                    }
+                }
+                addDependantChapters(book, gone, o);
+            }
             case "rename_chapter", "set_chapter_prop" -> o.chapterIds.add(id);
+            case "set_icon" -> {
+                Chapter c = a.getString("kind", "").equals("chapter") ? book.chapter(id) : book.chapterOf(id);
+                if (c != null) {
+                    o.chapterIds.add(c.id);
+                }
+            }
             case "delete_chapter" -> {
                 o.chapterIds.add(id);
                 Chapter c = book.chapter(id);
@@ -125,14 +153,14 @@ final class History {
                 }
                 addDependantChapters(book, Set.of(id), o);
             }
-            case "task_value", "remove_task", "set_task_prop" -> {
+            case "task_value", "remove_task", "set_task_prop", "move_task" -> {
                 Quest q = book.questOfTask(id);
                 Chapter c = q == null ? null : book.chapterOf(q.id);
                 if (c != null) {
                     o.chapterIds.add(c.id);
                 }
             }
-            case "remove_reward", "set_reward_prop" -> {
+            case "remove_reward", "set_reward_prop", "move_reward" -> {
                 for (Chapter c : book.chapters()) {
                     for (Quest q : c.quests) {
                         for (Reward r : q.rewards) {
@@ -143,7 +171,15 @@ final class History {
                     }
                 }
             }
-            case "move_image", "delete_image" -> {
+            case "create_link" -> o.chapterIds.add(a.getString("chapter", ""));
+            case "delete_link" -> {
+                for (Chapter c : book.chapters()) {
+                    if (c.links.stream().anyMatch(l -> l.id().equals(id))) {
+                        o.chapterIds.add(c.id);
+                    }
+                }
+            }
+            case "move_image", "delete_image", "set_image_props" -> {
                 for (Chapter c : book.chapters()) {
                     for (var img : c.images) {
                         if (img.id().equals(id)) {
@@ -330,6 +366,12 @@ final class History {
                 return "Moved " + quoted(book, id);
             case "delete_quest":
                 return "Deleted " + quoted(book, id);
+            case "set_bezier":
+                return "Changed the curve of " + quoted(book, id);
+            case "move_quests":
+                return "Moved " + a.getList("moves").size() + " quests";
+            case "delete_quests":
+                return "Deleted " + a.getList("ids").size() + " quests";
             case "create_quest":
                 return "Created a quest";
             case "create_chapter":
@@ -357,7 +399,12 @@ final class History {
                 return "Changed a reward table";
             case "move_image":
             case "delete_image":
+            case "set_image_props":
                 return "Changed a picture";
+            case "create_link":
+                return "Linked a quest";
+            case "delete_link":
+                return "Removed a quest link";
             default:
                 return "Changed " + quoted(book, id.isEmpty() ? "" : id);
         }

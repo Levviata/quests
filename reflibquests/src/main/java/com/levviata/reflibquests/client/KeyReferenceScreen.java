@@ -35,26 +35,55 @@ final class KeyReferenceScreen extends GuiScreen {
         return new String[][] {
             {"General Controls"},
             {ClientBootstrap.openKeyName(), "Open Quests"},
+            {"Tab", "Next Chapter"},
+            {"SHIFT + Tab", "Previous Chapter"},
+            {"Space", "Recenter GUI"},
+            {"CTRL + F", "Search"},
+            {"F1 (hold)", "See Extended Quest Info"},
+            {"Arrow Keys", "Scroll the map one grid step"},
             {"Left Mouse", "View Quest Details"},
             {"Left Mouse: Drag", "Move the map"},
             {"Mouse Wheel", "Zoom In / Out"},
-            {"Mouse at left edge", "Show the chapter panel"},
-            {"Escape", "Close the open quest, search or window"},
-            {"Ctrl + F", "Search"},
-            {"Ctrl + P", "Player Preferences"},
+            {"Backspace", "While viewing quest, go to last-viewed quest"},
+            {"CTRL + P", "Player Preferences"},
             {"Editor Mode"},
-            {"Middle Mouse", "Move Quest (click where it should go)"},
-            {"Left or Middle Mouse", "Drop the quest being moved"},
-            {"Right Mouse or Escape", "Cancel moving the quest"},
+            {"CTRL + Left Mouse", "Toggle Selection"},
+            {"LEFT ALT + Left Mouse", "Properties Editor"},
+            {"RIGHT ALT + Left Mouse", "Copy Quest"},
+            {"ALT + Left Mouse: Drag", "Select Quests in Drag Box (from free space)"},
+            {"Middle Mouse", "Move Selected Quest(s)"},
             {"Right Mouse", "Context Menu"},
-            {"Ctrl + Z", "Undo"},
-            {"Ctrl + Y", "Redo"},
+            {"Middle Mouse: Drag", "Select Quests in Drag Box"},
+            {"CTRL + Middle Mouse: Drag", "Toggle Selection in Box"},
+            {"CTRL + A", "Select All"},
+            {"CTRL + D / Escape", "Select None"},
+            {"CTRL + Arrow Keys", "Move Selected one grid step"},
+            {"Delete", "Delete Hovered / Selected"},
+            {"SHIFT + Delete", "Force-delete Hovered / Selected"},
+            {"CTRL + R", "Toggle Crosshairs"},
+            {"CTRL + C", "Copy"},
+            {"CTRL + V", "Paste"},
+            {"+ SHIFT", "Paste Quest (no dependencies)"},
+            {"ALT + C", "Force-complete Hovered"},
+            {"ALT + R", "Force-reset Hovered"},
+            {"CTRL + S", "Save Quests Now"},
+            {"CTRL + Z", "Undo"},
+            {"CTRL + Y", "Redo"},
+            {"Escape or Right Mouse", "Cancel moving the quest"},
+            {"Quest View Panel"},
+            {"T", "Edit Title"},
+            {"S", "Edit Subtitle"},
+            {"D", "Edit Description"},
+            {"P", "Insert Page Break"},
+            {"L", "Insert Line"},
+            {"I", "Insert Image"},
+            {"Q", "Edit Quest Properties"},
         };
     }
 
     private Rect window() {
-        int w = Math.min(380, width - 20);
-        int h = Math.min(height - 20, 220);
+        int w = Math.min(400, width - 20);
+        int h = Math.min(height - 20, 320);
         return new Rect((width - w) / 2, (height - h) / 2, w, h);
     }
 

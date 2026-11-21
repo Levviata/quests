@@ -32,6 +32,11 @@ public final class DeepCopy {
         return (Chapter) copyObject(c);
     }
 
+    /** An independent copy of a quest under a new id (its tasks and rewards still carry the old ids). */
+    public static Definitions.Quest quest(Definitions.Quest q, String newId) {
+        return (Definitions.Quest) copyObject(q, newId);
+    }
+
     public static Definitions.ChapterGroup group(Definitions.ChapterGroup g) {
         return (Definitions.ChapterGroup) copyObject(g);
     }
@@ -72,13 +77,18 @@ public final class DeepCopy {
 
     @SuppressWarnings("unchecked")
     private static Object copyObject(Object src) {
+        return copyObject(src, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Object copyObject(Object src, String idOverride) {
         Class<?> type = src.getClass();
         try {
             Field idField = type.getDeclaredField("id");
             idField.setAccessible(true);
             Constructor<?> ctor = type.getDeclaredConstructor(String.class);
             ctor.setAccessible(true);
-            Object copy = ctor.newInstance(idField.get(src));
+            Object copy = ctor.newInstance(idOverride != null ? idOverride : idField.get(src));
             for (Field f : type.getDeclaredFields()) {
                 if (Modifier.isStatic(f.getModifiers()) || f.getName().equals("id")) {
                     continue;

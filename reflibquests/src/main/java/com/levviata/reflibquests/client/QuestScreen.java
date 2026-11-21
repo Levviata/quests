@@ -35,6 +35,7 @@ final class QuestScreen extends ReflibScreen {
 
     @Override
     public boolean doesGuiPauseGame() {
-        return false;
+        com.levviata.reflibquests.model.QuestBook b = ClientQuests.book();
+        return b != null && b.settings.getBool("pause_game", false) && net.minecraft.client.Minecraft.getMinecraft().isSingleplayer();
     }
 }

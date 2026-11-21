@@ -52,7 +52,7 @@ final class DescriptionEditorScreen extends GuiScreen {
     private int scrollRows;
     private Overlay overlay = Overlay.NONE;
     private Rect paletteButton = new Rect(0, 0, 0, 0);
-    private final StringBuilder questQuery = new StringBuilder();
+    private final TextEditor questQuery = new TextEditor("", 40);
     private List<Quest> questRows = List.of();
     private int questScroll;
     private final List<Object[]> hits = new ArrayList<>(); // {Rect, Runnable}
@@ -64,7 +64,7 @@ final class DescriptionEditorScreen extends GuiScreen {
     DescriptionEditorScreen(GuiScreen parent, Quest quest) {
         this.parent = parent;
         this.quest = quest;
-        this.editor = new TextEditor(String.join("\n", quest.description), 20000);
+        this.editor = new TextEditor(QuestBookWidget.codesAsTyped(String.join("\n", quest.description)), 20000);
     }
 
     @Override
@@ -169,7 +169,7 @@ final class DescriptionEditorScreen extends GuiScreen {
 
     private void openQuestPicker() {
         overlay = Overlay.QUEST;
-        questQuery.setLength(0);
+        questQuery.replaceAllText("");
         questScroll = 0;
         refreshQuests();
     }
@@ -178,7 +178,7 @@ final class DescriptionEditorScreen extends GuiScreen {
         QuestBook book = ClientQuests.book();
         List<Quest> out = new ArrayList<>();
         if (book != null) {
-            String q = questQuery.toString().toLowerCase(Locale.ROOT);
+            String q = questQuery.text().toLowerCase(Locale.ROOT);
             for (Quest other : book.allQuests()) {
                 if (q.isEmpty() || RichText.stripCodes(QuestText.rawTitle(other)).toLowerCase(Locale.ROOT).contains(q)) {
                     out.add(other);
@@ -381,7 +381,7 @@ final class DescriptionEditorScreen extends GuiScreen {
             Rect field = new Rect(box.x() + 6, box.y() + 20, box.width() - 12, 14);
             Gui.drawRect(field.x(), field.y(), field.x() + field.width(), field.y() + field.height(), 0xFF4C7BC4);
             boolean caret = (System.currentTimeMillis() / 500) % 2 == 0;
-            fr.drawStringWithShadow(fr.trimStringToWidth(questQuery + (caret ? "_" : ""), field.width() - 8, true), field.x() + 4, field.y() + 3, 0xFFFFFF);
+            RewardTablesScreen.drawFieldText(fr, field, questQuery);
             Rect list = new Rect(box.x() + 6, box.y() + 38, box.width() - 12, box.height() - 44);
             Gui.drawRect(list.x(), list.y(), list.x() + list.width(), list.y() + list.height(), 0xFF181A20);
             int visible = list.height() / 14;
@@ -446,14 +446,12 @@ final class DescriptionEditorScreen extends GuiScreen {
         if (overlay == Overlay.QUEST) {
             if (keyCode == Keyboard.KEY_ESCAPE) {
                 overlay = Overlay.NONE;
-            } else if (keyCode == Keyboard.KEY_BACK) {
-                if (questQuery.length() > 0) {
-                    questQuery.setLength(questQuery.length() - 1);
+            } else {
+                String before = questQuery.text();
+                RewardTablesScreen.typeInto(questQuery, typed, keyCode, false);
+                if (!before.equals(questQuery.text())) {
                     refreshQuests();
                 }
-            } else if (ChatAllowedCharacters.isAllowedCharacter(typed) && questQuery.length() < 40) {
-                questQuery.append(typed);
-                refreshQuests();
             }
             return;
         }

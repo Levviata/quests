@@ -82,6 +82,9 @@ final class QuestArt {
 
     private static final ResourceLocation TILES = new ResourceLocation("ftblibrary", "textures/gui/background_squares.png");
     static final ResourceLocation DIRT = new ResourceLocation("textures/gui/options_background.png");
+    static final ResourceLocation STONE = new ResourceLocation("textures/blocks/stone.png");
+    static final ResourceLocation GRASS = new ResourceLocation("textures/blocks/grass_top.png");
+    static final ResourceLocation DIRT_BLOCK = new ResourceLocation("textures/blocks/dirt.png");
     private static Boolean tilesAvailable;
 
     /**
@@ -92,8 +95,8 @@ final class QuestArt {
         if (tilesAvailable == null) {
             tilesAvailable = available() && SuppliedAssets.read("ftblibrary", "textures/gui/background_squares.png") != null;
         }
-        // the same dirt as the game's own option screens
-        tile(DIRT, r.x(), r.y(), r.width(), r.height(), 32, 0x99404040);
+        // stone, darkened, behind the map
+        tile(STONE, r.x(), r.y(), r.width(), r.height(), 32, 0xFF57616E);
     }
 
     /** Repeats a texture over a rectangle; {@code tileSize} is the on-screen size of one repeat. */

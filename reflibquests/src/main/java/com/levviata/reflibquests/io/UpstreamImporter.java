@@ -144,6 +144,9 @@ public final class UpstreamImporter {
             chapter.title = c.getString("title", "");
             chapter.icon = c.getCompound("icon");
             chapter.alwaysInvisible = c.getBool("always_invisible", false);
+            chapter.disableToast = c.getBool("disable_toast", false);
+            chapter.hideTextUntilComplete = c.getBool("hide_text_until_complete", false);
+            chapter.defaultConsumeItems = Tristate.read(c, "consume_items");
             chapter.progressionMode = ProgressionMode.parse(c.getString("progression_mode", "default"), ProgressionMode.DEFAULT);
             chapter.requireSequentialTasks = c.getBool("require_sequential_tasks", false);
             chapter.hideQuestDetailsUntilStartable = c.getBool("hide_quest_details_until_startable", false);
@@ -202,12 +205,14 @@ public final class UpstreamImporter {
         q.y = c.getDouble("y", 0);
         q.shape = c.getString("shape", "");
         q.size = c.getDouble("size", 1.0);
+        q.z = c.getDouble("z", 0);
         q.icon = c.getCompound("icon");
         for (DataNode d : c.getList("dependencies")) {
             if (d instanceof DataNode.Str s && !Ids.normalize(s.value()).isEmpty()) {
                 q.dependencies.add(Ids.normalize(s.value()));
             }
         }
+        q.depControlPts = com.levviata.reflibquests.model.ControlPoints.read(c.getCompound("dep_control_pts"));
         q.dependencyMode = DependencyMode.parse(c.getString("dependency_requirement", "all_completed"));
         q.minRequiredDependencies = c.getInt("min_required_dependencies", 0);
         q.optional = c.getBool("optional", false);
@@ -315,6 +320,13 @@ public final class UpstreamImporter {
             List<String> sub = list(table, "chapter." + c.id + ".chapter_subtitle");
             if (!sub.isEmpty()) {
                 c.subtitle = sub;
+            }
+            for (int ii = 0; ii < c.images.size(); ii++) {
+                var img = c.images.get(ii);
+                String imageTitle = text(table, "image." + img.id() + ".title", "");
+                if (!imageTitle.isEmpty()) {
+                    c.images.set(ii, new com.levviata.reflibquests.model.Definitions.ChapterImage(img.id(), img.raw().with("title", imageTitle)));
+                }
             }
             for (Quest q : c.quests) {
                 q.title = text(table, "quest." + q.id + ".title", q.title);

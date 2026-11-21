@@ -34,8 +34,18 @@ final class QuestEdits {
     static String apply(QuestServer qs, EntityPlayerMP player, String op, DataNode.Compound a) {
         BookEditor ed = new BookEditor(qs.book(), new Random());
         switch (op) {
-            case "create_chapter":
-                return ed.createChapter(a.getString("title", "")) != null ? null : "That chapter name is not valid.";
+            case "create_chapter": {
+                com.levviata.reflibquests.model.Definitions.Chapter made = ed.createChapter(a.getString("title", ""));
+                if (made == null) {
+                    return "That chapter name is not valid.";
+                }
+                if (!a.getString("group", "").isEmpty()) {
+                    ed.setChapterGroup(made.id, a.getString("group", "")); // made from the + of a group
+                }
+                return null;
+            }
+            case "set_group_chapter":
+                return fail(ed.setGroupChapter(a.getString("id", ""), a.getString("chapter", "")));
             case "rename_chapter":
                 return fail(ed.renameChapter(a.getString("id", ""), a.getString("title", "")));
             case "set_chapter_prop":
@@ -61,6 +71,12 @@ final class QuestEdits {
                 return fail(ed.moveQuest(a.getString("id", ""), a.getDouble("x", Double.NaN), a.getDouble("y", Double.NaN)));
             case "delete_quest":
                 return fail(ed.deleteQuest(a.getString("id", "")));
+            case "set_bezier":
+                return fail(ed.setBezier(a.getString("id", ""), a.getCompound("points")));
+            case "move_quests":
+                return fail(ed.moveQuests(a));
+            case "delete_quests":
+                return fail(ed.deleteQuests(a));
             case "set_text":
                 return fail(ed.setText(a.getString("id", ""), a.getString("title", ""), a.getString("subtitle", ""), lines(a.getList("desc"))));
             case "set_title":
@@ -73,6 +89,13 @@ final class QuestEdits {
                 return fail(ed.moveImage(a.getString("id", ""), a.getDouble("x", 0), a.getDouble("y", 0)));
             case "delete_image":
                 return fail(ed.deleteImage(a.getString("id", "")));
+            case "set_image_props":
+                return fail(ed.setImageProps(a.getString("id", ""), a.getCompound("props")));
+            case "create_link":
+                return ed.createLink(a.getString("chapter", ""), a.getString("quest", ""), a.getDouble("x", Double.NaN), a.getDouble("y", Double.NaN)) != null
+                        ? null : "Could not link that quest there.";
+            case "delete_link":
+                return fail(ed.deleteLink(a.getString("id", "")));
             case "toggle_dep":
                 return fail(ed.toggleDependency(a.getString("id", ""), a.getString("dep", "")));
             case "remove_task":
@@ -91,6 +114,31 @@ final class QuestEdits {
                 return fail(ed.setProp(a.getString("id", ""), a.getString("key", ""), a.getString("value", "")));
             case "set_shape":
                 return fail(ed.setShape(a.getString("id", ""), a.getString("shape", "")));
+            case "paste_quests": {
+                List<String> ids = lines(a.getList("ids"));
+                return ed.pasteQuests(a.getString("chapter", ""), ids, a.getDouble("x", Double.NaN), a.getDouble("y", Double.NaN),
+                        a.getBool("deps", true)) != null ? null : "Nothing could be pasted.";
+            }
+            case "move_task":
+                return fail(ed.moveTask(a.getString("id", ""), a.getInt("by", 0)));
+            case "move_reward":
+                return fail(ed.moveReward(a.getString("id", ""), a.getInt("by", 0)));
+            case "set_icon": {
+                if (a.getString("mode", "").equals("task")) {
+                    return fail(ed.setIconFromTask(a.getString("id", ""), a.getString("task", "")));
+                }
+                DataNode.Compound icon = DataNode.Compound.empty();
+                if (a.getString("mode", "").equals("held")) {
+                    DataNode.Compound held = heldItem(player);
+                    if (held == null) {
+                        return "Hold the item in your main hand first.";
+                    }
+                    icon = held.getCompound("item");
+                }
+                return fail(ed.setIcon(a.getString("kind", ""), a.getString("id", ""), icon));
+            }
+            case "set_book_prop":
+                return fail(ed.setBookProp(a.getString("key", ""), a.getString("value", "")));
             case "add_task":
                 return addTask(ed, player, a);
             case "add_reward":
@@ -123,6 +171,12 @@ final class QuestEdits {
                 return "Hold the item in your main hand first.";
             }
             params = held;
+        } else if (type.equals("location")) {
+            // a one block box where the player stands, in the player's dimension
+            params = DataNode.Compound.empty().with("dimension", String.valueOf(player.dimension))
+                    .with("position", new DataNode.Lst(java.util.List.of(new DataNode.Int((int) Math.floor(player.posX)),
+                            new DataNode.Int((int) Math.floor(player.posY)), new DataNode.Int((int) Math.floor(player.posZ)))))
+                    .with("size", new DataNode.Lst(java.util.List.of(new DataNode.Int(1), new DataNode.Int(1), new DataNode.Int(1))));
         } else {
             params = params.without("item"); // only the held-item path may set an item
         }

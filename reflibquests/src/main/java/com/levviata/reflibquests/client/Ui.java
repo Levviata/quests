@@ -351,6 +351,11 @@ final class Ui {
         Gui.drawRect(r.x() + 1, r.y() + 1, r.x() + r.width() - 1, r.y() + r.height() - 1, fill);
     }
 
+    /** The shadow of a panel or menu: the panel's own shape moved 3 GUI pixels down and right, 16% black (measured from FTB Quests). */
+    static void shadow(Rect r) {
+        Gui.drawRect(r.x() + 3, r.y() + 3, r.x() + r.width() + 3, r.y() + r.height() + 3, 0x2A000000);
+    }
+
     /** One-pixel outline only. */
     static void outline(Rect r, int argb) {
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + 1, argb);

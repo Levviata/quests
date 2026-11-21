@@ -115,6 +115,14 @@ public final class BookCodec {
         o = putIf(o, "hideDepLines", c.defaultHideDependencyLines);
         o = putIf(o, "qshape", c.defaultQuestShape);
         o = putIf(o, "autofocus", c.autofocusId);
+        o = putIf(o, "noToast", c.disableToast);
+        o = putIf(o, "hideText", c.hideTextUntilComplete);
+        o = putTri(o, "consume", c.defaultConsumeItems);
+        if (c.defaultQuestSize != 1.0) {
+            o = o.with("qsize", c.defaultQuestSize);
+        }
+        o = putIf(o, "minWidth", c.minWindowWidth);
+        o = putList(o, "tags", c.tags);
         o = putIf(o, "repeatable", c.defaultRepeatable);
         if (!c.images.isEmpty()) {
             List<DataNode> images = new ArrayList<>();
@@ -142,6 +150,9 @@ public final class BookCodec {
         if (q.size != 1.0) {
             o = o.with("size", q.size);
         }
+        if (q.z != 0) {
+            o = o.with("z", q.z);
+        }
         o = putIf(o, "icon", q.icon);
         List<DataNode> tasks = new ArrayList<>();
         for (Task t : q.tasks) {
@@ -158,6 +169,9 @@ public final class BookCodec {
             o = o.with("rewards", new DataNode.Lst(rewards));
         }
         o = putList(o, "deps", q.dependencies);
+        if (!q.depControlPts.isEmpty()) {
+            o = o.with("dcp", com.levviata.reflibquests.model.ControlPoints.write(q.depControlPts));
+        }
         if (q.dependencyMode != DependencyMode.ALL_COMPLETED) {
             o = o.with("depMode", q.dependencyMode.name());
         }
@@ -273,6 +287,12 @@ public final class BookCodec {
         ch.hideQuestUntilDepsComplete = c.getBool("hideDepsComplete", false);
         ch.defaultHideDependencyLines = c.getBool("hideDepLines", false);
         ch.autofocusId = c.getString("autofocus", "");
+        ch.disableToast = c.getBool("noToast", false);
+        ch.hideTextUntilComplete = c.getBool("hideText", false);
+        ch.defaultConsumeItems = tri(c, "consume");
+        ch.defaultQuestSize = c.getDouble("qsize", 1.0);
+        ch.minWindowWidth = c.getInt("minWidth", 0);
+        ch.tags = new ArrayList<>(strings(c.getList("tags")));
         ch.defaultQuestShape = c.getString("qshape", "");
         ch.defaultRepeatable = c.getBool("repeatable", false);
         for (DataNode n : c.getList("quests")) {
@@ -302,6 +322,7 @@ public final class BookCodec {
         q.description = strings(c.getList("desc"));
         q.shape = c.getString("shape", "");
         q.size = c.getDouble("size", 1.0);
+        q.z = c.getDouble("z", 0);
         q.icon = c.getCompound("icon");
         for (DataNode n : c.getList("tasks")) {
             if (n instanceof DataNode.Compound t) {
@@ -314,6 +335,7 @@ public final class BookCodec {
             }
         }
         q.dependencies.addAll(strings(c.getList("deps")));
+        q.depControlPts = com.levviata.reflibquests.model.ControlPoints.read(c.getCompound("dcp"));
         q.dependencyMode = DependencyMode.parse(c.getString("depMode", "ALL_COMPLETED"));
         q.minRequiredDependencies = c.getInt("minDeps", 0);
         q.optional = c.getBool("optional", false);

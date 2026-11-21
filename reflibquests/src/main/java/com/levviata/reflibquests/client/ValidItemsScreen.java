@@ -39,14 +39,27 @@ final class ValidItemsScreen extends GuiScreen {
     private final List<ItemStack> stacks;
     private final String taskId;
     private final boolean canSubmit;
+    /** Set when the panel is used to choose an item to copy: clicking an item picks it, and there is no Submit. */
+    private final java.util.function.IntConsumer picker;
     private int scroll;
 
     ValidItemsScreen(GuiScreen parent, String title, List<ItemStack> stacks, String taskId, boolean canSubmit) {
+        this(parent, title, stacks, taskId, canSubmit, null);
+    }
+
+    /** "Grab Copy of Item" on a collection: the same panel, where clicking an item takes a copy of it. */
+    static ValidItemsScreen forCopying(GuiScreen parent, String title, List<ItemStack> stacks, java.util.function.IntConsumer picker) {
+        return new ValidItemsScreen(parent, title, stacks, "", false, picker);
+    }
+
+    private ValidItemsScreen(GuiScreen parent, String title, List<ItemStack> stacks, String taskId, boolean canSubmit,
+            java.util.function.IntConsumer picker) {
         this.parent = parent;
         this.title = title;
         this.stacks = stacks;
         this.taskId = taskId;
         this.canSubmit = canSubmit;
+        this.picker = picker;
     }
 
     private Rect window() {
@@ -60,7 +73,7 @@ final class ValidItemsScreen extends GuiScreen {
     }
 
     private Rect back(Rect win) {
-        int bw = (win.width() - 2 * PAD - 4) / 2;
+        int bw = picker != null ? win.width() - 2 * PAD : (win.width() - 2 * PAD - 4) / 2;
         return new Rect(win.x() + PAD, win.y() + win.height() - PAD - BUTTON_H, bw, BUTTON_H);
     }
 
@@ -80,11 +93,14 @@ final class ValidItemsScreen extends GuiScreen {
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        if (parent != null) {
+            parent.drawScreen(-1000, -1000, partialTicks); // the screen underneath stays visible
+        }
         drawDefaultBackground();
         Rect win = window();
         QuestArt.tile(QuestArt.DIRT, win.x(), win.y(), win.width(), win.height(), 32, 0xFF505560);
         Ui.outline(win, 0xFF0E0F12);
-        String head = "Valid items for " + title;
+        String head = picker != null ? "Copy which item? " + title : "Valid items for " + title;
         int headWidth = Math.min(Ui.width(fontRenderer, head), win.width() - 10);
         Ui.drawText(fontRenderer, head, win.x() + win.width() / 2 - headWidth / 2, win.y() + 7, 0xFFFFFFFF, win.width() - 10);
         Rect grid = grid(win);
@@ -126,13 +142,15 @@ final class ValidItemsScreen extends GuiScreen {
         Rect submit = submit(win);
         Ui.vanillaButton(back, back.contains(mouseX, mouseY));
         fontRenderer.drawStringWithShadow("Back", back.x() + back.width() / 2 - fontRenderer.getStringWidth("Back") / 2, back.y() + 4, 0xFFFFFF);
-        Ui.vanillaButton(submit, canSubmit && submit.contains(mouseX, mouseY));
-        fontRenderer.drawStringWithShadow("Submit", submit.x() + submit.width() / 2 - fontRenderer.getStringWidth("Submit") / 2,
-                submit.y() + 4, canSubmit ? 0xFFFFFF : 0x777777);
+        if (picker == null) {
+            Ui.vanillaButton(submit, canSubmit && submit.contains(mouseX, mouseY));
+            fontRenderer.drawStringWithShadow("Submit", submit.x() + submit.width() / 2 - fontRenderer.getStringWidth("Submit") / 2,
+                    submit.y() + 4, canSubmit ? 0xFFFFFF : 0x777777);
+        }
         GlStateManager.color(1f, 1f, 1f, 1f);
         if (!hovered.isEmpty()) {
             renderToolTip(hovered, mouseX, mouseY);
-        } else if (!canSubmit && submit.contains(mouseX, mouseY)) {
+        } else if (picker == null && !canSubmit && submit.contains(mouseX, mouseY)) {
             drawHoveringText("Items will be auto-detected", mouseX, mouseY);
         }
     }
@@ -146,7 +164,7 @@ final class ValidItemsScreen extends GuiScreen {
         Rect grid = grid(win);
         if (back(win).contains(mouseX, mouseY)) {
             mc.displayGuiScreen(parent);
-        } else if (submit(win).contains(mouseX, mouseY) && canSubmit) {
+        } else if (picker == null && submit(win).contains(mouseX, mouseY) && canSubmit) {
             QuestNet.submit(taskId);
             mc.displayGuiScreen(parent);
         } else if (grid.contains(mouseX, mouseY)) {
@@ -154,7 +172,12 @@ final class ValidItemsScreen extends GuiScreen {
             int row = (mouseY - grid.y() + scroll) / CELL;
             int index = row * COLUMNS + col;
             if (col >= 0 && col < COLUMNS && index >= 0 && index < stacks.size()) {
-                JeiBridge.showRecipes(stacks.get(index)); // JEI returns to this screen when it is closed
+                if (picker != null) {
+                    mc.displayGuiScreen(parent);
+                    picker.accept(index); // the chosen item is copied
+                } else {
+                    JeiBridge.showRecipes(stacks.get(index)); // JEI returns to this screen when it is closed
+                }
             }
         }
     }

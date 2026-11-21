@@ -67,8 +67,23 @@ final class RewardTablesScreen extends GuiScreen {
     private long armedUntil;
     private List<String> pendingTip;
 
+    /** Taken when the window first opens: Cancel puts the reward tables back as they were. */
+    private TableEdits.Mark mark;
+
     RewardTablesScreen(GuiScreen parent) {
         this.parent = parent;
+    }
+
+    private void accept() {
+        commitEdit();
+        TableEdits.accept(mark);
+        mc.displayGuiScreen(parent);
+    }
+
+    private void cancel() {
+        editingId = "";
+        TableEdits.rollback(mark);
+        mc.displayGuiScreen(parent);
     }
 
     @Override
@@ -80,6 +95,9 @@ final class RewardTablesScreen extends GuiScreen {
     public void initGui() {
         super.initGui();
         Keyboard.enableRepeatEvents(true);
+        if (mark == null) {
+            mark = TableEdits.mark();
+        }
     }
 
     @Override
@@ -329,10 +347,23 @@ final class RewardTablesScreen extends GuiScreen {
         }
         scroller.draw();
 
-        Rect close = new Rect(win.x() + win.width() - 6 - 90, win.y() + win.height() - 26, 90, 20);
-        Ui.vanillaButton(close, close.contains(mouseX, mouseY));
-        fr.drawStringWithShadow("Close", close.x() + 45 - fr.getStringWidth("Close") / 2, close.y() + 6, 0xFFFFFF);
-        hits.add(new Object[] {close, (Runnable) () -> mc.displayGuiScreen(parent)});
+        Rect cancel = new Rect(win.x() + win.width() - 6 - 90, win.y() + win.height() - 26, 90, 20);
+        Rect accept = new Rect(cancel.x() - 4 - 90, cancel.y(), 90, 20);
+        boolean overAccept = accept.contains(mouseX, mouseY);
+        boolean overCancel = cancel.contains(mouseX, mouseY);
+        Ui.vanillaButton(accept, overAccept);
+        Ui.vanillaButton(cancel, overCancel);
+        Ui.icon(Ui.LIBRARY, "textures/icons/accept.png", accept.x() + 4, accept.y() + 2, 16, 16, 0xFFFFFFFF);
+        fr.drawStringWithShadow("Accept", accept.x() + 24, accept.y() + 6, overAccept ? 0xFFE08A : 0xFFFFFF);
+        Ui.icon(Ui.LIBRARY, "textures/icons/cancel.png", cancel.x() + 4, cancel.y() + 2, 16, 16, 0xFFFFFFFF);
+        fr.drawStringWithShadow("Cancel", cancel.x() + 24, cancel.y() + 6, overCancel ? 0xFFE08A : 0xFFFFFF);
+        hits.add(new Object[] {accept, (Runnable) this::accept});
+        hits.add(new Object[] {cancel, (Runnable) this::cancel});
+        if (overAccept) {
+            pendingTip = List.of("[⇧ + Enter]");
+        } else if (overCancel) {
+            pendingTip = List.of("[ESC]");
+        }
 
         if (pendingTip != null) {
             Ui.drawTooltip(fr, pendingTip, mouseX, mouseY, width, height);
@@ -360,6 +391,11 @@ final class RewardTablesScreen extends GuiScreen {
 
     static void drawField(FontRenderer fr, Rect r, TextEditor edit) {
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF4C7BC4);
+        drawFieldText(fr, r, edit);
+    }
+
+    /** The text, selection and caret of a one-line field, on whatever background the caller drew. */
+    static void drawFieldText(FontRenderer fr, Rect r, TextEditor edit) {
         String text = edit.text();
         int caret = Math.min(edit.caret(), text.length());
         int room = r.width() - 8;
@@ -498,9 +534,6 @@ final class RewardTablesScreen extends GuiScreen {
             }
         }
         commitEdit();
-        if (!window().contains(mouseX, mouseY)) {
-            mc.displayGuiScreen(parent);
-        }
     }
 
     @Override
@@ -526,7 +559,9 @@ final class RewardTablesScreen extends GuiScreen {
             return;
         }
         if (keyCode == Keyboard.KEY_ESCAPE) {
-            mc.displayGuiScreen(parent);
+            cancel();
+        } else if ((keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) && isShiftKeyDown()) {
+            accept();
         }
     }
 

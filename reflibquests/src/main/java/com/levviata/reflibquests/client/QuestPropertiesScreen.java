@@ -29,6 +29,7 @@ final class QuestPropertiesScreen extends SettingsScreen {
             "Hexagon", "Octagon", "Heart", "Gear", "None");
     private static final List<String> SHAPE_NAMES = List.of("", "circle", "square", "rsquare", "diamond", "pentagon",
             "hexagon", "octagon", "heart", "gear", "none");
+    private static final List<String> MODES = List.of("Default", "Linear", "Flexible");
     private static final List<String> TRI = List.of("Default", "True", "False");
     private static final List<String> REQUIREMENTS = List.of("All Completed", "One Completed", "All Started", "One Started");
 
@@ -41,8 +42,10 @@ final class QuestPropertiesScreen extends SettingsScreen {
         this.quest = q;
         values.put("title", q.title);
         values.put("subtitle", q.subtitle);
+        values.put("icon", ChapterPropertiesScreen.ICON_KEEP);
         values.put("shape", SHAPE_LABELS.get(Math.max(0, SHAPE_NAMES.indexOf(q.shape.equals("default") ? "" : q.shape))));
         values.put("size", String.valueOf(q.size));
+        values.put("z", String.valueOf(q.z));
         values.put("hide_details", tri(q.hideDetailsUntilStartable));
         values.put("hide_deps_complete", tri(q.hideUntilDepsComplete));
         values.put("hide_deps_visible", tri(q.hideUntilDepsVisible));
@@ -55,20 +58,35 @@ final class QuestPropertiesScreen extends SettingsScreen {
         values.put("optional", String.valueOf(q.optional));
         values.put("repeatable", tri(q.canRepeat));
         values.put("sequential", tri(q.requireSequentialTasks));
+        values.put("hide_text_until_complete", tri(q.hideTextUntilComplete));
+        values.put("hide_lock_icon", String.valueOf(q.hideLockIcon));
+        values.put("repeat_cooldown", String.valueOf(q.repeatCooldown));
+        values.put("disable_jei", tri(q.disableJei));
+        values.put("ignore_reward_blocking", String.valueOf(q.ignoreRewardBlocking));
+        values.put("progression_mode", MODES.get(q.progressionMode.ordinal()));
         initial.putAll(values);
 
         section("Quest");
         text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("The name of the quest. Formatting codes such as &6 work.");
         text("Subtitle", () -> values.get("subtitle"), v -> values.put("subtitle", v)).tip("A short line shown under the sections of the quest window.");
+        choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
+                .tip("Held Item takes the item in your main hand. Clear goes back to the icon of the first task or reward.")
+                .defaults(ChapterPropertiesScreen.ICON_KEEP);
         section("Quest → Appearance");
         choice("Shape", SHAPE_LABELS, () -> values.get("shape"), v -> values.put("shape", v))
                 .tip("How the quest is drawn on the map.").defaults("Default");
-        number("Size", false, () -> values.get("size"), v -> values.put("size", String.valueOf(Math.max(0.25, Math.min(4.0, Double.parseDouble(v))))))
+        number("Size", false, () -> values.get("size"), v -> values.put("size", String.valueOf(Math.max(0.0625, Math.min(64.0, Double.parseDouble(v))))))
                 .tip("Size of the quest on the map.").defaults("1.00");
+        number("Z Position", false, () -> values.get("z"), v -> values.put("z", String.valueOf(Math.max(-1000.0, Math.min(1000.0, Double.parseDouble(v))))))
+                .tip("Quests with a higher Z are drawn over quests with a lower one. At the same Z the bigger quest is on top.").defaults("0");
         section("Quest → Visibility");
         triState("Hide Details Until Startable", "hide_details", "If true then quest details (text and tasks) can't be viewed until the quest can be started.");
         triState("Hide Quest Until Dependencies Complete", "hide_deps_complete", "The quest stays hidden until every quest it needs is completed.");
         triState("Hide Quest Until Dependencies Visible", "hide_deps_visible", "The quest stays hidden until the quests it needs are visible.");
+        triState("Hide Text Until Quest is Completed", "hide_text_until_complete",
+                "Quest details can be opened, but no description text is displayed until the quest is completed");
+        bool("Hide Lock Icon", () -> Boolean.parseBoolean(values.get("hide_lock_icon")), v -> values.put("hide_lock_icon", String.valueOf(v)))
+                .tip("Hide the lock icon that is normally shown when quest is locked due to a dependency").defaults("False");
         bool("Invisible Until Completed", () -> Boolean.parseBoolean(values.get("invisible")), v -> values.put("invisible", String.valueOf(v)))
                 .tip("The quest is not shown until it is completed.").defaults("False");
         number("Invisible until X tasks are completed", true, () -> values.get("invisible_until_tasks"), v -> values.put("invisible_until_tasks", String.valueOf(Math.max(0, Math.min(20, Integer.parseInt(v))))))
@@ -85,6 +103,15 @@ final class QuestPropertiesScreen extends SettingsScreen {
                 .tip("Optional quests are not needed to finish the chapter.").defaults("False");
         triState("Repeatable Quest", "repeatable", "The quest can be done again after its rewards are claimed.");
         triState("Sequential Task Completion", "sequential", "Tasks have to be completed in order.");
+        number("Quest Repeat Cooldown", true, () -> values.get("repeat_cooldown"),
+                v -> values.put("repeat_cooldown", String.valueOf(Math.max(0L, Math.min(31_536_000L, Long.parseLong(v))))))
+                .tip("Only applies if 'Repeatable Quest' is true.\nThe delay in seconds between claiming all the rewards for the quest and being able to redo the quest's tasks.").defaults("0");
+        triState("Disable JEI Recipe", "disable_jei", "Clicking an item of this quest does not show its recipes.");
+        bool("Ignore reward blocking", () -> Boolean.parseBoolean(values.get("ignore_reward_blocking")),
+                v -> values.put("ignore_reward_blocking", String.valueOf(v)))
+                .tip("Offer the quest reward(s) even if rewards are blocked for the team by the '/rquests blockrewards' command").defaults("False");
+        choice("Progression Mode", MODES, () -> values.get("progression_mode"), v -> values.put("progression_mode", v))
+                .tip("Default means to use the chapter setting").defaults("Default");
     }
 
     private void triState(String label, String key, String tip) {
@@ -115,6 +142,11 @@ final class QuestPropertiesScreen extends SettingsScreen {
             if (key.equals("title") || key.equals("subtitle") || e.getValue().equals(initial.get(key))) {
                 continue;
             }
+            if (key.equals("icon")) {
+                TableEdits.send("set_icon", DataNode.Compound.empty().with("kind", "quest").with("id", quest.id)
+                        .with("mode", e.getValue().equals("Clear") ? "clear" : "held"));
+                continue;
+            }
             String v = e.getValue();
             switch (key) {
                 case "shape":
@@ -130,7 +162,12 @@ final class QuestPropertiesScreen extends SettingsScreen {
                 case "hide_dependent_lines":
                 case "repeatable":
                 case "sequential":
+                case "hide_text_until_complete":
+                case "disable_jei":
                     prop(key, v.toLowerCase(java.util.Locale.ROOT));
+                    break;
+                case "progression_mode":
+                    prop(key, v.toUpperCase(java.util.Locale.ROOT));
                     break;
                 default:
                     prop(key, v);

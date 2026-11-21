@@ -199,12 +199,14 @@ class ProgressTest {
     }
 
     @Test
-    void optionalAndMissingDependenciesNeverBlock() {
+    void optionalDependenciesStillBlockButMissingOnesDoNot() {
         Quest a = quest("A", check("TA"));
         a.optional = true;
         Quest b = quest("B", check("TB"));
         b.dependencies.addAll(List.of("A", "MISSING"));
         ready();
+        assertFalse(QuestRules.dependenciesMet(book, team, b), "an optional quest still has to be completed first");
+        engine.setTaskProgress(team, "TA", 1, 1000);
         assertTrue(QuestRules.dependenciesMet(book, team, b));
     }
 
@@ -238,6 +240,68 @@ class ProgressTest {
         assertFalse(QuestRules.isVisible(book, team, d));
         engine.forceComplete(team, "Z", 3);
         assertTrue(QuestRules.isVisible(book, team, d));
+    }
+
+    @Test
+    void dependantOfHiddenQuestIsHidden() {
+        quest("H", check("TH")).invisible = true;
+        Quest s = quest("S", check("TS"));
+        s.dependencies.add("H");
+        Quest t = quest("T", check("TT"));
+        t.dependencies.addAll(List.of("H", "S"));
+        ready();
+        assertFalse(QuestRules.isVisible(book, team, s), "its only dependency is hidden");
+        assertFalse(QuestRules.isVisible(book, team, t), "every dependency is hidden");
+        engine.forceComplete(team, "H", 1);
+        assertTrue(QuestRules.isVisible(book, team, s));
+    }
+
+    @Test
+    void forceCompleteWaitsForDependenciesUnlessAskedToCompleteThemToo() {
+        quest("A", check("TA"));
+        Quest b = quest("B", check("TB"));
+        b.dependencies.add("A");
+        Quest c = quest("C", check("TC"));
+        c.dependencies.add("B");
+        ready();
+        engine.forceComplete(team, "C", 1);
+        assertFalse(team.isCompleted("C"), "a locked quest does not complete until its dependencies are resolved");
+        assertEquals(1, team.taskProgress("TC"), "its tasks are done, though");
+        engine.forceComplete(team, "A", 2);
+        assertTrue(team.isCompleted("A"));
+        assertFalse(team.isCompleted("C"));
+        engine.forceComplete(team, "B", 3);
+        assertTrue(team.isCompleted("B"));
+        assertTrue(team.isCompleted("C"), "it completes by itself once the last dependency is done");
+    }
+
+    @Test
+    void forceCompleteWithDependenciesCompletesTheWholeChain() {
+        quest("A", check("TA"));
+        Quest b = quest("B", check("TB"));
+        b.dependencies.add("A");
+        Quest c = quest("C", check("TC"));
+        c.dependencies.add("B");
+        ready();
+        engine.forceComplete(team, "C", 1, true);
+        assertTrue(team.isCompleted("A"));
+        assertTrue(team.isCompleted("B"));
+        assertTrue(team.isCompleted("C"));
+    }
+
+    @Test
+    void aSingleTaskCanBeCompletedAndResetByAnAdmin() {
+        Quest a = quest("A", check("TA1"), check("TA2"));
+        ready();
+        engine.completeTask(team, "TA1", 1);
+        assertEquals(1, team.taskProgress("TA1"));
+        assertFalse(team.isCompleted("A"), "the other task is still open");
+        engine.completeTask(team, "TA2", 2);
+        assertTrue(team.isCompleted("A"), "the last task completes the quest");
+        engine.resetTask(team, "TA2");
+        assertEquals(0, team.taskProgress("TA2"));
+        assertFalse(team.isCompleted("A"), "the quest is open again");
+        assertEquals(1, team.taskProgress("TA1"), "the other task keeps its progress");
     }
 
     @Test
@@ -287,15 +351,16 @@ class ProgressTest {
     void repeatableQuestResetsAfterCooldownAndKeepsCount() {
         Quest q = quest("Q1", check("T1"));
         q.canRepeat = Tristate.TRUE;
-        q.repeatCooldown = 20; // ticks = 1000 ms
+        q.repeatCooldown = 1; // seconds (FTB Quests: "the delay in seconds"), = 1000 ms
         Reward r = new Reward("R1", "xp", DataNode.Compound.empty().with("xp", 1));
         q.rewards.add(r);
         ready();
         engine.setTaskProgress(team, "T1", 1, 1000);
+        assertTrue(engine.tickRepeats(team, 5000).isEmpty(), "the cooldown only starts once all rewards are claimed");
         engine.claim(team, player, r, 1001);
         assertEquals(1, team.completionCount("Q1"));
         assertTrue(engine.tickRepeats(team, 1500).isEmpty(), "cooldown not over");
-        List<ProgressEvent> e = engine.tickRepeats(team, 2000);
+        List<ProgressEvent> e = engine.tickRepeats(team, 2002);
         assertTrue(e.contains(new ProgressEvent.QuestReset("Q1")));
         assertFalse(team.isCompleted("Q1"));
         assertEquals(0, team.taskProgress("T1"));
