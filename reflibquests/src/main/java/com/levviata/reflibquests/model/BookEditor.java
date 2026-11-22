@@ -352,6 +352,18 @@ public final class BookEditor {
                 }
                 s = s.with(key, v.equals("true"));
             }
+            case "reward_team_item", "reward_team_choice", "reward_team_all_table", "reward_team_random", "reward_team_loot",
+                    "reward_team_command", "reward_team_custom", "reward_team_xp", "reward_team_xp_levels",
+                    "reward_team_advancement", "reward_team_toast", "reward_team_gamestage", "reward_team_currency" -> {
+                // "Per-Team Reward by Type": a switch per reward type, kept like FTB 26.1.2 keeps it
+                if (!List.of("default", "true", "false").contains(v)) {
+                    return Result.INVALID;
+                }
+                String typeKey = "ftbquests:" + key.substring("reward_team_".length());
+                DataNode.Compound byType = s.getCompound("default_reward_team_by_type");
+                byType = v.equals("default") ? byType.without(typeKey) : byType.with(typeKey, v.equals("true"));
+                s = byType.entries().isEmpty() ? s.without("default_reward_team_by_type") : s.with("default_reward_team_by_type", byType);
+            }
             case "default_autoclaim_rewards" -> {
                 if (!AUTO_CLAIM.contains(v) || v.equals("default")) {
                     return Result.INVALID;

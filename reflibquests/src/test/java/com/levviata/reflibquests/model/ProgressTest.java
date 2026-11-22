@@ -346,6 +346,26 @@ class ProgressTest {
     }
 
     @Test
+    void perTeamRewardByTypeSettingDecidesWhenTheRewardSaysNothing() {
+        Quest q = quest("Q1", check("T1"));
+        Reward item = new Reward("R1", "item", DataNode.Compound.empty());
+        Reward cmd = new Reward("R2", "command", DataNode.Compound.empty());
+        Reward own = new Reward("R3", "item", DataNode.Compound.empty().with("team_reward", false));
+        q.rewards.add(item);
+        q.rewards.add(cmd);
+        q.rewards.add(own);
+        // as FTB 26.1.2 saved it: item true, command false
+        book.settings = DataNode.Compound.empty().with("default_reward_team", true).with("default_reward_team_by_type",
+                DataNode.Compound.empty().with("ftbquests:item", true).with("ftbquests:command", false));
+        ready();
+        assertTrue(engine.isTeamReward(item));
+        assertFalse(engine.isTeamReward(cmd), "the type overrides the book default");
+        assertFalse(engine.isTeamReward(own), "the reward's own setting wins");
+        book.settings = DataNode.Compound.empty().with("default_reward_team", true);
+        assertTrue(engine.isTeamReward(cmd), "without a type entry the book default applies");
+    }
+
+    @Test
     void teamRewardIsClaimedOnceForTheWholeTeam() {
         Quest q = quest("Q1", check("T1"));
         Reward r = new Reward("R1", "xp", DataNode.Compound.empty().with("xp", 10).with("team_reward", true));
