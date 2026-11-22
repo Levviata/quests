@@ -204,3 +204,8 @@ Ours was launched from this worktree with the FTB showcase book plus the new `Qu
 - With Open a URI + `https://example.com`, a left click on the image in player mode opens the game's "Are you sure you want to open the following website?" screen with Yes / Copy to Clipboard / No (`u10`); declined with No, nothing opened.
 - Differences: FTB's status line counts images (`Selected 0/2` with one quest and one image), ours counts quests only (`0/1`); FTB's picker is a texture grid with a preview, ours a list; FTB's map menu is the task-type list ending in Image.
 - Not exercised: Jump to a Quest, Show Recipes for Item (no JEI in the dev game?), Lock Position, undo of `create_image`.
+
+### More FTB captures (2026-11-22): description rendering, completion
+- FTB's quest window draws a description quest-link as underlined white text, left-aligned (`ct0`), with the guide-page line `Click here to read more...` (book icon) under it. Ours already underlines links; the guide line is still missing.
+- Quest right-click menu on an open (not completed) quest in FTB: Edit, Move, Quick Edit Properties..., Delete, Complete Instantly, Set as Autofocused Quest, Copy ID (`ct1c`; no Resize, since the test quest has a preset).
+- Complete Instantly asks `Complete this task instantly?` with the quest name under it and Yes / No (vanilla confirm screen); the wording says "task" for a quest, and ours uses the same wording (`QuestBookWidget` l.860). After Yes the quest has a green outline and a green tick top right (`ts2`). No toast was visible while the book stayed open (toasts in FTB probably show only once the book is closed; not captured).
