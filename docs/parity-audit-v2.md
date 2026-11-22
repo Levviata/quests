@@ -46,7 +46,7 @@ Columns: **UI** = can be created/edited from the in-game editor. **Ver.** = veri
 | T16 | Forge Energy | Unverified | `submitEnergy` | Click drains `IEnergyStorage` | file keys not captured from FTB | yes | C |
 | T17 | Interaction | Partial | `onInteract`, `ReflibQuestsMod.onRightClickBlock` | Block right click completes (G); entity path exists | entity not seen; tags/state match nothing | yes | G (block) |
 | T18 | Item filter by tag | Partial | `ItemSet` ore dictionary | ore/tool filters | 1.12.2 has no tags (intentional) | partly | U |
-| T19 | Image (chapter image) | Partial | `QuestBookWidget.imageGeo`, `BookEditor` image props | Draw, move, delete, edit all properties | **no `create_image` op** (QuestEdits has move/delete only); art for `minecraft:backyard`-style names needs supplied assets | edit yes, create no | G (drawn) |
+| T19 | Image (chapter image) | Partial | `QuestBookWidget.imageGeo`, `BookEditor` image props | Draw, move, delete, edit all properties | **no `create_image` op** (QuestEdits has move/delete only); art for `minecraft:backyard`-style names needs supplied assets | edit yes, create no | G (drawn) | **[final: image creation, menu, window, editing-mode-only and the Open a URI click seen in game; Run a Command, Post Custom Event, Show a Docs Page unavailable in 1.12.2 (intentional); Lock Position unit-tested only]**
 
 ## Rewards and reward tables
 | # | Feature | Status | Evidence | What works | Missing | UI | Ver. |
@@ -62,11 +62,11 @@ Columns: **UI** = can be created/edited from the in-game editor. **Ver.** = veri
 | R9 | XP Levels | Unverified | case xp_levels | | | yes (default 5) | C |
 | R10 | Advancement | Unverified | case advancement | all/one criterion | | yes | C |
 | R11 | Toast | Partial | case toast | chat message `[Quests] ...` | no toast | yes | C |
-| R12 | Stage | Missing | `RewardGranter.grant` has no `gamestage` case (UNSUPPORTED); menu greyed | | stage as player tag (mirrors the Stage task) | no | C |
+| R12 | Stage | Unverified | `RewardGranter.grant` has no `gamestage` case (UNSUPPORTED); menu greyed | | stage as player tag (mirrors the Stage task) | no | C | **[final: Stage reward added (player tag); menu, window rows, icon seen in game; claiming not exercised]**
 | R13 | Currency | Missing | none | | | no | - |
 | R14 | Command: permission level, feedback | Unverified | `runCommand` | | | yes | C |
 | R15 | All Table reward | Unverified | see R5 | | | yes | C |
-| R16 | Stage reward (Game Stages) | Missing | see R12 | | | no | - |
+| R16 | Stage reward (Game Stages) | Unverified | see R12 | | | no | - | **[final: same as R12]**
 | R17 | Reward options | Partial | `ProgressEngine.canClaim` (ignore blocking), `QuestServer.claimAll` (exclude), `autoClaims` | auto, exclude-from-claim-all, ignore-blocking, random bonus, feedback; **`team_reward` now makes one claim for the whole team (`ProgressEngine.claim`, `TeamProgress.isClaimed`, test `teamRewardIsClaimedOnceForTheWholeTeam`)**; `only_one` see R1 | `team_reward: false` "all online players receive it" is not done (we grant to the claiming player only) | yes | C |
 | R18 | Reward table editor | Unverified | `RewardTablesScreen`, `TableEdits`, table ops | create/rename/delete/weights/loot size | FTB's Accept/Cancel flow | yes | C (opens G) |
 | R19 | Table reward titles; Choice/Random/Loot use a table | Unverified | `Ids.tableId`, `grantFromTable` | numeric `table_id` fixed | grant not run in game | yes | U (`IdsTableTest`) |
@@ -82,11 +82,11 @@ Columns: **UI** = can be created/edited from the in-game editor. **Ver.** = veri
 |---|---|---|---|---|---|---|
 | Q1 | Title | Complete | `set_title`, lang round trip | | yes | G (`phase7`) |
 | Q2 | Subtitle | Unverified | `set_subtitle` | | yes | C |
-| Q3 | Description with formatting | Partial | `DescriptionEditorScreen`, `RichText` | hover/click events read; editor for them, colour picker, Text Shadow missing | yes | G hover text |
+| Q3 | Description with formatting | Partial | `DescriptionEditorScreen`, `RichText` | hover/click events read; editor for them, colour picker, Text Shadow missing | yes | G hover text | **[final: H (hover), link and quest-link buttons; quest-link description draws like FTB (G); colour picker palette exists; Text Shadow missing]**
 | Q4 | Icon | Partial | `set_icon` | item picker not offered for the quest icon | yes | C |
-| Q5 | Tags (quest) | Missing | `Definitions.Quest` has no tags; only `Chapter.tags` | | no | - |
+| Q5 | Tags (quest) | Unverified | `Definitions.Quest` has no tags; only `Chapter.tags` | | no | - | **[final: quest tags: model, import/export, Quick Properties row; value loaded from FTB's file seen in game; editing not exercised]**
 | Q6 | Disable completion toast | Unverified | `ClientBootstrap` l.190 | | yes | C |
-| Q7 | Icon scaling | Missing | grep `icon_scale`: none | | no | - |
+| Q7 | Icon scaling | Complete | grep `icon_scale`: none | | no | - | **[final: Icon Scaling: row, map drawing seen in game against FTB]**
 | Q8 | Min opened quest window width | Partial | chapter value used (`QuestBookWidget:294`); quest value not read | | yes | C |
 | Q9 | Shape | Complete | 10+ shapes, art from jar | | yes | G |
 | Q10 | Size | Complete | `size`, resize drag | | yes | G |
@@ -106,8 +106,8 @@ Columns: **UI** = can be created/edited from the in-game editor. **Ver.** = veri
 | Q24 | Progression mode | Unverified | `canProgress`, `effectiveMode` | FLEXIBLE semantics are our reading | yes | U |
 | Q25 | Repeatable (+cooldown) | Unverified | `repeatable`, `tickRepeats` | | yes | U |
 | Q26 | Sequential task completion | Unverified | `requiredNextTask` | | yes | U |
-| Q27 | Max completable dependents, exclusive branch, tasks ignore dependencies, guide page | Missing | grep: absent (lang keys exist: `max_completable_dependents`, `misc.exclusive`, `tasks_ignore_dependencies`, `misc.guide_page`) | | no | - |
-| Q28 | Visual preset (quest/chapter/book) | Missing | none | | no | - |
+| Q27 | Max completable dependents, exclusive branch, tasks ignore dependencies, guide page | Partial | grep: absent (lang keys exist: `max_completable_dependents`, `misc.exclusive`, `tasks_ignore_dependencies`, `misc.guide_page`) | | no | - | **[final: Max Completable Dependents (unit-tested) and Guide Page (stored; the 'read more' link is not drawn); Exclusive Quest Branch and Tasks Ignore Dependencies have no row in FTB's window either]**
+| Q28 | Visual preset (quest/chapter/book) | Partial | none | | no | - | **[final: quest and chapter presets: rows, drawing and inheritance seen in game; the book's Visual Presets editor and Default Visual Preset are missing]**
 
 ## Chapters
 | # | Feature | Status | Evidence | Gap | UI | Ver. |
@@ -116,7 +116,7 @@ Columns: **UI** = can be created/edited from the in-game editor. **Ver.** = veri
 | C2 | Chapter title | Unverified | `rename_chapter` | | yes | C |
 | C3 | Chapter icon | Partial | `set_icon`; picker missing | | yes | C |
 | C4 | Chapter settings | Unverified | `ChapterPropertiesScreen` | | yes | C |
-| C5 | Subtitle, default size, preset, min width | Partial | subtitle/size/min width exist; **preset missing** | | yes | C |
+| C5 | Subtitle, default size, preset, min width | Partial | subtitle/size/min width exist; **preset missing** | | yes | C | **[final: chapter Edit window rows (default size, min width, preset) seen in game in FTB's order; subtitle list still text]**
 | C6 | Autofocus quest | Unverified | `set_chapter_prop autofocus` | | yes | C |
 
 ## Styling
@@ -158,8 +158,8 @@ Columns: **UI** = can be created/edited from the in-game editor. **Ver.** = veri
 |---|---|---|---|---|
 | E1 | Undo/redo | Unverified | `History`, `HistoryTest`; one resize undo G | |
 | E2 | Bezier dependency lines | Unverified | `set_bezier`, handles ~l.1278 | |
-| E3 | Visual presets | Missing | none | |
-| E4 | Chapter image options | Partial | lock, text, click type edited; only "Open a URI" action | 5 other click types need an FTB capture |
+| E3 | Visual presets | Partial | none | | **[final: see Q28]**
+| E4 | Chapter image options | Partial | lock, text, click type edited; only "Open a URI" action | 5 other click types need an FTB capture | **[final: 7 click types selectable, 3 execute, Lock Position enforced (unit test), dev flag seen in game]**
 | E5 | Quest barriers | Missing | no blocks | |
 | E6 | Hotkeys, drag-selection | Partial | selection + copy/paste exist; no force-complete/reset hotkeys | |
 
@@ -169,22 +169,55 @@ Columns: **UI** = can be created/edited from the in-game editor. **Ver.** = veri
 | O1 | Pinned tracker modes + cycling key | Partial | `PreferencesScreen` three modes | only one keybinding (J) |
 | O2 | Notifications toast/chat/action bar/none | Partial | no `setOverlayMessage` anywhere | action bar |
 | O3 | Fallback locale | Unverified | `Translations` | |
-| O4 | Suppress all autoclaiming | Unverified | `QuestServer.autoClaims` | no UI row |
+| O4 | Suppress all autoclaiming | Unverified | `QuestServer.autoClaims` | no UI row | **[final: `suppress_all_autoclaiming`: server rule and an Edit File row both exist (the first audit said no row: wrong)]**
 | O5 | Book settings stored but inert | Missing | `drop_book_on_death`, `emergency_items_cooldown`, `drop_loot_crates`, `loot_crate_no_drop`, `lock_message`, `hide_excluded_quests`, `verify_on_load` | |
 | O6 | Quest rules: repeat cooldown, exclusive branch, hide quests in excluded questlines | Partial | cooldown works; others absent | |
 | O7 | Blocks and items: loot crates, task screens | Missing | none registered | |
 
-## Counts (rows with an id in the tables above)
+## Counts (final, rows with an id in the tables above)
 | Status | Count |
 |---|---|
-| Complete | 13 |
-| Partial | 23 |
-| Missing | 24 |
+| Complete | 14 |
+| Partial | 26 |
+| Missing | 17 |
 | Broken | 0 |
-| Unverified | 53 |
+| Unverified | 56 |
 | Total | 113 |
-
-The grouping differs from the spreadsheet's 111 rows (some spreadsheet rows are merged here, for example the 22 quest-setting rows Q12-Q26 are listed one by one but the three Reward-table crate rows are separate), so the two totals are not comparable row by row. Re-count after Phase 8/9.
 
 ## Update after the first FTB captures (2026-11-22)
 Q7 Icon scaling, Q27 Max Completable Dependents and Guide Page, Q28 Visual preset (quest level): keys captured from FTB's saved file (`icon_scale`, `max_completable_dependents`, `guide_page`, `preset`) and implemented across model, import/export, editor, UI and the map; unit-tested, **not yet seen in ours** -> Unverified. Still Missing: chapter `default_preset`, book-level preset editing, Exclusive Quest Branch and Tasks Ignore Dependencies (FTB shows no row for them), quest Tags (key not captured yet), per-quest min window width.
+
+# Final report (Phase 9, 2026-11-22)
+
+**Basis.** Statuses above were re-read against the code at the end of the session (`git log`: `ea40321` ... `201f83a` on `claude/reflib-ftb-quests-parity-00a07b`). Build and all unit tests pass (`./gradlew build`). "Complete" is only used where the feature was seen working in game; most rows stay **Unverified** because this session verified in game only the features listed below.
+
+## Features newly implemented
+- Quest options with keys read from FTB 26.1.2's saved files: **Icon Scaling** (`icon_scale`), **Visual Preset** (`preset`, overrides the quest's shape and size, measured; quests inherit the chapter's), **Max Completable Dependents**, **Guide Page** (stored), **Tags**.
+- Chapter keys `preset`, `default_quest_size`, `default_min_width` read and written; Default Visual Preset row.
+- **Stage reward** (`gamestage`: `stage`, `remove`), granted as a player tag; menu entry, creation prompt, window rows, controller icon.
+- **Per-Team Reward by Type** (`default_reward_team_by_type`) and the reward-level **Per-Team Reward** (one claim for the team).
+- **Chapter images**: creation from the map menu (`create_image`, undo, change log), all seven click types selectable, Open a URI / Jump to a Quest / Show Recipes executed, Lock Position enforced.
+- Reward table **Hide Tooltip** and **Use Title**; description **H** (hover) button; quest-link click events read and written in FTB's spelling.
+- Server rules that were stored but inert: **Only One** (item reward), **Only Detect From Crafting**, advancement **criterion** and earlier advancements.
+- Tooling: `tools/window-driver/drive.ps1` (capture and drive the FTB and our windows).
+
+## Features corrected
+Per-Team and Only One tooltips use FTB's own wording; Quick Edit gained Visual Preset and hides Resize while a preset is set; Quest Properties and Chapter Edit rows follow FTB's order; the old audits' wrong claims (see the first table of this file) were fixed.
+
+## Original Reflib features preserved
+Undo/redo in editors, Z Position, Add Dependency and Bezier entries in the quest menu, search/pin/tracker, legacy importer, Cleanroom-only 1.12.2 adaptations (stage as player tag, fluid and energy hand-in by click, ore-dictionary filters), our dirt-and-stone theme and chevron lines (user decision). Nothing was removed.
+
+## Verified in game this session (ours; FTB measured with the window driver)
+Preset overrides shape and size; chapter preset inheritance; Icon Scaling; Quest Properties, Chapter Edit and Stage reward windows and menus; Quick Edit list; image creation, menu, Edit window, editing-mode-only flag and the Open a URI click with FTB's confirmation; quest-link description rendering; the H button's output. Earlier sessions' in-game checks are cited per row (`G:`/`V:`).
+
+## Remaining differences from FTB Quests 26.1.2 (see `docs/phase7-comparison.md`)
+Guide-page "Click here to read more..." line; book Visual Presets editor, Default Visual Preset and Emergency Items list; Quest Properties lacks Min Window Width per quest, X, Y, Description rows; image picker is a list, status line does not count images; FTB's map menu is the task-type list ending in Image; Tags shown as text not `[ n items ]`; loot crates, task screens, barriers, theme/styles, full-screen quest window, book item, action-bar notifications, most extra commands, Currency, Exclusive Branch / Tasks Ignore Dependencies (no FTB row either), observation timer and entity observation.
+
+## Known technical limitations (1.12.2)
+No tags, game stages, structure/biome/dimension additions of newer versions; Run a Command / Custom Event / Docs Page image clicks need a server-permission design; loot crates and barriers need registered items and blocks with art; FTB's colour wheel not built; chapter-image art such as `minecraft:backyard` needs player-supplied assets.
+
+## Not tested
+Multiplayer (two clients); claiming any reward, including the Stage reward; Only One, Only From Crafting, advancement criterion, Per-Team claims (unit or code only); Jump to a Quest and Show Recipes image clicks; Lock Position; undo of image creation; the link and Q editor buttons; the Per-Team Reward by Type rows and the table Hide Tooltip / Use Title rows in the UI; FTB completion toast (not captured).
+
+## Reference book
+Built through FTB's own UI and saved in the FTB instance: the four earlier chapters plus `Rewards and Images` and the new `Quest Options` chapter (icon scale, presets, max completable dependents, guide page, tags, a Stage reward, chapter preset keys, a `backyard` image with Run a Command / lock / editing-only, a quest-link description), a loot-crate-enabled table and two per-team-by-type switches. It was loaded into ours several times (same keys, no importer problems seen). Still missing from it: groups beyond one, quest links, descriptions with colours, all task and reward types on one chapter, observation timers.

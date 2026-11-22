@@ -34,3 +34,6 @@ Window driver: old `drive2.ps1` at `C:\Users\Lev\AppData\Local\Temp\claude\a5f0a
 - Phase 8 started with items that need no FTB capture: team rewards, Only One, advancement criterion, only-from-crafting. Build and unit tests pass; **none seen in game**.
 - Phases 3-7 not redone: need the FTB window driver (rebuild it) and the user to open FTB's book; see end of `roadmap-v2.md`.
 - Nothing committed.
+
+### Update (end of session 2026-11-22)
+Phases 3-5: FTB driven live through `tools/window-driver` (captures in `docs/phase4-ftb-ui-capture.md`, reference book extended). Phase 6: book loaded into ours repeatedly, no importer problems; new keys now read/written. Phase 7: differences in `docs/phase7-comparison.md`. Phase 8: see the final report in `docs/parity-audit-v2.md`. Phase 9: final counts and report at the end of that file. Last commit before this note: `201f83a`. Nothing pushed.
