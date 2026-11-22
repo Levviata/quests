@@ -122,6 +122,9 @@ public final class BookCodec {
             o = o.with("qsize", c.defaultQuestSize);
         }
         o = putIf(o, "minWidth", c.minWindowWidth);
+        if (!c.preset.isEmpty()) {
+            o = o.with("preset", c.preset);
+        }
         o = putList(o, "tags", c.tags);
         o = putIf(o, "repeatable", c.defaultRepeatable);
         if (!c.images.isEmpty()) {
@@ -303,6 +306,7 @@ public final class BookCodec {
         ch.defaultConsumeItems = tri(c, "consume");
         ch.defaultQuestSize = c.getDouble("qsize", 1.0);
         ch.minWindowWidth = c.getInt("minWidth", 0);
+        ch.preset = c.getString("preset", "");
         ch.tags = new ArrayList<>(strings(c.getList("tags")));
         ch.defaultQuestShape = c.getString("qshape", "");
         ch.defaultRepeatable = c.getBool("repeatable", false);

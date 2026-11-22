@@ -145,6 +145,42 @@ class ExporterTest {
         assertTrue(back.rewards.get(0).params().getBool("remove", false));
     }
 
+    /** The chapter keys FTB Quests 26.1.2 saved for the Quest Options chapter (copied from its file, 2026-11-22). */
+    @Test
+    void chapterPresetSizeAndWidthFtbSavedAreKept() throws IOException {
+        Path src = dir.resolve("ftb3");
+        Files.createDirectories(src.resolve("chapters"));
+        Files.writeString(src.resolve("data.json5"), "{ version: 13, presets: { normal: { shape: \"square\", size: 1.0 }, goal: { shape: \"hexagon\", size: 2.0 } } }");
+        Files.writeString(src.resolve("chapter_groups.json5"), "{ chapter_groups: [] }");
+        Files.writeString(src.resolve("chapters/quest_options.json5"), """
+                {
+                  id: "0D8CE2077115A03A", group: "", order_index: 4, filename: "quest_options",
+                  default_quest_shape: "", default_quest_size: 2.0, default_hide_dependency_lines: false,
+                  default_min_width: 150, preset: "normal",
+                  quests: [
+                    { x: 0.0, y: 0.0, id: "0DF76E3E8547FC1E", tasks: [ { id: "6E52EBA1E7652518", type: "checkmark" } ] },
+                    { x: 3.0, y: 0.0, preset: "goal", id: "0DF76E3E8547FC1F", tasks: [ { id: "6E52EBA1E7652519", type: "checkmark" } ] },
+                  ],
+                  quest_links: [], images: [],
+                }
+                """);
+        var book = UpstreamImporter.load(src).book();
+        var c = book.chapter("0D8CE2077115A03A");
+        assertEquals(2.0, c.defaultQuestSize);
+        assertEquals(150, c.minWindowWidth);
+        assertEquals("normal", c.preset);
+        // a quest without a preset takes the chapter's; one with its own keeps it
+        assertEquals("square", com.levviata.reflibquests.model.Presets.shape(book, book.quest("0DF76E3E8547FC1E")));
+        assertEquals("hexagon", com.levviata.reflibquests.model.Presets.shape(book, book.quest("0DF76E3E8547FC1F")));
+        assertEquals(2.0, com.levviata.reflibquests.model.Presets.size(book, book.quest("0DF76E3E8547FC1F")));
+        Path out = dir.resolve("ftb3-out");
+        UpstreamExporter.export(book, out);
+        var back = UpstreamImporter.load(out).book().chapter("0D8CE2077115A03A");
+        assertEquals(2.0, back.defaultQuestSize);
+        assertEquals(150, back.minWindowWidth);
+        assertEquals("normal", back.preset);
+    }
+
     @Test
     void importExportImportKeepsEverythingTheModelUnderstands() throws IOException {
         Path src = samplePack("src");

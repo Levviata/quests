@@ -276,6 +276,12 @@ public final class BookEditor {
                 }
                 c.defaultQuestSize = d;
             }
+            case "preset" -> {
+                if (value.length() > 64) {
+                    return Result.INVALID;
+                }
+                c.preset = value.equals("None") ? "" : value;
+            }
             case "min_width" -> {
                 int n;
                 try {

@@ -18,10 +18,16 @@ public final class Presets {
     private Presets() {}
 
     private static DataNode.Compound of(QuestBook book, Quest q) {
-        if (book == null || q.preset == null || q.preset.isEmpty()) {
+        if (book == null) {
             return DataNode.Compound.empty();
         }
-        return book.settings.getCompound("presets").getCompound(q.preset);
+        String name = q.preset == null ? "" : q.preset;
+        if (name.isEmpty()) {
+            // a quest without a preset takes its chapter's ("Default Visual Preset")
+            Definitions.Chapter c = book.chapterOf(q.id);
+            name = c == null || c.preset == null ? "" : c.preset;
+        }
+        return name.isEmpty() ? DataNode.Compound.empty() : book.settings.getCompound("presets").getCompound(name);
     }
 
     /** The size the quest is drawn with. */

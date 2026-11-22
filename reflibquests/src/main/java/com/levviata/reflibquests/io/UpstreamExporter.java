@@ -123,6 +123,9 @@ public final class UpstreamExporter {
         o = flag(o, "default_hide_dependency_lines", c.defaultHideDependencyLines);
         o = setOrRemove(o, "default_quest_shape", c.defaultQuestShape == null || c.defaultQuestShape.isEmpty() ? null
                 : new DataNode.Str(c.defaultQuestShape));
+        o = setOrRemove(o, "default_quest_size", c.defaultQuestSize == 1.0 ? null : new DataNode.Dbl(c.defaultQuestSize));
+        o = setOrRemove(o, "default_min_width", c.minWindowWidth == 0 ? null : new DataNode.Int(c.minWindowWidth));
+        o = setOrRemove(o, "preset", c.preset == null || c.preset.isEmpty() ? null : new DataNode.Str(c.preset));
         List<DataNode> quests = new ArrayList<>();
         for (Quest q : c.quests) {
             quests.add(questData(q));

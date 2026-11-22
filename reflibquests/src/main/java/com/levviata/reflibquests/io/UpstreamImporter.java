@@ -154,6 +154,9 @@ public final class UpstreamImporter {
             chapter.hideQuestUntilDepsComplete = c.getBool("hide_quest_until_deps_complete", false);
             chapter.defaultHideDependencyLines = c.getBool("default_hide_dependency_lines", false);
             chapter.defaultQuestShape = c.getString("default_quest_shape", "");
+            chapter.defaultQuestSize = c.getDouble("default_quest_size", 1.0);
+            chapter.minWindowWidth = c.getInt("default_min_width", 0);
+            chapter.preset = c.getString("preset", "");
             chapter.defaultRepeatable = c.getBool("default_repeatable_quest", false);
             chapter.raw = c.without("quests").without("quest_links").without("images");
             for (DataNode qn : c.getList("quests")) {

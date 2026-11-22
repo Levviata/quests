@@ -271,6 +271,8 @@ public final class Definitions {
         public List<String> tags = new ArrayList<>();
         /** Shape for quests that do not name one (empty: the book's default). */
         public String defaultQuestShape = "";
+        /** FTB chapter {@code preset}: the visual preset of quests that name none (empty: the book's default). */
+        public String preset = "";
         public final List<Quest> quests = new ArrayList<>();
         public final List<QuestLink> links = new ArrayList<>();
         public final List<ChapterImage> images = new ArrayList<>();
