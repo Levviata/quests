@@ -74,6 +74,77 @@ class ExporterTest {
         return BookCodec.write(b, DataNode.Compound.empty());
     }
 
+    /** The quest FTB Quests 26.1.2 saved for the "Quest Options" chapter (copied from its file, 2026-11-22). */
+    @Test
+    void questOptionsFtbSavedAreReadAndWrittenBack() throws IOException {
+        Path src = dir.resolve("ftb");
+        Files.createDirectories(src.resolve("chapters"));
+        Files.writeString(src.resolve("data.json5"), "{ version: 13, presets: { normal: { shape: \"square\", size: 1.0 } } }");
+        Files.writeString(src.resolve("chapter_groups.json5"), "{ chapter_groups: [] }");
+        Files.writeString(src.resolve("chapters/quest_options.json5"), """
+                {
+                  id: "0D8CE2077115A03A", group: "", order_index: 4, filename: "quest_options",
+                  default_quest_shape: "", default_hide_dependency_lines: false,
+                  quests: [ {
+                      x: 0.0, y: 0.0, guide_page: "guide_x", size: 1.0, icon_scale: 1.5,
+                      hide_details_until_startable: false, max_completable_dependents: 3, preset: "normal",
+                      id: "0DF76E3E8547FC1E",
+                      tasks: [ { id: "6E52EBA1E7652518", type: "checkmark" } ],
+                  } ],
+                  quest_links: [], images: [],
+                }
+                """);
+        UpstreamImporter.Result r = UpstreamImporter.load(src);
+        assertEquals(List.of(), r.problems());
+        var q = r.book().quest("0DF76E3E8547FC1E");
+        assertEquals(1.5, q.iconScale);
+        assertEquals(3, q.maxCompletableDependents);
+        assertEquals("guide_x", q.guidePage);
+        assertEquals("normal", q.preset);
+        Path out = dir.resolve("ftb-out");
+        UpstreamExporter.export(r.book(), out);
+        String text = Files.readString(out.resolve("chapters/quest_options.json5")).replace("\"", ""); // the writer quotes keys; compare without quotes
+        text = text.replace("guide_page: guide_x", "guide_page: \"guide_x\"").replace("preset: normal", "preset: \"normal\"");
+        for (String key : List.of("icon_scale: 1.5", "max_completable_dependents: 3", "guide_page: \"guide_x\"", "preset: \"normal\"")) {
+            assertTrue(text.contains(key), "exported file keeps " + key + ": " + text);
+        }
+        var back = UpstreamImporter.load(out).book().quest("0DF76E3E8547FC1E");
+        assertEquals(1.5, back.iconScale);
+        assertEquals("normal", back.preset);
+    }
+
+    /** The tags and the Stage reward FTB Quests 26.1.2 saved for the Options Test quest (copied from its file, 2026-11-22). */
+    @Test
+    void tagsAndStageRewardFtbSavedAreKept() throws IOException {
+        Path src = dir.resolve("ftb2");
+        Files.createDirectories(src.resolve("chapters"));
+        Files.writeString(src.resolve("data.json5"), "{ version: 13 }");
+        Files.writeString(src.resolve("chapter_groups.json5"), "{ chapter_groups: [] }");
+        Files.writeString(src.resolve("chapters/quest_options.json5"), """
+                {
+                  id: "0D8CE2077115A03A", group: "", order_index: 4, filename: "quest_options",
+                  quests: [ {
+                      tags: [ "showcase_tag" ], x: 0.0, y: 0.0, id: "0DF76E3E8547FC1E",
+                      tasks: [ { id: "6E52EBA1E7652518", type: "checkmark" } ],
+                      rewards: [ { id: "3B05F297232A94AA", type: "gamestage", team_reward: false, auto: "invisible",
+                                   ignore_reward_blocking: true, stage: "rewardStage", remove: true } ],
+                  } ],
+                  quest_links: [], images: [],
+                }
+                """);
+        UpstreamImporter.Result r = UpstreamImporter.load(src);
+        assertEquals(List.of(), r.problems());
+        var q = r.book().quest("0DF76E3E8547FC1E");
+        assertEquals(List.of("showcase_tag"), q.tags);
+        assertEquals("gamestage", q.rewards.get(0).type());
+        Path out = dir.resolve("ftb2-out");
+        UpstreamExporter.export(r.book(), out);
+        var back = UpstreamImporter.load(out).book().quest("0DF76E3E8547FC1E");
+        assertEquals(List.of("showcase_tag"), back.tags);
+        assertEquals("rewardStage", back.rewards.get(0).params().getString("stage", ""));
+        assertTrue(back.rewards.get(0).params().getBool("remove", false));
+    }
+
     @Test
     void importExportImportKeepsEverythingTheModelUnderstands() throws IOException {
         Path src = samplePack("src");

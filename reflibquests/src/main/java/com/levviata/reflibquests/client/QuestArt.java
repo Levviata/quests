@@ -52,6 +52,10 @@ final class QuestArt {
     static String shapeName(com.levviata.reflibquests.model.QuestBook book,
                             com.levviata.reflibquests.model.Definitions.Chapter chapter, Quest q) {
         String s = q.shape == null ? "" : q.shape.toLowerCase(Locale.ROOT);
+        String preset = com.levviata.reflibquests.model.Presets.shape(book, q).toLowerCase(Locale.ROOT);
+        if (!preset.isEmpty()) {
+            s = preset; // a preset wins over the quest's own shape (measured in FTB 26.1.2)
+        }
         if (s.isEmpty() || s.equals("default")) {
             s = chapter == null || chapter.defaultQuestShape == null ? "" : chapter.defaultQuestShape.toLowerCase(Locale.ROOT);
         }

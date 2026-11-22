@@ -133,6 +133,14 @@ public class ReflibQuestsMod {
     }
 
     @SubscribeEvent
+    public void onCrafted(net.minecraftforge.fml.common.gameevent.PlayerEvent.ItemCraftedEvent event) {
+        QuestServer qs = QuestServer.get();
+        if (qs != null && event.player instanceof EntityPlayerMP) {
+            qs.tracker().onCraft((EntityPlayerMP) event.player, event.crafting);
+        }
+    }
+
+    @SubscribeEvent
     public void onAdvancement(AdvancementEvent event) {
         QuestServer qs = QuestServer.get();
         if (qs != null && event.getEntityPlayer() instanceof EntityPlayerMP) {

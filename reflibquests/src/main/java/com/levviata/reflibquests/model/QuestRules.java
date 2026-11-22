@@ -91,6 +91,22 @@ public final class QuestRules {
         if (required.isEmpty()) {
             return true;
         }
+        if (!p.isCompleted(q.id)) {
+            // "Max Completable Dependents": once that many dependents of a dependency are completed, the others are unavailable
+            for (Quest dep : required) {
+                if (dep.maxCompletableDependents > 0) {
+                    int done = 0;
+                    for (Quest other : book.allQuests()) {
+                        if (other != q && other.dependencies.contains(dep.id) && p.isCompleted(other.id)) {
+                            done++;
+                        }
+                    }
+                    if (done >= dep.maxCompletableDependents) {
+                        return false;
+                    }
+                }
+            }
+        }
         int satisfied = 0;
         for (Quest dep : required) {
             boolean ok = q.dependencyMode.requiresCompletion()

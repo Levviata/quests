@@ -1244,7 +1244,7 @@ final class QuestBookWidget extends Widget {
             drawMoveTarget(book, chapter, v); // under the quests, so the one being moved is never covered by it
         }
         for (Quest q : drawOrder(chapter)) {
-            double size = NODE * q.size * zoom;
+            double size = NODE * com.levviata.reflibquests.model.Presets.size(book, q) * zoom;
             double sx = v.screenX(q.x * GRID) - size / 2;
             double sy = v.screenY(q.y * GRID) - size / 2;
             if (sx + size < map.x() || sx > map.x() + map.width() || sy + size < map.y() || sy > map.y() + map.height()
@@ -1283,7 +1283,7 @@ final class QuestBookWidget extends Widget {
             }
             if (s >= 6) {
                 // the icon is always the same fraction of its square, so it grows and shrinks with the zoom
-                float iconSize = s * ICON_FRACTION;
+                float iconSize = (float) (s * ICON_FRACTION * q.iconScale); // FTB 'Icon Scaling', independent of the quest's size
                 drawQuestIcon(q, x + (s - iconSize) / 2f, y + (s - iconSize) / 2f, iconSize, state == State.DONE);
             }
             // the small lock sits on top of the icon: a quest whose dependencies are not all completed yet
@@ -1387,7 +1387,7 @@ final class QuestBookWidget extends Widget {
         all.add(movingQuest);
         all.addAll(moveGroup);
         for (Quest mq : all) {
-            double gsize = NODE * mq.size * v.zoom();
+            double gsize = NODE * com.levviata.reflibquests.model.Presets.size(book, mq) * v.zoom();
             int gs = Math.max(4, (int) Math.round(gsize));
             int gx = (int) Math.round(v.screenX((ghostX + (mq.x - movingQuest.x)) * GRID) - gsize / 2);
             int gy = (int) Math.round(v.screenY((ghostY + (mq.y - movingQuest.y)) * GRID) - gsize / 2);
@@ -1692,7 +1692,7 @@ final class QuestBookWidget extends Widget {
         if (q == null) {
             return false;
         }
-        double half = NODE * q.size * v.zoom() / 2;
+        double half = NODE * com.levviata.reflibquests.model.Presets.size(ClientQuests.book(), q) * v.zoom() / 2;
         double hx = v.screenX(q.x * GRID) + half;
         double hy = v.screenY(q.y * GRID) + half;
         return Math.abs(mouseX - hx) <= 9 && Math.abs(mouseY - hy) <= 9;
@@ -2467,6 +2467,8 @@ final class QuestBookWidget extends Widget {
                     drawItem(own, x + 1, y + 1, 1f);
                 } else if (rw.type().equals("command")) {
                     drawItem(new ItemStack(net.minecraft.init.Blocks.COMMAND_BLOCK), x + 1, y + 1, 1f);
+                } else if (rw.type().equals("gamestage") && Ui.icon(Ui.LIBRARY, "textures/icons/controller.png", x + 1, y + 1, 16, 16, 0xFFFFFFFF)) {
+                    // the game controller, as FTB Quests draws a Stage reward (and as the Stage task)
                 } else if (rw.type().equals("custom") && Ui.icon(Ui.LIBRARY, "textures/icons/color_hsb.png", x + 1, y + 1, 16, 16, 0xFFFFFFFF)) {
                     // the colour wheel, as FTB Quests draws a custom reward (and as the custom task above)
                 } else {
@@ -3803,8 +3805,21 @@ final class QuestBookWidget extends Widget {
                     n -> send("add_reward", args("id", owner, "type", "xp_levels", "params", args("xp_levels", n))))),
             typeItem("Advancement", "item:wheat", () -> send("add_reward", args("id", owner, "type", "advancement", "params", args("advancement", "minecraft:story/root")))),
             typeItem("Toast", "item:sign", () -> send("add_reward", args("id", owner, "type", "toast", "params", args("description", "Well done!")))),
-            typeOff("Stage", "lib:controller"),
+            typeItem("Stage", "lib:controller", () -> askText("Stage", "",
+                    s -> send("add_reward", args("id", owner, "type", "gamestage", "params", args("stage", s))))),
         };
+    }
+
+    /** The same small box as askNumber, for a name; nothing is created when it is empty or cancelled. */
+    private static void askText(String title, String initial, java.util.function.Consumer<String> created) {
+        ScaledResolution res = new ScaledResolution(mc());
+        int px = Mouse.getX() / res.getScaleFactor();
+        int py = (mc().displayHeight - Mouse.getY()) / res.getScaleFactor();
+        mc().displayGuiScreen(new NamePrompt(mc().currentScreen, px + 7, py + 12, title, initial, 100, text -> {
+            if (!text.isBlank()) {
+                created.accept(text.strip());
+            }
+        }));
     }
 
     /** The "Select Reward Table" panel (with a search box) for a Choice, All Table, Random or Loot reward. */
@@ -4105,7 +4120,7 @@ final class QuestBookWidget extends Widget {
     private List<Quest> drawOrder(Chapter chapter) {
         List<Quest> order = new ArrayList<>(chapter.quests);
         order.addAll(linkNodes);
-        order.sort(java.util.Comparator.<Quest>comparingDouble(q -> q.z).thenComparingDouble(q -> q.size));
+        order.sort(java.util.Comparator.<Quest>comparingDouble(q -> q.z).thenComparingDouble(q -> com.levviata.reflibquests.model.Presets.size(ClientQuests.book(), q)));
         return order;
     }
 
@@ -4162,7 +4177,7 @@ final class QuestBookWidget extends Widget {
         List<Quest> order = drawOrder(chapter);
         for (int i = order.size() - 1; i >= 0; i--) {
             Quest q = order.get(i);
-            double size = Math.max(4, NODE * q.size * v.zoom());
+            double size = Math.max(4, NODE * com.levviata.reflibquests.model.Presets.size(book, q) * v.zoom());
             double cx = v.screenX(q.x * GRID);
             double cy = v.screenY(q.y * GRID);
             if (shapeContains(QuestArt.shapeName(book, chapter, q), mx - cx, my - cy, size) && shown(book, p, q)) {

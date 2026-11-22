@@ -153,6 +153,11 @@ public final class UpstreamExporter {
         o = setOrRemove(o, "dependency_requirement", q.dependencyMode == DependencyMode.ALL_COMPLETED ? null
                 : new DataNode.Str(q.dependencyMode.name().toLowerCase(Locale.ROOT)));
         o = setOrRemove(o, "min_required_dependencies", q.minRequiredDependencies == 0 ? null : new DataNode.Int(q.minRequiredDependencies));
+        o = setOrRemove(o, "max_completable_dependents", q.maxCompletableDependents == 0 ? null : new DataNode.Int(q.maxCompletableDependents));
+        o = setOrRemove(o, "tags", q.tags.isEmpty() ? null : new DataNode.Lst(q.tags.stream().<DataNode>map(DataNode.Str::new).toList()));
+        o = setOrRemove(o, "icon_scale", q.iconScale == 1.0 ? null : new DataNode.Dbl(q.iconScale));
+        o = setOrRemove(o, "guide_page", q.guidePage.isEmpty() ? null : new DataNode.Str(q.guidePage));
+        o = setOrRemove(o, "preset", q.preset.isEmpty() ? null : new DataNode.Str(q.preset));
         o = flag(o, "optional", q.optional);
         o = flag(o, "invisible", q.invisible);
         o = setOrRemove(o, "invisible_until_tasks", q.invisibleUntilTasks == 0 ? null : new DataNode.Int(q.invisibleUntilTasks));

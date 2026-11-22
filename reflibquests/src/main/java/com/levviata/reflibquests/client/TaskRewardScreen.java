@@ -314,6 +314,14 @@ final class TaskRewardScreen extends SettingsScreen {
                 choice("Run with Permission Level", List.of("0", "1", "2", "3", "4"), () -> extra.get("permission_level"), v -> extra.put("permission_level", v))
                         .tip("0 default, 1, 2 Game Master, 3 Server Admin, 4 Server Owner.");
                 choice("Silent", List.of("False", "True"), () -> extra.get("silent"), v -> extra.put("silent", v));
+            } else if (rt.equals("gamestage")) {
+                // FTB Quests 26.1.2: Remove (True/False) and Stage (text), keys remove and stage
+                extra.put("remove", p.getBool("remove", false) ? "True" : "False");
+                extra.put("stage", p.getString("stage", ""));
+                choice("Remove", List.of("False", "True"), () -> extra.get("remove"), v -> extra.put("remove", v))
+                        .tip("Take the stage away instead of giving it.");
+                text("Stage", () -> extra.get("stage"), v -> extra.put("stage", v))
+                        .tip("Here a stage is a player tag (the Stage task looks for the same tag).");
             } else if (rt.equals("toast")) {
                 extra.put("description", p.getString("description", ""));
                 text("Description", () -> extra.get("description"), v -> extra.put("description", v));
@@ -327,7 +335,7 @@ final class TaskRewardScreen extends SettingsScreen {
             choice("Auto-claim", AUTO_LABELS, () -> auto, v -> auto = v)
                     .tip("Whether the reward is given by itself once the quest is complete.");
             choice("Per-Team Reward", CONSUME_LABELS, () -> team, v -> team = v)
-                    .tip("Given once to the whole team instead of to every member. Default follows the book's setting.");
+                    .tip("When true, this is one reward for the whole team; only the submitting player receives it. When false, all online players receive the reward");
             Entry excludeRow = choice("Exclude from Claim All", List.of("False", "True"), () -> exclude, v -> exclude = v);
             if (com.levviata.reflibquests.model.BookEditor.TABLE_REWARD_TYPES.contains(rt)) {
                 // a table reward is never claimed with "claim all": FTB shows True and greys the row out; the table it draws from is shown, not editable here
@@ -344,7 +352,7 @@ final class TaskRewardScreen extends SettingsScreen {
             flag("Disable Reward Screen Blur", "disable_reward_screen_blur", List.of("False", "True"), yesNo(p, "disable_reward_screen_blur"),
                     "The reward screen does not blur what is behind it.");
             if (rt.equals("item")) {
-                flag("Only One", "only_one", List.of("False", "True"), yesNo(p, "only_one"), "Only one reward of its quest can be claimed.");
+                flag("Only One", "only_one", List.of("False", "True"), yesNo(p, "only_one"), "If inventory has that item, doesn't give it. Ignores NBT.");
             }
         }
     }
@@ -479,7 +487,7 @@ final class TaskRewardScreen extends SettingsScreen {
             }
             for (java.util.Map.Entry<String, String> e : extra.entrySet()) {
                 if (!e.getValue().equals(initialExtra.get(e.getKey()))) {
-                    String v = e.getKey().equals("silent") ? e.getValue().toLowerCase(java.util.Locale.ROOT) : e.getValue().strip();
+                    String v = e.getKey().equals("silent") || e.getKey().equals("remove") ? e.getValue().toLowerCase(java.util.Locale.ROOT) : e.getValue().strip();
                     change("set_reward_prop", reward.id(), e.getKey(), v);
                 }
             }

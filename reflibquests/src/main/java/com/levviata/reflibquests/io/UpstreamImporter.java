@@ -215,6 +215,15 @@ public final class UpstreamImporter {
         q.depControlPts = com.levviata.reflibquests.model.ControlPoints.read(c.getCompound("dep_control_pts"));
         q.dependencyMode = DependencyMode.parse(c.getString("dependency_requirement", "all_completed"));
         q.minRequiredDependencies = c.getInt("min_required_dependencies", 0);
+        q.maxCompletableDependents = c.getInt("max_completable_dependents", 0);
+        for (DataNode t : c.getList("tags")) {
+            if (t instanceof DataNode.Str s && !s.value().isBlank()) {
+                q.tags.add(s.value());
+            }
+        }
+        q.iconScale = c.getDouble("icon_scale", 1.0);
+        q.guidePage = c.getString("guide_page", "");
+        q.preset = c.getString("preset", "");
         q.optional = c.getBool("optional", false);
         q.invisible = c.getBool("invisible", false);
         q.invisibleUntilTasks = c.getInt("invisible_until_tasks", 0);

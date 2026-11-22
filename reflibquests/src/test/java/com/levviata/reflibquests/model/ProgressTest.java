@@ -329,6 +329,36 @@ class ProgressTest {
     }
 
     @Test
+    void maxCompletableDependentsMakesTheOtherBranchesUnavailable() {
+        Quest root = quest("ROOT", check("TR"));
+        root.maxCompletableDependents = 1;
+        Quest a = quest("A", check("TA"));
+        Quest b = quest("B", check("TB"));
+        a.dependencies.add("ROOT");
+        b.dependencies.add("ROOT");
+        ready();
+        engine.forceComplete(team, "ROOT", 1);
+        assertTrue(QuestRules.dependenciesMet(book, team, a));
+        assertTrue(QuestRules.dependenciesMet(book, team, b));
+        engine.forceComplete(team, "A", 2);
+        assertFalse(QuestRules.dependenciesMet(book, team, b), "one dependent is done: the other branch is closed");
+        assertTrue(team.isCompleted("A"));
+    }
+
+    @Test
+    void teamRewardIsClaimedOnceForTheWholeTeam() {
+        Quest q = quest("Q1", check("T1"));
+        Reward r = new Reward("R1", "xp", DataNode.Compound.empty().with("xp", 10).with("team_reward", true));
+        q.rewards.add(r);
+        ready();
+        engine.setTaskProgress(team, "T1", 1, 1);
+        UUID other = UUID.randomUUID();
+        assertTrue(engine.claim(team, player, r, 2));
+        assertFalse(engine.canClaim(team, other, r), "a team reward is gone for the other members once one claimed it");
+        assertTrue(team.isClaimed("R1", other));
+    }
+
+    @Test
     void rewardsClaimOncePerPlayerAndRespectBlocking() {
         Quest q = quest("Q1", check("T1"));
         Reward r = new Reward("R1", "xp", DataNode.Compound.empty().with("xp", 10));

@@ -191,6 +191,16 @@ public final class Definitions {
         public DependencyMode dependencyMode = DependencyMode.ALL_COMPLETED;
         /** If above 0, this many dependencies suffice instead of the mode's default. */
         public int minRequiredDependencies;
+        /** FTB Quests 26.1.2 {@code max_completable_dependents}: if above 0, at most this many dependents can be completed; the others become unavailable. */
+        public int maxCompletableDependents;
+        /** FTB {@code tags}: free labels (used by styles and by commands); a list of strings in the file. */
+        public List<String> tags = new ArrayList<>();
+        /** FTB {@code icon_scale}: the icon's size independent of the quest's size (1 = as is). */
+        public double iconScale = 1.0;
+        /** FTB {@code guide_page}: the id of a guide-book page the quest window links to (empty: none). */
+        public String guidePage = "";
+        /** FTB {@code preset}: the name of a visual preset of the book (empty: none). */
+        public String preset = "";
         public boolean optional;
         /** Invisible until completed. */
         public boolean invisible;

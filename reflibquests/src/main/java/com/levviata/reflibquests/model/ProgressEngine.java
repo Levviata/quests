@@ -252,7 +252,8 @@ public final class ProgressEngine {
         if (!canClaim(p, player, reward)) {
             return false;
         }
-        p.claimed.put(TeamProgress.claimKey(reward.id(), player), now);
+        // "Per-Team Reward": one claim for the whole team (FTB: only the submitting player receives it), stored under the team id
+        p.claimed.put(TeamProgress.claimKey(reward.id(), reward.params().getBool("team_reward", false) ? p.teamId() : player), now);
         Quest owner = questOf(reward);
         if (owner != null && QuestRules.repeatable(book, owner) && owner.rewards.stream().allMatch(r -> p.isClaimed(r.id(), player))) {
             // the quest is redone only after every reward is claimed; the cooldown (in seconds, as in FTB Quests) counts from then

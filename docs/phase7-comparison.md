@@ -176,3 +176,17 @@ In game (2026-11-22): a new quest with a Stage task ("myStage") and an Interacti
 
 ### Icon row says "None" (FTB) in task and reward windows (2026-11-22; compiled, not yet seen in game)
 While a task or reward has no icon of its own the Icon row shows "None" with the choices None and Held Item, as FTB does; once it has one, it shows "Unchanged" with Unchanged, Held Item and Clear. Chapter, quest and book windows still say "Unchanged".
+
+
+---
+## Session 2026-11-22 (second pass), first in-game checks of ours (driver `tools/window-driver`)
+Ours was launched from this worktree with the FTB showcase book plus the new `Quest Options` chapter (`tools/window-driver/shots/o*.png`).
+- **Preset, verified**: the test quest (preset `goal`, icon scale 1.5) draws as the preset's hexagon with the enlarged icon, as FTB does (`o4`). After setting Shape Circle and Size 3 through our own Properties window and accepting, the map still showed the hexagon (`o10`): the preset wins, as measured in FTB.
+- **Icon Scaling, Visual Preset, Guide Page, Max Completable Dependents rows exist** in our Quest Properties and show the values read from FTB's file (`o7`). Max Completable Dependents and the guide link behaviour not exercised in game.
+- **Differences found (to fix)**: (1) our row order was Shape, Icon Scaling, Visual Preset, Size, Z; FTB's is Icon Scaling, Min Opened Quest Window Width, Shape, Size, Visual Preset, X, Y (reordered now; compiled). (2) Ours has no Min Opened Quest Window Width, X or Y rows, no Tags/Description/Disable Completion Toast rows in the first section, and a Z Position row FTB lacks (original Reflib feature, kept). (3) FTB shows a `Click here to read more...` line in the quest window when `guide_page` is set; ours shows nothing (`o9`). (4) FTB's Edit menu lists shortcut keys [T][S][D][L][P][I][Q]; ours has none. (5) Our window title reads `Quest Properties: Options Test`, FTB `Options Test [Quest]`; ours has `-`/`+` section buttons and Undo/Redo where FTB has two arrow buttons. (6) Chapter panel opens only when the mouse is within about 12 px of the left edge; clicking the arrow tab at the edge did not open it.
+
+### Tags and Stage reward seen in ours (2026-11-22, relaunch with the refreshed FTB book)
+- Quest Properties shows the `Tags` row with `"showcase_tag"` and loads shape Circle, size 3, preset goal, icon scale 1.50 from FTB's file (`r5`).
+- The Stage reward from FTB's file shows in the quest window, its right-click menu is FTB's (`"Stage: rewardStage"`, Move Left, Move Right, Edit, Quick Edit Properties..., Delete, Copy ID; `r3`) and its Edit window has FTB's rows and values: Title, Icon, Tags, Auto-claim `Enabled, Invisible`, Disable Reward Screen Blur, Exclude from Claim All, Ignore reward blocking `True`, Per-Team Reward `False`, Remove `True`, Stage `"rewardStage"` (`r4`). Not exercised: claiming it.
+- **Found and fixed**: the Stage reward drew as a grey box with a `G`; FTB draws the controller. Now drawn with the controller icon (compiled, not seen again).
+- **Still different**: FTB greys out `Ignore reward blocking` on a Stage reward; ours keeps it editable. FTB shows an empty Tags list as `[]`, ours as `""`. FTB's quest window shows `Click here to read more...` for a set `guide_page`; ours shows nothing (what the click opens in FTB is not captured, so it is not faked).

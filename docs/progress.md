@@ -27,3 +27,10 @@ Build state: `./gradlew.bat build` passes at 6c8058d (2026-11-21).
 
 ## Tooling
 Window driver: old `drive2.ps1` at `C:\Users\Lev\AppData\Local\Temp\claude\a5f0abfc2acd3740\b6804a47-4ddc-4ffe-8301-e86cdaf15af1\scratchpad`; `drive3.ps1` (adds `wheel x y notches`, negative scrolls down) in the 37da2ae53352b303 session scratchpad. Copy both somewhere durable if you need them again.
+
+## Session 2026-11-22 (second full-parity pass, worktree `reflib-ftb-quests-parity-00a07b`)
+- Phase 1 redone from the code: `docs/parity-audit-v2.md` (113 rows, counts at the bottom; corrects eight claims of the older audits).
+- Phase 2: `docs/roadmap-v2.md`.
+- Phase 8 started with items that need no FTB capture: team rewards, Only One, advancement criterion, only-from-crafting. Build and unit tests pass; **none seen in game**.
+- Phases 3-7 not redone: need the FTB window driver (rebuild it) and the user to open FTB's book; see end of `roadmap-v2.md`.
+- Nothing committed.

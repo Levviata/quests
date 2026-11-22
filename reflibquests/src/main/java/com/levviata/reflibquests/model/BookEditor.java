@@ -44,7 +44,7 @@ public final class BookEditor {
     /** FTB's Interaction types. */
     public static final List<String> INTERACTION_TYPES = List.of("block", "block_tag", "block_state", "entity_type", "entity_type_tag");
     /** Reward types the editor may add. */
-    public static final Set<String> REWARD_TYPES = Set.of("item", "xp", "xp_levels", "command", "toast", "advancement", "custom");
+    public static final Set<String> REWARD_TYPES = Set.of("item", "xp", "xp_levels", "command", "toast", "advancement", "custom", "gamestage");
     /** Reward types that draw from a reward table (given as {@code table_id}). */
     public static final Set<String> TABLE_REWARD_TYPES = Set.of("choice", "random", "loot", "all_table");
     /** The statistics a stat task can name (the ones this game keeps; names as FTB Quests 26.1.2 writes them, without {@code minecraft:}). */
@@ -1143,6 +1143,51 @@ public final class BookEditor {
                     q.minRequiredDependencies = n;
                     return Result.OK;
                 }
+                case "tags": {
+                    List<String> tags = new ArrayList<>();
+                    for (String part : v.split(",")) {
+                        String t = part.strip();
+                        if (!t.isEmpty()) {
+                            if (t.length() > 40) {
+                                return Result.INVALID;
+                            }
+                            tags.add(t);
+                        }
+                    }
+                    if (tags.size() > 20) {
+                        return Result.INVALID;
+                    }
+                    q.tags = tags;
+                    return Result.OK;
+                }
+                case "max_completable_dependents": {
+                    int n = Integer.parseInt(v);
+                    if (n < 0 || n > 50) {
+                        return Result.INVALID;
+                    }
+                    q.maxCompletableDependents = n;
+                    return Result.OK;
+                }
+                case "icon_scale": {
+                    double d = Double.parseDouble(v);
+                    if (!(d >= 0.0625 && d <= 16.0)) {
+                        return Result.INVALID;
+                    }
+                    q.iconScale = d;
+                    return Result.OK;
+                }
+                case "guide_page":
+                    if (v.length() > 200) {
+                        return Result.INVALID;
+                    }
+                    q.guidePage = v;
+                    return Result.OK;
+                case "preset":
+                    if (v.length() > 64) {
+                        return Result.INVALID;
+                    }
+                    q.preset = v.equals("None") ? "" : v;
+                    return Result.OK;
                 case "invisible_until_tasks": {
                     int n = Integer.parseInt(v);
                     if (n < 0 || n > 20) {
@@ -1423,6 +1468,18 @@ public final class BookEditor {
         }
         if (type.equals("item") && !params.has("item")) {
             return null;
+        }
+        if (type.equals("gamestage")) {
+            if (params.getString("stage", "").isBlank()) {
+                return null;
+            }
+            // as FTB 26.1.2 writes a new Stage reward: claimed by itself, whatever blocks rewards
+            if (!params.has("auto")) {
+                params = params.with("auto", "invisible");
+            }
+            if (!params.has("ignore_reward_blocking")) {
+                params = params.with("ignore_reward_blocking", true);
+            }
         }
         if (tableType) {
             String tid = com.levviata.reflibquests.io.Ids.tableId(params);
@@ -1777,6 +1834,19 @@ public final class BookEditor {
                                 return Result.INVALID;
                             }
                             p = value.equals("true") ? p.with(key, true) : p.without(key);
+                        }
+                        case "stage" -> {
+                            String v = value.strip();
+                            if (!r.type().equals("gamestage") || v.isEmpty() || v.length() > 100) {
+                                return Result.INVALID;
+                            }
+                            p = p.with("stage", v);
+                        }
+                        case "remove" -> {
+                            if (!r.type().equals("gamestage") || !value.equals("true") && !value.equals("false")) {
+                                return Result.INVALID;
+                            }
+                            p = value.equals("true") ? p.with("remove", true) : p.without("remove");
                         }
                         case "team_reward" -> {
                             if (!List.of("default", "true", "false").contains(value)) {
