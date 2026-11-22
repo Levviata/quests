@@ -1790,6 +1790,10 @@ final class QuestBookWidget extends Widget {
         items.add(new MenuItem(target.raw().getString("image", "?"), "", "", false, null));
         items.add(new MenuItem("Edit", "", "settings", true, () -> mc().displayGuiScreen(new ImagePropertiesScreen(mc().currentScreen, target))));
         items.add(new MenuItem("Move", "", "lib:up", false, () -> {
+            if (target.raw().getBool("position_locked", false)) {
+                notice("This image's position is locked");
+                return;
+            }
             movingImage = target.id();
             movingOrigX = target.raw().getDouble("x", 0);
             movingOrigY = target.raw().getDouble("y", 0);
@@ -3175,6 +3179,34 @@ final class QuestBookWidget extends Widget {
         return y + 16;
     }
 
+    /**
+     * The click action of a chapter image. Open a URI (asks first, http and https only), Jump to a Quest and Show Recipes
+     * for Item work; Run a Command, Post Custom Event and Show a Docs Page belong to the newer game and say so.
+     *
+     * @return whether the image had an action (the click is used up)
+     */
+    private boolean runImageAction(QuestBook book, Definitions.ChapterImage image) {
+        DataNode.Compound click = image.raw().getCompound("click_action");
+        String type = click.getString("type", "");
+        String data = click.getString("data", "").trim();
+        if (type.isEmpty()) {
+            return false;
+        }
+        playClick();
+        switch (type) {
+            case "open_uri" -> onLink(book, new RichText.Click("open_url", data));
+            case "open_quest" -> onLink(book, new RichText.Click("change_page", data));
+            case "show_recipe" -> {
+                net.minecraft.item.Item item = net.minecraft.item.Item.REGISTRY.getObject(new net.minecraft.util.ResourceLocation(data));
+                if (item == null || !JeiBridge.available() || !JeiBridge.showRecipes(new ItemStack(item))) {
+                    notice("No recipes to show for " + data);
+                }
+            }
+            default -> notice("This click action (" + type + ") is not available in 1.12.2");
+        }
+        return true;
+    }
+
     /** Click on a description link: web links ask first (http/https only); quest links open that quest. */
     private void onLink(QuestBook book, RichText.Click click) {
         String value = click.value() == null ? "" : click.value().trim();
@@ -4318,6 +4350,15 @@ final class QuestBookWidget extends Widget {
         }
         if (searching) {
             return true; // the search window is modal: clicks outside its rows do nothing
+        }
+        if (button == 0 && !isEditing() && mapRect().contains(mouseX, mouseY) && !listRect().contains(mouseX, mouseY)
+                && !overPanel(mouseX, mouseY) && questAt(mouseX, mouseY) == null) {
+            // a click on a chapter image runs its click action (FTB Quests 26.1.2 "Click Action")
+            Chapter onChapter = currentChapter(ClientQuests.book());
+            Definitions.ChapterImage clicked = onChapter == null ? null : imageAt(onChapter, viewFor(onChapter, mapRect()), mouseX, mouseY);
+            if (clicked != null && runImageAction(ClientQuests.book(), clicked)) {
+                return true;
+            }
         }
         if (isEditing() && mapRect().contains(mouseX, mouseY) && !listRect().contains(mouseX, mouseY)
                 && !overPanel(mouseX, mouseY)) {

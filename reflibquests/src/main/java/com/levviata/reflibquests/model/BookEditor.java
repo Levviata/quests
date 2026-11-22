@@ -850,6 +850,9 @@ public final class BookEditor {
             for (int i = 0; i < c.images.size(); i++) {
                 Definitions.ChapterImage img = c.images.get(i);
                 if (img.id().equals(imageId)) {
+                    if (img.raw().getBool("position_locked", false)) {
+                        return Result.INVALID; // "Lock Position": the image cannot be moved
+                    }
                     c.images.set(i, new Definitions.ChapterImage(img.id(), img.raw().with("x", Math.round(x * 4.0) / 4.0).with("y", Math.round(y * 4.0) / 4.0)));
                     return Result.OK;
                 }
