@@ -3363,6 +3363,13 @@ final class QuestBookWidget extends Widget {
         MenuItem first = quickSwitch(q, "Disable Completion Toast", "disable_toast", q.disableToast);
         items.add(new MenuItem(first.label(), "", first.icon(), true, first.action()));
         items.add(quickChoice(q, "Shape", "shape", SHAPE_LABELS_Q, SHAPE_VALUES_Q, q.shape.isEmpty() || q.shape.equals("default") ? "" : q.shape));
+        List<String> presetLabels = new ArrayList<>();
+        presetLabels.add("None");
+        QuestBook presetBook = ClientQuests.book();
+        if (presetBook != null) {
+            presetLabels.addAll(presetBook.settings.getCompound("presets").entries().keySet());
+        }
+        items.add(quickChoice(q, "Visual Preset", "preset", presetLabels, presetLabels, q.preset.isEmpty() ? "None" : q.preset));
         items.add(quickTri(q, "Hide Quest Until Dependencies Complete", "hide_deps_complete", q.hideUntilDepsComplete));
         items.add(quickTri(q, "Hide Quest Until Dependencies Visible", "hide_deps_visible", q.hideUntilDepsVisible));
         items.add(quickSwitch(q, "Invisible Until Completed", "invisible", q.invisible));
@@ -3679,7 +3686,9 @@ final class QuestBookWidget extends Widget {
         items.add(new MenuItem("\"" + QuestText.titlePlain(target) + "\"", "", "", false, null));
         items.add(new MenuItem("Edit", "", "settings", true, () -> selectedQuest = target.id));
         items.add(new MenuItem("Move", "", "lib:up", false, () -> startQuestMove(target)));
-        items.add(new MenuItem("Resize", "", "lib:expand", false, () -> startResize(target)));
+        if (target.preset.isEmpty()) { // FTB offers no Resize while a preset decides the size (measured in 26.1.2)
+            items.add(new MenuItem("Resize", "", "lib:expand", false, () -> startResize(target)));
+        }
         items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickProperties(target, lastMouseX, lastMouseY)));
         items.add(new MenuItem("Add Dependency", "", "lib:add", false, () -> linkFrom = target.id));
         items.add(new MenuItem("Delete", "", "lib:remove", false, () -> openMenu(x, y,
