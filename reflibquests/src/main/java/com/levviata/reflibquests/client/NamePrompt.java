@@ -29,8 +29,15 @@ final class NamePrompt extends GuiScreen {
     private final int anchorY;
     private final TextEditor edit;
     private final Consumer<String> accepted;
+    /** Heading of the box, as FTB Quests 26.1.2 gives its number prompts ("XP", "XP Levels"); empty for the plain name box. */
+    private final String title;
 
     NamePrompt(GuiScreen parent, int anchorX, int anchorY, String initial, int maxLength, Consumer<String> accepted) {
+        this(parent, anchorX, anchorY, "", initial, maxLength, accepted);
+    }
+
+    NamePrompt(GuiScreen parent, int anchorX, int anchorY, String title, String initial, int maxLength, Consumer<String> accepted) {
+        this.title = title;
         this.parent = parent;
         this.anchorX = anchorX;
         this.anchorY = anchorY;
@@ -57,19 +64,19 @@ final class NamePrompt extends GuiScreen {
     }
 
     private Rect box() {
-        int w = Math.min(width - 8, 190);
-        int h = 36;
+        int w = Math.min(width - 8, title.isEmpty() ? 190 : 151);
+        int h = title.isEmpty() ? 36 : 31;
         int x = Math.max(4, Math.min(anchorX, width - w - 4));
         int y = Math.max(4, Math.min(anchorY, height - h - 4));
         return new Rect(x, y, w, h);
     }
 
     private Rect acceptRect(Rect b) {
-        return new Rect(b.x() + b.width() - 40, b.y() + b.height() - 18, 16, 16);
+        return new Rect(b.x() + b.width() - (title.isEmpty() ? 40 : 34), b.y() + (title.isEmpty() ? b.height() - 18 : 14), 16, 16);
     }
 
     private Rect cancelRect(Rect b) {
-        return new Rect(b.x() + b.width() - 20, b.y() + b.height() - 18, 16, 16);
+        return new Rect(b.x() + b.width() - (title.isEmpty() ? 20 : 16), b.y() + (title.isEmpty() ? b.height() - 18 : 14), 16, 16);
     }
 
     @Override
@@ -81,7 +88,12 @@ final class NamePrompt extends GuiScreen {
         Rect b = box();
         Gui.drawRect(b.x() - 1, b.y() - 1, b.x() + b.width() + 1, b.y() + b.height() + 1, 0xFF0E0F12);
         Gui.drawRect(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(), 0xFF262B35);
-        RewardTablesScreen.drawFieldText(fontRenderer, new Rect(b.x() + 3, b.y() + 3, b.width() - 6, 12), edit);
+        if (title.isEmpty()) {
+            RewardTablesScreen.drawFieldText(fontRenderer, new Rect(b.x() + 3, b.y() + 3, b.width() - 6, 12), edit);
+        } else {
+            fontRenderer.drawStringWithShadow(title, b.x() + 3, b.y() + 2, 0xFFFFFF);
+            RewardTablesScreen.drawFieldText(fontRenderer, new Rect(b.x() + 3, b.y() + 16, b.width() - 54, 12), edit);
+        }
         Rect ok = acceptRect(b);
         Rect no = cancelRect(b);
         if (ok.contains(mouseX, mouseY)) {

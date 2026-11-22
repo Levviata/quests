@@ -74,6 +74,14 @@ final class RewardTablesScreen extends GuiScreen {
         this.parent = parent;
     }
 
+    /** The list, opened straight into one table (the "Edit Reward Table" entry of a table reward). */
+    RewardTablesScreen(GuiScreen parent, String openTableId) {
+        this.parent = parent;
+        this.openOnStart = openTableId;
+    }
+
+    private String openOnStart = "";
+
     private void accept() {
         commitEdit();
         TableEdits.accept(mark);
@@ -97,6 +105,11 @@ final class RewardTablesScreen extends GuiScreen {
         Keyboard.enableRepeatEvents(true);
         if (mark == null) {
             mark = TableEdits.mark();
+        }
+        if (!openOnStart.isEmpty()) {
+            String id = openOnStart;
+            openOnStart = "";
+            mc.displayGuiScreen(new TablePanel(this, id));
         }
     }
 
@@ -240,9 +253,9 @@ final class RewardTablesScreen extends GuiScreen {
         for (Chapter c : book.chapters()) {
             for (Quest q : c.quests) {
                 for (Reward r : q.rewards) {
-                    String id = r.params().getString("table_id", "");
+                    String id = Ids.tableId(r.params());
                     if (!id.isEmpty()) {
-                        counts.computeIfAbsent(Ids.normalize(id), k -> new int[1])[0]++;
+                        counts.computeIfAbsent(id, k -> new int[1])[0]++;
                     }
                 }
             }

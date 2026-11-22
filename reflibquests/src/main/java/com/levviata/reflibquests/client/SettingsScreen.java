@@ -64,6 +64,8 @@ abstract class SettingsScreen extends GuiScreen {
         boolean listOptions;
         /** Texts shown without quotes. */
         boolean plain;
+        /** When set, clicking the row opens a picker instead of editing: it is given what to call with the chosen value. */
+        java.util.function.Consumer<java.util.function.Consumer<String>> pick;
         /** How the value is displayed (for example a list as "[ 1 item ]"). */
         java.util.function.Function<String, String> format;
         /** A colour swatch after the value (the value is #RRGGBB). */
@@ -423,6 +425,10 @@ abstract class SettingsScreen extends GuiScreen {
     private void activate(Entry e) {
         commitEdit();
         if (!e.enabled.get()) {
+            return;
+        }
+        if (e.pick != null) {
+            e.pick.accept(v -> change(e, v));
             return;
         }
         switch (e.kind) {

@@ -1,0 +1,248 @@
+{
+  id: "353E028E45179615",
+  group: "6AA6190A57CC21C9",
+  order_index: 0,
+  filename: "rewards_and_images",
+  default_quest_shape: "",
+  default_hide_dependency_lines: false,
+  quests: [
+    {
+      x: -6.0,
+      y: -4.0,
+      size: 1.0,
+      id: "561DC5DEA30DA11E",
+      tasks: [
+        {
+          id: "35ED70292DC11A3B",
+          type: "item",
+          item: {
+            id: "minecraft:iron_ingot",
+            count: 1,
+          },
+        },
+        {
+          id: "3D6D98D90B5466EB",
+          type: "fluid",
+          fluid: {
+            fluid: "minecraft:water",
+            amount: 1000,
+          },
+        },
+        {
+          id: "175A849C4BEAADFC",
+          type: "stat",
+          stat: "minecraft:mob_kills",
+          value: 1,
+        },
+        {
+          id: "0EAE8E5FAB24E0D7",
+          type: "kill",
+          entity: "minecraft:zombie",
+          value: 100,
+        },
+      ],
+      rewards: [
+        {
+          id: "393BE02F4E313D33",
+          type: "command",
+          command: "/say Hi, @p!",
+        },
+        {
+          id: "1167EC52EFA2882B",
+          type: "advancement",
+          advancement: "minecraft:story/root",
+          criterion: "",
+        },
+        {
+          id: "4B7E5417E0D8FAFA",
+          type: "choice",
+          exclude_from_claim_all: true,
+          table_id: 8688099075117598374,
+        },
+        {
+          id: "32D2B8932138F4D1",
+          type: "toast",
+          description: "",
+        },
+      ],
+    },
+    {
+      x: -14.5,
+      y: -7.5,
+      size: 1.0,
+      id: "17FF7A18762E8590",
+      tasks: [
+        {
+          id: "629582C3A1198CDB",
+          type: "location",
+          dimension: "minecraft:overworld",
+          ignore_dimension: false,
+          position: [
+            0,
+            0,
+            0,
+          ],
+          size: [
+            1,
+            1,
+            1,
+          ],
+        },
+      ],
+    },
+    {
+      x: -14.0,
+      y: -7.5,
+      size: 1.0,
+      id: "067BFB5E68BB37C8",
+      tasks: [
+        {
+          id: "259ECDBF8BB76E68",
+          type: "dimension",
+          dimension: "minecraft:overworld",
+        },
+      ],
+    },
+    {
+      x: -11.0,
+      y: -7.5,
+      size: 1.0,
+      id: "3240FE211A905255",
+      tasks: [
+        {
+          id: "30AA00C56818E26B",
+          type: "advancement",
+          advancement: "minecraft:story/root",
+          criterion: "",
+        },
+      ],
+    },
+    {
+      x: -8.0,
+      y: -7.5,
+      size: 1.0,
+      id: "7B345A4FD024FE96",
+      tasks: [
+        {
+          id: "695EC77E63975C79",
+          type: "observation",
+          timer: 0,
+          observation_type: "block",
+          to_observe: "minecraft:air",
+        },
+      ],
+    },
+    {
+      x: -5.0,
+      y: -7.5,
+      size: 1.0,
+      id: "1BE0DA1F814F2819",
+      tasks: [
+        {
+          id: "48EEDF2F8AFBC784",
+          type: "biome",
+          biome: "minecraft:plains",
+        },
+      ],
+    },
+    {
+      x: -2.0,
+      y: -7.5,
+      size: 1.0,
+      id: "2F6E853BA5A26CE5",
+      tasks: [
+        {
+          id: "5C9CE2377691F839",
+          type: "structure",
+          structure: "minecraft:mineshaft",
+        },
+      ],
+    },
+    {
+      x: -12.0,
+      y: -11.0,
+      size: 1.0,
+      id: "659F2D1934A18863",
+      tasks: [
+        {
+          id: "3C8D09B4EC5AAAFA",
+          type: "checkmark",
+        },
+      ],
+      rewards: [
+        {
+          id: "6ABE2C6825EB42E9",
+          type: "random",
+          exclude_from_claim_all: true,
+          table_id: 8688099075117598374,
+        },
+        {
+          id: "7D5527468F952773",
+          type: "loot",
+          exclude_from_claim_all: true,
+          table_id: 8688099075117598374,
+        },
+        {
+          id: "2C2F6BA4F2D28FE4",
+          type: "all_table",
+          exclude_from_claim_all: true,
+          table_id: 8688099075117598374,
+        },
+        {
+          id: "439338EBD11143DB",
+          type: "custom",
+        },
+        {
+          id: "1FB8DCCC59E224A2",
+          type: "item",
+          item: {
+            id: "minecraft:apple",
+            count: 1,
+          },
+        },
+      ],
+    },
+    {
+      x: -12.0,
+      y: -12.5,
+      size: 1.0,
+      id: "44E2C02C004671BA",
+      tasks: [
+        {
+          id: "4E99EC8BE8E59EB0",
+          type: "custom",
+        },
+      ],
+    },
+    {
+      x: -8.5,
+      y: -14.0,
+      dependencies: [
+        "659F2D1934A18863",
+      ],
+      size: 1.0,
+      id: "67FE2454219D8918",
+      tasks: [
+        {
+          id: "2D9211236EA211F9",
+          type: "xp",
+          value: 5,
+          points: false,
+        },
+      ],
+    },
+  ],
+  quest_links: [
+  ],
+  images: [
+    {
+      x: -12.5,
+      y: -9.5,
+      width: 0.75,
+      height: 1.0,
+      rotation: 0.0,
+      image: "minecraft:backyard",
+      id: "205BF74630C72DF2",
+    },
+  ],
+}

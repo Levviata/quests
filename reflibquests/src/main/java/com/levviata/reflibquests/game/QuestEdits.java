@@ -166,7 +166,8 @@ final class QuestEdits {
         String type = a.getString("type", "");
         DataNode.Compound params = a.getCompound("params");
         if (type.equals("item")) {
-            DataNode.Compound held = heldItem(player);
+            DataNode.Compound chosen = pickedItem(a.getCompound("item"), a.getLong("count", 1));
+            DataNode.Compound held = chosen != null ? chosen : heldItem(player);
             if (held == null) {
                 return "Hold the item in your main hand first.";
             }
@@ -187,7 +188,8 @@ final class QuestEdits {
         String type = a.getString("type", "");
         DataNode.Compound params = a.getCompound("params");
         if (type.equals("item")) {
-            DataNode.Compound held = heldItem(player);
+            DataNode.Compound chosen = pickedItem(a.getCompound("item"));
+            DataNode.Compound held = chosen != null ? chosen : heldItem(player);
             if (held == null) {
                 return "Hold the item in your main hand first.";
             }
@@ -219,6 +221,32 @@ final class QuestEdits {
         }
         return ed.addTableEntry(a.getString("id", ""), type, params, (float) a.getDouble("weight", 1), a.getString("entry", "")) != null
                 ? null : "Could not add that entry.";
+    }
+
+    /** An item picked in the item picker: only its registry name and damage are kept, and the item has to exist in this game. Null when none was given. */
+    @Nullable
+    private static DataNode.Compound pickedItem(DataNode.Compound item) {
+        String id = item.getString("id", "");
+        if (id.isEmpty()) {
+            return null;
+        }
+        net.minecraft.util.ResourceLocation rl = id.contains(":") ? new net.minecraft.util.ResourceLocation(id) : null;
+        if (rl == null || !net.minecraftforge.fml.common.registry.ForgeRegistries.ITEMS.containsKey(rl)) {
+            return null;
+        }
+        DataNode.Compound clean = DataNode.Compound.empty().with("id", id);
+        int damage = item.getInt("damage", 0);
+        if (damage > 0 && damage < 32767) {
+            clean = clean.with("damage", damage);
+        }
+        return DataNode.Compound.empty().with("item", clean).with("count", 1);
+    }
+
+    /** The picked item with the count the picker asked for (1 to a million). */
+    @Nullable
+    private static DataNode.Compound pickedItem(DataNode.Compound item, long count) {
+        DataNode.Compound base = pickedItem(item);
+        return base == null ? null : base.with("count", (int) Math.max(1, Math.min(1_000_000, count)));
     }
 
     /** The stack in the player's main hand as quest-file parameters: an item with its damage value, and a count. */

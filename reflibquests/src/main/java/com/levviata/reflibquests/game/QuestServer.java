@@ -55,7 +55,7 @@ public final class QuestServer {
 
     /** Task types the game layer can currently detect. Others are kept and shown but never progress. */
     public static final Set<String> SUPPORTED_TASKS = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom",
-            "biome", "structure", "observation");
+            "biome", "structure", "observation", "stat", "fluid", "gamestage", "interaction", "forge_energy");
 
     private static QuestServer instance;
 
@@ -632,6 +632,10 @@ public final class QuestServer {
             for (Task t : q.tasks) {
                 if (!SUPPORTED_TASKS.contains(t.type())) {
                     inertTasks.add(q.id + "/" + t.id() + ": unsupported task type '" + t.type() + "'");
+                } else if (t.type().equals("stat") && TaskTracker.statOf(t.params().getString("stat", "")) == null) {
+                    inertTasks.add(q.id + "/" + t.id() + ": statistic '" + t.params().getString("stat", "?") + "' is not one this game keeps");
+                } else if (t.type().equals("fluid") && net.minecraftforge.fluids.FluidRegistry.getFluid(TaskTracker.fluidNameOf(t.params())) == null) {
+                    inertTasks.add(q.id + "/" + t.id() + ": fluid '" + t.params().getString("fluid", "?") + "' does not exist in 1.12.2");
                 } else if (t.type().equals("biome") && net.minecraftforge.fml.common.registry.ForgeRegistries.BIOMES.getValue(
                         new net.minecraft.util.ResourceLocation(t.params().getString("biome", "minecraft:none"))) == null) {
                     inertTasks.add(q.id + "/" + t.id() + ": biome '" + t.params().getString("biome", "?") + "' does not exist in 1.12.2");

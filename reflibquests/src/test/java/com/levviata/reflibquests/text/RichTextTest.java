@@ -93,6 +93,18 @@ class RichTextTest {
     }
 
     @Test
+    void hoverAndClickEventsInTheNewSpellingAreRead() {
+        // exactly what FTB Quests 26.1.2 saved in the reference book
+        String entry = "[ { \"text\": \"Showcase description line\", \"hover_event\": {\"value\":{\"translate\":\"Hover text\"},\"action\":\"show_text\"} } ]";
+        Span s = span(RichText.parseEntry(entry).get(0), 0);
+        assertEquals("Showcase description line", s.text());
+        assertEquals("Hover text", s.hover());
+        Span c = span(RichText.parseEntry("{\"text\":\"go\",\"click_event\":{\"action\":\"open_url\",\"url\":\"https://example.org\"}}").get(0), 0);
+        assertEquals("open_url", c.click().action());
+        assertEquals("https://example.org", c.click().value());
+    }
+
+    @Test
     void ampersandZIsTheRainbowCode() {
         Line l = RichText.parseEntry("plain &zrainbow&r plain").get(0);
         assertFalse(span(l, 0).rainbow());

@@ -1,0 +1,6 @@
+{
+  "quest.67FE2454219D8918.quest_desc": [
+    "[ { \"text\": \"Showcase description line\", \"hover_event\": {\"value\":{\"translate\":\"Hover text\"},\"action\":\"show_text\"} } ]",
+  ],
+  "task.3C8D09B4EC5AAAFA.title": "Checkmark Quest",
+}

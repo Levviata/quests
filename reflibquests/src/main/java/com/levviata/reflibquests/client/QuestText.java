@@ -40,6 +40,13 @@ final class QuestText {
         return com.levviata.reflibquests.text.RichText.toSectionCodes(rawTitle(q));
     }
 
+    /** The name of one task as FTB Quests 26.1.2 shows it in menus and window titles ("Kill: 100x Zombie"), colour codes included. */
+    static String taskTitle(Task t) {
+        Quest holder = new Quest("task-title");
+        holder.tasks.add(t);
+        return autoTitle(holder);
+    }
+
     private static String autoTitle(Quest q) {
         if (q.tasks.isEmpty()) {
             return "";
@@ -73,6 +80,13 @@ final class QuestText {
             }
             case "location":
                 return "Location";
+            case "fluid": {
+                // "1 B of Water Bucket", as FTB Quests names it
+                long mb = t.maxProgress();
+                String fl = t.params().get("fluid") instanceof DataNode.Compound fc ? fc.getString("fluid", "") : "";
+                String name = titleCase(fl.isEmpty() ? "water" : fl);
+                return (mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB") + " of " + name + " Bucket";
+            }
             case "stat":
                 return titleCase(t.params().getString("stat", ""));
             case "dimension":
@@ -81,6 +95,12 @@ final class QuestText {
                 return "Visit Biome: \u00a7a" + t.params().getString("biome", "");
             case "observation":
                 return "Observation: \u00a7a" + t.params().getString("to_observe", "");
+            case "gamestage":
+                return "Stage: " + t.params().getString("stage", "");
+            case "interaction":
+                return "Interaction: " + t.params().getString("to_interact", "minecraft:air"); // FTB: "Interaction: minecraft:air"
+            case "forge_energy":
+                return "Forge Energy: \u00a7a" + t.maxProgress() + " FE";
             case "advancement": {
                 String adv = t.params().getString("advancement", "");
                 String last = adv.contains("/") ? adv.substring(adv.lastIndexOf('/') + 1) : adv.contains(":") ? adv.substring(adv.indexOf(':') + 1) : adv;
@@ -230,6 +250,19 @@ final class QuestText {
         switch (t.type()) {
             case "xp":
                 return new ItemStack(net.minecraft.init.Items.EXPERIENCE_BOTTLE);
+            case "fluid": {
+                DataNode f = t.params().get("fluid");
+                String name = f instanceof DataNode.Compound fc ? fc.getString("fluid", "") : f instanceof DataNode.Str fs ? fs.value() : "";
+                int colon = name.indexOf(':');
+                String bare = colon < 0 ? name : name.substring(colon + 1);
+                try {
+                    net.minecraftforge.fluids.Fluid fl = net.minecraftforge.fluids.FluidRegistry.getFluid(bare);
+                    ItemStack bucket = fl == null ? ItemStack.EMPTY : net.minecraftforge.fluids.FluidUtil.getFilledBucket(new net.minecraftforge.fluids.FluidStack(fl, 1000));
+                    return bucket.isEmpty() ? null : bucket;
+                } catch (RuntimeException ex) {
+                    return null;
+                }
+            }
             case "dimension":
                 return new ItemStack(net.minecraft.init.Items.ENDER_EYE);
             case "stat":
@@ -245,6 +278,12 @@ final class QuestText {
                 return new ItemStack(net.minecraft.init.Blocks.SAPLING);
             case "structure":
                 return new ItemStack(net.minecraft.init.Items.PAPER);
+            case "gamestage":
+                return null; // drawn as the library's controller picture (see the widget)
+            case "interaction":
+                return new ItemStack(net.minecraft.init.Items.DIAMOND_PICKAXE);
+            case "forge_energy":
+                return new ItemStack(net.minecraft.init.Blocks.REDSTONE_BLOCK);
             default:
                 return null;
         }
@@ -302,6 +341,12 @@ final class QuestText {
                 return "Find " + shortName(p.getString("structure", "?"));
             case "observation":
                 return "Look at " + shortName(p.getString("to_observe", "?"));
+            case "gamestage":
+                return "Stage: " + p.getString("stage", "?");
+            case "interaction":
+                return "Interact with " + shortName(p.getString("to_interact", "minecraft:air"));
+            case "forge_energy":
+                return "Forge Energy: " + t.maxProgress() + " FE";
             default:
                 return t.type() + " (not supported yet)";
         }
@@ -315,7 +360,7 @@ final class QuestText {
         switch (r.type()) {
             case "item": {
                 ItemStack s = stackOf(p.get("item"));
-                int count = Math.max(1, p.getInt("count", 1));
+                int count = (int) Math.min(Integer.MAX_VALUE, Task.itemCount(p));
                 return (count > 1 ? count + "x " : "") + (s == null ? itemName(p.get("item")) : s.getDisplayName());
             }
             case "xp":
@@ -323,26 +368,33 @@ final class QuestText {
             case "xp_levels":
                 return "XP Levels: +" + Math.max(1, p.getInt("xp_levels", 1));
             case "command":
-                return "A reward command";
+                return "Command: §c" + p.getString("command", ""); // the command in red, as FTB Quests shows it
             case "toast":
-                return "A message";
-            case "advancement":
-                return "An advancement";
+                return "Toast";
+            case "advancement": {
+                String adv = p.getString("advancement", "");
+                String last = adv.contains("/") ? adv.substring(adv.lastIndexOf('/') + 1) : adv.contains(":") ? adv.substring(adv.indexOf(':') + 1) : adv;
+                return "Advancement: §e" + (last.equals("root") ? titleCase(adv.contains(":") ? adv.substring(0, adv.indexOf(':')) : adv) : titleCase(last));
+            }
             case "choice":
-                return "Choose one reward";
             case "random":
-                return "A random reward";
             case "loot":
-                return "Loot";
-            case "all_table":
-                return "Several rewards";
+            case "all_table": {
+                // FTB Quests names a table reward after its table
+                com.levviata.reflibquests.model.QuestBook qb = ClientQuests.book();
+                com.levviata.reflibquests.model.Definitions.RewardTable table = qb == null ? null : qb.tables().get(tableId(r));
+                if (table != null && !table.title.isEmpty()) {
+                    return table.title;
+                }
+                return r.type().equals("choice") ? "Choose one reward" : r.type().equals("random") ? "A random reward" : r.type().equals("loot") ? "Loot" : "Several rewards";
+            }
             default:
                 return r.type() + " (not supported yet)";
         }
     }
 
     static String tableId(Reward r) {
-        return Ids.normalize(r.params().getString("table_id", ""));
+        return Ids.tableId(r.params());
     }
 
     private static String shortName(String id) {

@@ -49,7 +49,7 @@ public final class RewardGranter {
                 if (r == null) {
                     return Result.UNSUPPORTED;
                 }
-                int count = Math.max(1, p.getInt("count", 1));
+                int count = (int) Math.min(Integer.MAX_VALUE, com.levviata.reflibquests.model.Definitions.Task.itemCount(p));
                 int bonus = p.getInt("random_bonus", 0);
                 if (bonus > 0) {
                     count += RANDOM.nextInt(bonus + 1);
@@ -100,7 +100,7 @@ public final class RewardGranter {
 
     private Result grantFromTable(EntityPlayerMP player, Reward reward, int choice) {
         RewardTable table = quests.book().tables().get(
-                com.levviata.reflibquests.io.Ids.normalize(reward.params().getString("table_id", "")));
+                com.levviata.reflibquests.io.Ids.tableId(reward.params()));
         if (table == null) {
             return Result.FAILED;
         }

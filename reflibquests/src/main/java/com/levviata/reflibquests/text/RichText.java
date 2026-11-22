@@ -33,7 +33,7 @@ public final class RichText {
     public sealed interface Element permits Span, Image {}
 
     public record Span(String text, int rgb, boolean bold, boolean italic, boolean underline, boolean strike,
-            boolean obfuscated, Click click, boolean rainbow) implements Element {}
+            boolean obfuscated, Click click, boolean rainbow, String hover) implements Element {}
 
     public record Image(String texture, int width, int height, Align align, boolean fit) implements Element {}
 
@@ -49,21 +49,22 @@ public final class RichText {
     /** Marker put into display strings where a rainbow-coloured stretch starts (see {@link #toRainbowAware}). */
     public static final char RAINBOW_MARK = '\uE000';
 
-    private record Style(int rgb, boolean bold, boolean italic, boolean underline, boolean strike, boolean obf, Click click, boolean rainbow) {
-        static final Style PLAIN = new Style(NO_COLOR, false, false, false, false, false, null, false);
+    private record Style(int rgb, boolean bold, boolean italic, boolean underline, boolean strike, boolean obf, Click click, boolean rainbow, String hover) {
+        static final Style PLAIN = new Style(NO_COLOR, false, false, false, false, false, null, false, "");
 
         Style withColor(int c) {
-            return new Style(c, false, false, false, false, false, click, false); // a colour code resets formatting
+            return new Style(c, false, false, false, false, false, click, false, hover); // a colour code resets formatting
         }
-        Style withBold(boolean v) { return new Style(rgb, v, italic, underline, strike, obf, click, rainbow); }
-        Style withItalic(boolean v) { return new Style(rgb, bold, v, underline, strike, obf, click, rainbow); }
-        Style withUnderline(boolean v) { return new Style(rgb, bold, italic, v, strike, obf, click, rainbow); }
-        Style withStrike(boolean v) { return new Style(rgb, bold, italic, underline, v, obf, click, rainbow); }
-        Style withObf(boolean v) { return new Style(rgb, bold, italic, underline, strike, v, click, rainbow); }
-        Style withClick(Click c) { return new Style(rgb, bold, italic, underline, strike, obf, c, rainbow); }
-        Style withRainbow(boolean v) { return new Style(rgb, bold, italic, underline, strike, obf, click, v); }
+        Style withBold(boolean v) { return new Style(rgb, v, italic, underline, strike, obf, click, rainbow, hover); }
+        Style withItalic(boolean v) { return new Style(rgb, bold, v, underline, strike, obf, click, rainbow, hover); }
+        Style withUnderline(boolean v) { return new Style(rgb, bold, italic, v, strike, obf, click, rainbow, hover); }
+        Style withStrike(boolean v) { return new Style(rgb, bold, italic, underline, v, obf, click, rainbow, hover); }
+        Style withObf(boolean v) { return new Style(rgb, bold, italic, underline, strike, v, click, rainbow, hover); }
+        Style withClick(Click c) { return new Style(rgb, bold, italic, underline, strike, obf, c, rainbow, hover); }
+        Style withHover(String h) { return new Style(rgb, bold, italic, underline, strike, obf, click, rainbow, h); }
+        Style withRainbow(boolean v) { return new Style(rgb, bold, italic, underline, strike, obf, click, v, hover); }
 
-        Span span(String text) { return new Span(text, rgb, bold, italic, underline, strike, obf, click, rainbow); }
+        Span span(String text) { return new Span(text, rgb, bold, italic, underline, strike, obf, click, rainbow, hover); }
     }
 
     private static final int[] PALETTE = {
@@ -310,13 +311,19 @@ public final class RichText {
             if (c.has("underlined")) style = style.withUnderline(c.getBool("underlined", false));
             if (c.has("strikethrough")) style = style.withStrike(c.getBool("strikethrough", false));
             if (c.has("obfuscated")) style = style.withObf(c.getBool("obfuscated", false));
-            if (c.has("clickEvent")) {
-                DataNode.Compound ce = c.getCompound("clickEvent");
-                String action = ce.getString("action", "");
-                String value = ce.getString("value", "");
-                if (!action.isEmpty()) {
-                    style = style.withClick(new Click(action, value));
-                }
+            // the 1.21.5 spelling (click_event / hover_event, as FTB Quests 26.1.2 writes it) and the older one
+            DataNode.Compound ce = c.has("click_event") ? c.getCompound("click_event") : c.getCompound("clickEvent");
+            String action = ce.getString("action", "");
+            if (!action.isEmpty()) {
+                String value = ce.getString("value", ce.getString("url", ce.getString("command", ce.getString("page", ""))));
+                style = style.withClick(new Click(action, value));
+            }
+            DataNode.Compound he = c.has("hover_event") ? c.getCompound("hover_event") : c.getCompound("hoverEvent");
+            if (he.getString("action", "").equals("show_text")) {
+                DataNode shown = he.has("value") ? he.get("value") : he.get("contents");
+                StringBuilder tip = new StringBuilder();
+                plain(shown, tip, 0);
+                style = style.withHover(tip.toString());
             }
             String own = c.getString("text", "");
             if (!own.isEmpty()) {
@@ -332,6 +339,25 @@ public final class RichText {
             return true;
         }
         return false;
+    }
+
+    /** The plain text of a text component, for a hover tooltip: literal text, a translate key shown as written, extras. */
+    private static void plain(DataNode node, StringBuilder out, int depth) {
+        if (node == null || depth > 16) {
+            return;
+        }
+        if (node instanceof DataNode.Str s) {
+            out.append(s.value());
+        } else if (node instanceof DataNode.Lst l) {
+            for (DataNode child : l.items()) {
+                plain(child, out, depth + 1);
+            }
+        } else if (node instanceof DataNode.Compound c) {
+            out.append(c.has("text") ? c.getString("text", "") : c.getString("translate", ""));
+            for (DataNode child : c.getList("extra")) {
+                plain(child, out, depth + 1);
+            }
+        }
     }
 
     private static int parseColor(String s) {
