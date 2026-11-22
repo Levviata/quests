@@ -209,3 +209,8 @@ Ours was launched from this worktree with the FTB showcase book plus the new `Qu
 - FTB's quest window draws a description quest-link as underlined white text, left-aligned (`ct0`), with the guide-page line `Click here to read more...` (book icon) under it. Ours already underlines links; the guide line is still missing.
 - Quest right-click menu on an open (not completed) quest in FTB: Edit, Move, Quick Edit Properties..., Delete, Complete Instantly, Set as Autofocused Quest, Copy ID (`ct1c`; no Resize, since the test quest has a preset).
 - Complete Instantly asks `Complete this task instantly?` with the quest name under it and Yes / No (vanilla confirm screen); the wording says "task" for a quest, and ours uses the same wording (`QuestBookWidget` l.860). After Yes the quest has a green outline and a green tick top right (`ts2`). No toast was visible while the book stayed open (toasts in FTB probably show only once the book is closed; not captured).
+
+### Description editor seen in ours (2026-11-22, relaunch with commit ca3fd63; window maximized)
+- The quest-link description FTB saved loads and draws like FTB's (underlined white text, left aligned; `h4`). The guide-page line `Click here to read more...` is still missing.
+- Our editor's toolbar order matches FTB's: accept, (our undo/redo), B I U S, palette, link, Q, H, eraser, page break, image, `{}` (`h5`). The line holds FTB's exact JSON.
+- H: with a plain line `hover me` and the caret on it, the `Hovered tooltip` box opened (`h6`); `my tip` + Enter turned the line into `[ { "text": "hover me", "hover_event": {"value":{"translate":"my tip"},"action":"show_text"} } ]`, FTB's format (`h7`). Not exercised: the link and Q buttons writing the new spelling, hovering the result in the quest window.
