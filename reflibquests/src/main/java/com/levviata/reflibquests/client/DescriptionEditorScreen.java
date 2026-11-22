@@ -167,6 +167,31 @@ final class DescriptionEditorScreen extends GuiScreen {
         mc.displayGuiScreen(new InsertDialogs.LinkDialog(this, json -> insertLine(json)));
     }
 
+    /**
+     * The "H" button: asks for the "Hovered tooltip" and makes the selected text (or the line the caret is on) a JSON entry
+     * that shows it. An entry that already is JSON is left alone.
+     */
+    private void openHoverPrompt() {
+        mc.displayGuiScreen(new NamePrompt(this, width / 2 - 100, height / 3, "Hovered tooltip", "", 300, tip -> {
+            if (tip.isBlank()) {
+                return;
+            }
+            if (editor.hasSelection()) {
+                editor.replaceSelectionOrAll(sel -> RichText.hoverJson(RichText.stripCodes(sel), tip.strip()));
+                return;
+            }
+            String t = editor.text();
+            int c = editor.caret();
+            int start = c > 0 && t.charAt(c - 1) == '\n' ? c : t.lastIndexOf('\n', Math.max(0, c - 1)) + 1;
+            int end = t.indexOf('\n', start);
+            end = end < 0 ? t.length() : end;
+            String line = t.substring(start, end);
+            if (!line.isBlank() && !line.trim().startsWith("{") && !line.trim().startsWith("[")) {
+                editor.replaceRange(start, end, RichText.hoverJson(RichText.stripCodes(line), tip.strip()));
+            }
+        }));
+    }
+
     private void openQuestPicker() {
         overlay = Overlay.QUEST;
         questQuery.replaceAllText("");
@@ -315,6 +340,7 @@ final class DescriptionEditorScreen extends GuiScreen {
             }
         }, this::openLinkDialog, true));
         list.add(new Tool("Insert Quest Link\n§7[Alt + Q]", b -> glyph(b, "Q"), this::openQuestPicker, true));
+        list.add(new Tool("Hovered Tooltip\n§7Text shown when the selected text is hovered", b -> glyph(b, "H"), this::openHoverPrompt, true));
         list.add(new Tool("Clear Formatting\n§7[Alt + R]", b -> {
             if (!Ui.questsGui("eraser", b.x() + 1, b.y() + 1, 16, 16, 0xFFFFFFFF)) {
                 glyph(b, "R");
