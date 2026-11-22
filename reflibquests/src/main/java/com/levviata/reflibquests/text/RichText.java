@@ -316,7 +316,12 @@ public final class RichText {
             String action = ce.getString("action", "");
             if (!action.isEmpty()) {
                 String value = ce.getString("value", ce.getString("url", ce.getString("command", ce.getString("page", ""))));
-                style = style.withClick(new Click(action, value));
+                if (action.equals("custom") && ce.getString("id", "").equals("ftbquests:link")) {
+                    // FTB 26.1.2 "Insert Quest Link": {"id":"ftbquests:link","payload":{"quest_id":"...","page":1},"action":"custom"}
+                    style = style.withClick(new Click("change_page", ce.getCompound("payload").getString("quest_id", "")));
+                } else {
+                    style = style.withClick(new Click(action, value));
+                }
             }
             DataNode.Compound he = c.has("hover_event") ? c.getCompound("hover_event") : c.getCompound("hoverEvent");
             if (he.getString("action", "").equals("show_text")) {
