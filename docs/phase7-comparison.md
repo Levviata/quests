@@ -196,3 +196,11 @@ Ours was launched from this worktree with the FTB showcase book plus the new `Qu
 - Chapter Edit window: loads `Default Min Opened Quest Window Width 150`, `Default Quest Size 2`, `Default Visual Preset normal` from FTB's file, in FTB's row order (`s5`); chapter right-click menu has FTB's entries (`s4`).
 - Quest Quick Edit list is now FTB's list in FTB's order including `Visual Preset` (`s3`); our map window is small so the long menu overflows the top and bottom (header not visible), to check again maximized.
 - Not exercised: clicking Visual Preset in Quick Edit, changing the chapter preset in the window, and inherited-preset Resize rule (FTB's rule was measured with the quest's own preset set).
+
+### Chapter images seen in ours (2026-11-22, relaunch with commit cb046f6)
+- The FTB test image (`dev: true`, Run a Command, locked) is hidden in player mode and loads: "Only visible in Editing Mode" works.
+- Map right-click menu in edit mode: `New Quest`, `Image`. `Image` opens the painting list; choosing Kebab created the picture at the click point (log line `Create Image`, `u4`). Size 0.25 x 0.25 for a 1 x 1 block painting (rule blocks / 4).
+- Image right-click menu = FTB's (header `minecraft:kebab`, Edit, Move, Resize, Rotate, Copy ID, Delete; `u5`); image Edit window has FTB's rows (`u6`); Click Action cycles `No Action -> Open a URI` (`u7`).
+- With Open a URI + `https://example.com`, a left click on the image in player mode opens the game's "Are you sure you want to open the following website?" screen with Yes / Copy to Clipboard / No (`u10`); declined with No, nothing opened.
+- Differences: FTB's status line counts images (`Selected 0/2` with one quest and one image), ours counts quests only (`0/1`); FTB's picker is a texture grid with a preview, ours a list; FTB's map menu is the task-type list ending in Image.
+- Not exercised: Jump to a Quest, Show Recipes for Item (no JEI in the dev game?), Lock Position, undo of `create_image`.
