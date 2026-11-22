@@ -1,0 +1,14 @@
+{
+  id: "78925413C9C8C6A6",
+  order_index: 0,
+  loot_size: 1,
+  hide_tooltip: true,
+  use_title: true,
+  rewards: [
+    {
+      id: "7FAC4E4C05DB0F4F",
+      xp: 100,
+      type: "xp",
+    },
+  ],
+}

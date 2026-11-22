@@ -352,7 +352,8 @@ final class ChangeLog {
                 String kind = a.getString("type", "");
                 ItemStack held = Minecraft.getMinecraft().player == null ? ItemStack.EMPTY : Minecraft.getMinecraft().player.getHeldItemMainhand();
                 String name = kind.equals("item") && !held.isEmpty() ? held.getDisplayName()
-                        : kind.equals("checkmark") ? "Checkmark" : kind.equals("xp") ? "XP" : kind;
+                        : kind.equals("checkmark") ? "Checkmark" : kind.equals("xp") ? "XP"
+                        : kind.equals("gamestage") ? "Stage: myStage" : kind.equals("interaction") ? "Interaction: minecraft:air" : kind;
                 return new Desc("Create", "Task", name);
             }
             case "remove_task":

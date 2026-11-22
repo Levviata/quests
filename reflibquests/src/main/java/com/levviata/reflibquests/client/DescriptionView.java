@@ -32,7 +32,12 @@ final class DescriptionView {
     private static final int LINK_COLOR = 0x7FB2FF;
     private static final int TEXT_COLOR = 0xFFFFFF;
 
-    record Op(String text, int x, int y, int width, int color, Click click, boolean rainbow) {}
+    record Op(String text, int x, int y, int width, int color, Click click, boolean rainbow, String hover) {}
+
+    /** Receives every span that reacts to the mouse: its screen box, its click (or null) and its hover text (or empty). */
+    interface LinkSink {
+        void accept(int[] box, Click click, String hover);
+    }
 
     record Img(String texture, int x, int y, int w, int h) {}
 
@@ -94,7 +99,7 @@ final class DescriptionView {
                         ww = fr.getStringWidth(prefix + shown);
                     }
                     if (!shown.isEmpty()) {
-                        ops.add(new Op(prefix + shown, x, y, ww, color, span.click(), span.rainbow()));
+                        ops.add(new Op(prefix + shown, x, y, ww, color, span.click(), span.rainbow(), span.hover()));
                         x += ww;
                     }
                 }
@@ -109,7 +114,7 @@ final class DescriptionView {
     }
 
     /** Draws a layout at (x, y); every clickable span is reported through {@code links} as (screen rect, click). */
-    static void draw(FontRenderer fr, Layout layout, int x, int y, int mouseX, int mouseY, BiConsumer<int[], Click> links) {
+    static void draw(FontRenderer fr, Layout layout, int x, int y, int mouseX, int mouseY, LinkSink links) {
         for (Img img : layout.images()) {
             drawImage(fr, img, x + img.x(), y + img.y());
         }
@@ -121,8 +126,8 @@ final class DescriptionView {
             } else {
                 fr.drawString(op.text(), x + op.x(), y + op.y(), 0xFF000000 | (glint ? 0xFFFF6B : op.color()));
             }
-            if (op.click() != null) {
-                links.accept(new int[] {x + op.x(), y + op.y(), op.width(), LINE}, op.click());
+            if (op.click() != null || !op.hover().isEmpty()) {
+                links.accept(new int[] {x + op.x(), y + op.y(), op.width(), LINE}, op.click(), op.hover());
             }
         }
     }

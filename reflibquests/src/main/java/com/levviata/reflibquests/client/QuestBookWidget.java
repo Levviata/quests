@@ -181,6 +181,7 @@ final class QuestBookWidget extends Widget {
                 moves.add(DataNode.Compound.empty().with("id", q.id).with("x", q.x).with("y", q.y));
                 send("move_quests", DataNode.Compound.empty().with("moves", new DataNode.Lst(moves))); // one step in the history
             }
+            SELECTION.clear(); // the quests are unpicked once they have landed
         }
     }
 
@@ -240,8 +241,18 @@ final class QuestBookWidget extends Widget {
     private void updateListFull(FontRenderer fr, QuestBook book) {
         int need = LIST_W;
         for (Chapter c : visibleChapters(book)) {
+            boolean inGroup = !c.groupId.isEmpty() && book.groups().stream().anyMatch(g -> g.id.equals(c.groupId));
+            if (inGroup && !EXPANDED_GROUPS.contains(c.groupId)) {
+                continue; // a chapter folded away inside a closed group takes no width
+            }
             String name = RichText.stripCodes(c.title.isEmpty() ? c.id : c.title);
-            need = Math.max(need, 2 + 3 + (c.groupId.isEmpty() ? 0 : 8) + 19 + fr.getStringWidth(name) + 19);
+            // measured on FTB Quests 26.1.2: the name starts 15 units in (22 in a group) and 14 units of room follow it, 20 with an alert badge
+            need = Math.max(need, 15 + (inGroup ? 7 : 0) + fr.getStringWidth(name) + (CHAPTER_ALERT.getOrDefault(c.id, false) ? 20 : 14));
+        }
+        for (Definitions.ChapterGroup g : book.groups()) {
+            Chapter parent = g.raw.getString("chapter", "").isEmpty() ? null : book.chapter(g.raw.getString("chapter", ""));
+            String gname = RichText.stripCodes(parent != null ? parent.title : g.title.isEmpty() ? g.id : g.title);
+            need = Math.max(need, 14 + fr.getStringWidth(gname) + 22); // the group's own row, with its + button
         }
         listFull = Math.min(need, Math.max(LIST_W, bounds.width() - 60)); // the map keeps some room
     }
@@ -313,9 +324,31 @@ final class QuestBookWidget extends Widget {
         Gui.drawRect(x, y, x + w, y + h, argb);
     }
 
+    /** One zoom level for every chapter: zooming in one chapter zooms them all. */
+    private static double sharedZoom = 1.0;
+
+    /** Where the middle of the map was when each chapter's view was made or last looked at, to follow a changing window size. */
+    private static final Map<String, double[]> VIEW_MIDDLE = new HashMap<>();
+
     private ViewTransform viewFor(Chapter c, Rect map) {
+        ViewTransform view = viewForUnsynced(c, map);
+        // the window can be another size than when the view was made (the game starts small and is then enlarged): keep what the player sees in the middle
+        double midX = map.x() + map.width() / 2.0;
+        double midY = map.y() + map.height() / 2.0;
+        double[] before = VIEW_MIDDLE.put(c.id, new double[] {midX, midY});
+        if (before != null && (before[0] != midX || before[1] != midY)) {
+            view.panBy(midX - before[0], midY - before[1]);
+        }
+        if (view.zoom() != sharedZoom) {
+            view.zoomAt(map.x() + map.width() / 2.0, map.y() + map.height() / 2.0, sharedZoom / view.zoom());
+        }
+        return view;
+    }
+
+    private ViewTransform viewForUnsynced(Chapter c, Rect map) {
         return VIEWS.computeIfAbsent(c.id, id -> {
             ViewTransform v = new ViewTransform(0.3, 3.0);
+            v.zoomAt(0, 0, sharedZoom / v.zoom());
             Quest focus = c.autofocusId.isEmpty() ? null : c.quests.stream().filter(fq -> fq.id.equals(c.autofocusId)).findFirst().orElse(null);
             if (focus != null) {
                 v.centerOn(focus.x * GRID, focus.y * GRID, map.x() + map.width() / 2.0, map.y() + map.height() / 2.0);
@@ -387,6 +420,7 @@ final class QuestBookWidget extends Widget {
             stateVersion = ClientQuests.bookVersion();
             if (fresh) {
                 VIEWS.clear();
+                VIEW_MIDDLE.clear();
                 chapterId = "";
                 selectedQuest = "";
                 listScroll = 0;
@@ -771,6 +805,14 @@ final class QuestBookWidget extends Widget {
             fr.drawStringWithShadow("K", x + 7, y + 6, 0xFFFFFF);
         }
         hits.add(new Hit(keys, () -> mc().displayGuiScreen(new KeyReferenceScreen(mc().currentScreen)), "Key Reference"));
+        // the wiki button below it, as in FTB Quests 26.1.2: asks before it opens the documentation page
+        Rect wiki = new Rect(x, y + 22, 20, 20);
+        Ui.vanillaButton(wiki, wiki.contains(mouseX, mouseY));
+        if (!Ui.icon(Ui.LIBRARY, "textures/icons/info.png", x + 2, y + 24, 16, 16, 0xFFFFFFFF)) {
+            fr.drawStringWithShadow("i", x + 8, y + 28, 0x55AAFF);
+        }
+        final QuestBook wikiBook = book;
+        hits.add(new Hit(wiki, () -> onLink(wikiBook, new RichText.Click("open_url", "https://go.ftb.team/docs-quests")), "Open Wiki"));
         // bottom of the column: the editing pen sits above the player preferences button
         int by = bounds.y() + bounds.height() - 26;
         Rect prefs = new Rect(x, by, 20, 20);
@@ -855,21 +897,20 @@ final class QuestBookWidget extends Widget {
         updateListFull(fr, book);
         Rect r = new Rect(bounds.x() - (listFull - listWidth()), bounds.y(), listFull, bounds.height());
         QuestArt.tile(QuestArt.DIRT_BLOCK, r.x(), r.y(), r.width(), r.height(), 32, 0xFF7A7A7A); // dirt behind the chapters
-        QuestArt.tile(QuestArt.GRASS, r.x(), r.y(), r.width(), 24, 32, 0xFF5A8A3C); // grass behind the title
+        QuestArt.tile(QuestArt.GRASS, r.x(), r.y(), r.width(), 18, 32, 0xFF5A8A3C); // grass behind the title
         Gui.drawRect(r.x() + r.width() - 1, r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF000000);
         Gui.drawRect(r.x() + r.width() - 2, r.y(), r.x() + r.width() - 1, r.y() + r.height(), 0xFF555555);
         // title row: book icon, title, + (editing), pin; set apart from the list by a frame
-        hotbarRim(new Rect(r.x() + 2, r.y() + 2, r.width() - 6, 20), 0.55f);
+        hotbarRim(new Rect(r.x() + 2, r.y() + 2, r.width() - 6, 15), 0.55f); // layout measured on FTB Quests 26.1.2: an 18 unit title row
         ItemStack bookIcon = QuestText.stackOf(book.settings.get("icon"));
-        int titleX = r.x() + 6;
+        int titleX = r.x() + 16;
         if (bookIcon != null) {
-            drawItem(bookIcon, titleX, r.y() + 3, 1f);
-            titleX += 20;
+            drawItem(bookIcon, r.x() + 2, r.y() + 4, 0.67f);
         }
-        Ui.drawText(fr, RichText.toRainbowAware(book.settings.getString("title", "Quest Book")), titleX, r.y() + 8, 0xFFFFFF, r.width() - (titleX - r.x()) - 22);
-        Rect pinBox = new Rect(r.x() + r.width() - 17, r.y() + 6, 10, 10);
+        Ui.drawText(fr, RichText.toRainbowAware(book.settings.getString("title", "Quest Book")), titleX, r.y() + 5, 0xFFFFFF, r.width() - (titleX - r.x()) - 26);
+        Rect pinBox = new Rect(r.x() + r.width() - 15, r.y() + 4, 10, 10);
         if (isEditing()) {
-            Rect plusBox = new Rect(pinBox.x() - 15, r.y() + 6, 10, 10);
+            Rect plusBox = new Rect(pinBox.x() - 14, r.y() + 4, 10, 10);
             if (!Ui.icon(Ui.LIBRARY, "textures/icons/add.png", plusBox.x() - 1, plusBox.y() - 1, 12, 12, 0xFFFFFFFF)) {
                 fr.drawStringWithShadow("+", plusBox.x() + 2, plusBox.y() + 1, 0x7BD21E);
             }
@@ -885,9 +926,9 @@ final class QuestBookWidget extends Widget {
             ClientPrefs.chapterPanelPinned = listPinned;
             ClientPrefs.save();
         }, listPinned ? "Let the chapter panel hide" : "Keep the chapter panel open"));
-        Rect body = new Rect(r.x(), r.y() + 24, r.width() - 1, r.height() - 24);
+        Rect body = new Rect(r.x(), r.y() + 18, r.width() - 1, r.height() - 18);
         scissor(body);
-        int y = body.y() + 2 - listScroll;
+        int y = body.y() - listScroll;
         final int top = y;
         Chapter current = currentChapter(book);
         // auto-open the group of the chapter being looked at, once per chapter change
@@ -926,7 +967,7 @@ final class QuestBookWidget extends Widget {
                 continue;
             }
             boolean open = EXPANDED_GROUPS.contains(g.id);
-            Rect row = new Rect(body.x() + 2, y, body.width() - 4, 16);
+            Rect row = new Rect(body.x() + 1, y, body.width() - 2, 17);
             Chapter parentChapter = g.raw.getString("chapter", "").isEmpty() ? null : book.chapter(g.raw.getString("chapter", ""));
             boolean groupSelected = parentChapter != null && parentChapter.id.equals(chapterId);
             if (groupSelected) {
@@ -936,12 +977,12 @@ final class QuestBookWidget extends Widget {
                 Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF4C5055);
             }
             // drawn after the selection, so the arrow stays while the chapter that holds the group is open
-            if (!Ui.questsGui(open ? "arrow_expanded" : "arrow_collapsed", row.x() + 4, row.y() + 5, 8, 8, 0xFFDDDDDD)) {
-                fr.drawString(open ? "v" : ">", row.x() + 4, row.y() + 5, 0xBBBBBB);
+            if (!Ui.questsGui(open ? "arrow_expanded" : "arrow_collapsed", row.x() + 3, row.y() + 4, 8, 8, 0xFFDDDDDD)) {
+                fr.drawString(open ? "v" : ">", row.x() + 3, row.y() + 4, 0xBBBBBB);
             }
             String groupTitle = parentChapter != null ? parentChapter.title : g.title;
-            Ui.drawText(fr, groupTitle.isEmpty() ? g.id : RichText.toRainbowAware(groupTitle), row.x() + 14, row.y() + 5,
-                    parentChapter != null ? 0xFFFFFF : 0xD0D0D0, row.width() - 16);
+            Ui.drawText(fr, groupTitle.isEmpty() ? g.id : RichText.toRainbowAware(groupTitle), row.x() + 13, row.y() + 5,
+                    parentChapter != null ? 0xFFFFFF : 0xD0D0D0, row.width() - 15);
             final String gid = g.id;
             final String parentId = parentChapter == null ? "" : parentChapter.id;
             final Definitions.ChapterGroup group = g;
@@ -979,7 +1020,7 @@ final class QuestBookWidget extends Widget {
                 }
             }, null, groupMenu));
             if (isEditing()) {
-                Rect plus = new Rect(row.x() + row.width() - 14 - (listBar != null ? 7 : 0), row.y() + 4, 10, 10);
+                Rect plus = new Rect(row.x() + row.width() - 12 - (listBar != null ? 7 : 0), row.y() + 3, 10, 10);
                 if (!Ui.icon(Ui.LIBRARY, "textures/icons/add.png", plus.x() - 1, plus.y() - 1, 12, 12, 0xFFFFFFFF)) {
                     fr.drawStringWithShadow("+", plus.x() + 2, plus.y() + 1, 0x7BD21E);
                 }
@@ -988,10 +1029,10 @@ final class QuestBookWidget extends Widget {
                 hits.add(new Hit(plus, () -> mc().displayGuiScreen(new NamePrompt(mc().currentScreen, promptX, promptY, "Chapter", 120,
                         name -> send("create_chapter", args("title", name, "group", gid)))), "Add a chapter to this group"));
             }
-            y += 16;
+            y += 17;
             if (open) {
                 for (Chapter c : inGroup) {
-                    y = chapterRow(fr, book, p, c, body, y, 8, mouseX, mouseY);
+                    y = chapterRow(fr, book, p, c, body, y, 7, mouseX, mouseY);
                 }
             }
         }
@@ -1082,8 +1123,14 @@ final class QuestBookWidget extends Widget {
         menuY = lastMouseY;
     }
 
+    /** Icons per row in a quest window's Tasks or Rewards column: at most 4, spread evenly over the rows needed. */
+    private static int balancedPerRow(int slots) {
+        int rows = Math.max(1, (slots + 3) / 4);
+        return Math.max(1, (slots + rows - 1) / rows);
+    }
+
     private int chapterRow(FontRenderer fr, QuestBook book, TeamProgress p, Chapter c, Rect body, int y, int indent, int mouseX, int mouseY) {
-        Rect row = new Rect(body.x() + 2, y, body.width() - 4, 16);
+        Rect row = new Rect(body.x() + 1, y, body.width() - 2, 14);
         boolean selected = c.id.equals(chapterId);
         boolean hover = row.contains(mouseX, mouseY);
         if (hover && !selected) {
@@ -1094,12 +1141,17 @@ final class QuestBookWidget extends Widget {
             Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF88898B);
             Gui.drawRect(row.x() + 1, row.y() + 1, row.x() + row.width() - 1, row.y() + row.height() - 1, 0xFF4C4F55);
         }
-        int tx = row.x() + 3 + indent;
+        // FTB Quests 26.1.2: the picture takes a slot of its own, the name starts 15 units from the panel edge (22 inside a group)
+        int tx = row.x() + 15 + indent;
+        boolean chapterDone = p != null && QuestRules.chapterCompleted(p, c);
         // the chapter's own icon; without one, the icon of its only quest, or the quests' icons one after the other
         ItemStack icon = c.icon.entries().isEmpty() ? chapterIconFromQuests(c) : QuestText.stackOf(c.icon);
-        if (icon != null && !icon.isEmpty()) {
-            drawItem(icon, tx, row.y(), 1f);
-            tx += 19;
+        if (chapterDone) {
+            if (!Ui.questsGui("check_gray", row.x() + 1 + indent, row.y() + 2, 10, 10, 0xFFFFFFFF)) {
+                fr.drawString("v", row.x() + 3 + indent, row.y() + 3, 0x888888);
+            }
+        } else if (icon != null && !icon.isEmpty()) {
+            drawItem(icon, row.x() + 1 + indent, row.y() + 2, 0.67f);
         }
         UUID me = mc().player == null ? null : mc().player.getUniqueID();
         ProgressEngine engine = ClientQuests.engine();
@@ -1108,7 +1160,7 @@ final class QuestBookWidget extends Widget {
         }
         boolean alert = CHAPTER_ALERT.getOrDefault(c.id, false);
         int barRoom = listBar != null ? 7 : 0;
-        int textRight = row.x() + row.width() - (alert ? 16 : 3) - barRoom;
+        int textRight = row.x() + row.width() - (alert ? 13 : 3) - barRoom;
         int nameColour = 0xFFFFFF;
         if (p != null) {
             if (QuestRules.chapterCompleted(p, c)) {
@@ -1117,9 +1169,9 @@ final class QuestBookWidget extends Widget {
                 nameColour = 0x00AAAA; // started: teal
             }
         }
-        Ui.drawText(fr, c.title.isEmpty() ? c.id : RichText.toRainbowAware(c.title), tx, row.y() + 4, hover ? 0xFFFFA0 : nameColour, textRight - tx);
+        Ui.drawText(fr, c.title.isEmpty() ? c.id : RichText.toRainbowAware(c.title), tx, row.y() + 3, hover ? 0xFFFFA0 : nameColour, textRight - tx);
         if (alert) {
-            Ui.alert(row.x() + row.width() - 14 - barRoom, row.y() + 3, 12);
+            Ui.alert(row.x() + row.width() - 11 - barRoom, row.y() + 3, 8);
         }
         final String id = c.id;
         Runnable rightClick = !isEditing() ? null : () -> chapterMenu(c);
@@ -1128,13 +1180,13 @@ final class QuestBookWidget extends Widget {
             selectedQuest = "";
         }, null, rightClick));
         if (isEditing() && c.quests.isEmpty()) {
-            Rect cross = new Rect(row.x() + row.width() - 14 - barRoom - (alert ? 14 : 0), row.y() + 4, 10, 10);
+            Rect cross = new Rect(row.x() + row.width() - 14 - barRoom - (alert ? 10 : 0), row.y() + 2, 10, 10);
             if (!Ui.questsGui("close", cross.x(), cross.y(), 10, 10, 0xFFFFFFFF)) {
                 fr.drawStringWithShadow("x", cross.x() + 2, cross.y() + 1, 0xFF5555);
             }
             // the cross only shows that the chapter has no quests; clicking it does nothing
         }
-        return y + 16;
+        return y + 14;
     }
 
     private void drawMap(FontRenderer fr, QuestBook book, ProgressEngine engine, TeamProgress p, Chapter chapter, Rect map) {
@@ -1185,7 +1237,7 @@ final class QuestBookWidget extends Widget {
                     tint = 0xFFC4C400; // a dependant of the focused quest: yellow, moving on to the dependant
                     flow = 1;
                 }
-                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(3.0, Math.min(10.0, zoom * 4.0)), tint, flow); // 4 GUI pixels wide at zoom 1
+                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(1.0, Math.min(6.0, zoom * 2.45)), tint, flow); // 2.45 GUI pixels wide at zoom 1: the line is 4.1% of the distance between neighbouring quests, as in FTB Quests 26.1.2
             }
         }
         if (movingQuest != null && chapter.quests.contains(movingQuest)) {
@@ -1679,13 +1731,35 @@ final class QuestBookWidget extends Widget {
         } catch (RuntimeException ex) {
             return null;
         }
-        if (!DescriptionView.textureExists(mc(), loc)) {
+        if (!DescriptionView.textureExists(mc(), loc) && paintingArt(tex) == null) {
             return null;
         }
         return new double[] {v.screenX(raw.getDouble("x", 0) * GRID), v.screenY(raw.getDouble("y", 0) * GRID),
             raw.getDouble("width", 1) * GRID * IMAGE_SCALE * v.zoom(), raw.getDouble("height", 1) * GRID * IMAGE_SCALE * v.zoom(),
             raw.getDouble("rotation", 0)};
     }
+
+    /**
+     * FTB Quests 26.1.2 can name a vanilla painting as a chapter picture ({@code minecraft:backyard}). This game keeps
+     * its paintings in one sheet, so the name is looked up among the painting types of the sheet.
+     */
+    @javax.annotation.Nullable
+    private static net.minecraft.entity.item.EntityPainting.EnumArt paintingArt(String tex) {
+        int colon = tex.indexOf(':');
+        String name = colon < 0 ? tex : tex.substring(colon + 1);
+        if (name.indexOf('/') >= 0 || name.indexOf('.') >= 0) {
+            return null;
+        }
+        for (net.minecraft.entity.item.EntityPainting.EnumArt art : net.minecraft.entity.item.EntityPainting.EnumArt.values()) {
+            if (art.title.equalsIgnoreCase(name.replace("_", ""))) {
+                return art;
+            }
+        }
+        return null;
+    }
+
+    private static final net.minecraft.util.ResourceLocation PAINTING_SHEET =
+            new net.minecraft.util.ResourceLocation("textures/painting/paintings_kristoffer_zetterstrand.png");
 
     /** The topmost picture under the mouse, or null. */
     private Definitions.ChapterImage imageAt(Chapter chapter, ViewTransform v, int mx, int my) {
@@ -1994,11 +2068,37 @@ final class QuestBookWidget extends Widget {
             double cx = v.screenX(raw.getDouble("x", 0) * GRID);
             double cy = v.screenY(raw.getDouble("y", 0) * GRID);
             double reach = Math.max(w, h) * 0.75;
+            net.minecraft.entity.item.EntityPainting.EnumArt art = paintingArt(tex);
             if (cx + reach < map.x() || cx - reach > map.x() + map.width() || cy + reach < map.y() || cy - reach > map.y() + map.height()
-                    || !DescriptionView.textureExists(mc, loc)) {
+                    || !DescriptionView.textureExists(mc, loc) && art == null) {
                 continue;
             }
             int alpha = Math.max(0, Math.min(255, raw.getInt("alpha", 255)));
+            if (art != null && !DescriptionView.textureExists(mc, loc)) {
+                GlStateManager.pushMatrix();
+                GlStateManager.translate(cx, cy, 0);
+                GlStateManager.rotate((float) raw.getDouble("rotation", 0), 0, 0, 1);
+                mc.getTextureManager().bindTexture(PAINTING_SHEET);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+                GlStateManager.enableBlend();
+                GlStateManager.color(1f, 1f, 1f, alpha / 255f);
+                float u0 = art.offsetX / 256f;
+                float v0 = art.offsetY / 256f;
+                float u1 = (art.offsetX + art.sizeX) / 256f;
+                float v1 = (art.offsetY + art.sizeY) / 256f;
+                net.minecraft.client.renderer.Tessellator tess = net.minecraft.client.renderer.Tessellator.getInstance();
+                net.minecraft.client.renderer.BufferBuilder buf = tess.getBuffer();
+                buf.begin(GL11.GL_QUADS, net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_TEX);
+                buf.pos(-w / 2, h / 2, 0).tex(u0, v1).endVertex();
+                buf.pos(w / 2, h / 2, 0).tex(u1, v1).endVertex();
+                buf.pos(w / 2, -h / 2, 0).tex(u1, v0).endVertex();
+                buf.pos(-w / 2, -h / 2, 0).tex(u0, v0).endVertex();
+                tess.draw();
+                GlStateManager.color(1f, 1f, 1f, 1f);
+                GlStateManager.popMatrix();
+                continue;
+            }
             GlStateManager.pushMatrix();
             GlStateManager.translate(cx, cy, 0);
             GlStateManager.rotate((float) raw.getDouble("rotation", 0), 0, 0, 1);
@@ -2126,8 +2226,9 @@ final class QuestBookWidget extends Widget {
                 y = pageControls(fr, x, y, lay.pages());
             }
             final QuestBook shownBook = book;
-            DescriptionView.draw(fr, lay, x, y, lastMouseX, lastMouseY, (box, click) ->
-                    addHit(new Rect(box[0], box[1], box[2], box[3]), () -> onLink(shownBook, click), click.value()));
+            DescriptionView.draw(fr, lay, x, y, lastMouseX, lastMouseY, (box, click, hover) ->
+                    addHit(new Rect(box[0], box[1], box[2], box[3]), click == null ? () -> { } : () -> onLink(shownBook, click),
+                            !hover.isEmpty() ? hover : click.value()));
             y += lay.height() + 4;
         }
         fr.drawStringWithShadow("Tasks", x, y, 0xFFFFFF);
@@ -2234,6 +2335,8 @@ final class QuestBookWidget extends Widget {
             Ui.icon(Ui.LIBRARY, "textures/icons/color_hsb.png", x, y, size, size, 0xFFFFFFFF);
         } else if (first.type().equals("observation")) {
             Ui.icon(Ui.LIBRARY, "textures/icons/art.png", x, y, size, size, 0xFFFFFFFF);
+        } else if (first.type().equals("gamestage") && first.params().getCompound("icon").entries().isEmpty()) {
+            Ui.icon(Ui.LIBRARY, "textures/icons/controller.png", x, y, size, size, 0xFFFFFFFF);
         } else if (first.type().equals("checkmark")) {
             Ui.mapCheck(x, y, size, done);
         } else if (first.type().equals("item")) {
@@ -2269,10 +2372,18 @@ final class QuestBookWidget extends Widget {
         ItemStack named = t.type().equals("item") || t.type().equals("checkmark") ? null : QuestText.taskIcon(t);
         if (named != null) {
             drawItem(named, x + 1, y + 1, 1f);
+            if (t.type().equals("kill") && t.maxProgress() > 1) {
+                countText(fr, String.valueOf(t.maxProgress()), x + 1, y + 1); // FTB Quests puts the number under the egg
+            } else if (t.type().equals("fluid")) {
+                long mb = t.params().get("fluid") instanceof DataNode.Compound fc ? fc.getLong("amount", 1000) : 1000;
+                countText(fr, mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB", x + 1, y + 1);
+            }
         } else if (t.type().equals("custom")) {
             Ui.icon(Ui.LIBRARY, "textures/icons/color_hsb.png", x + 1, y + 1, 16, 16, 0xFFFFFFFF);
         } else if (t.type().equals("observation")) {
             Ui.icon(Ui.LIBRARY, "textures/icons/art.png", x + 1, y + 1, 16, 16, 0xFFFFFFFF);
+        } else if (t.type().equals("gamestage") && t.params().getCompound("icon").entries().isEmpty()) {
+            Ui.icon(Ui.LIBRARY, "textures/icons/controller.png", x + 1, y + 1, 16, 16, 0xFFFFFFFF);
         } else if (t.type().equals("checkmark")) {
             if (done ? !Ui.taskCheck(x + 1, y + 1, 16, true) : !Ui.questsGui("check_gray", x + 1, y + 1, 16, 16, 0xFFFFFFFF)) {
                 iconBox(fr, "v", x, y);
@@ -2314,7 +2425,7 @@ final class QuestBookWidget extends Widget {
                 } else {
                     drawItem(s, x + 1, y + 1, 1f);
                 }
-                int count = Math.max(1, pm.getInt("count", 1));
+                int count = (int) Math.min(Integer.MAX_VALUE, Task.itemCount(pm));
                 if (count > 1) {
                     countText(fr, String.valueOf(count), x + 1, y + 1);
                 }
@@ -2328,8 +2439,27 @@ final class QuestBookWidget extends Widget {
             case "choice":
             case "random":
             case "loot":
-            case "all_table":
-                drawItem(new ItemStack(net.minecraft.init.Blocks.CHEST), x + 1, y + 1, 1f);
+            case "all_table": {
+                // FTB Quests shows the picture of the table's first entry
+                QuestBook qb = ClientQuests.book();
+                com.levviata.reflibquests.model.Definitions.RewardTable table = qb == null ? null : qb.tables().get(com.levviata.reflibquests.io.Ids.tableId(pm));
+                if (table != null && !table.entries.isEmpty() && !table.entries.get(0).reward().type().equals(rw.type())) {
+                    Reward first = table.entries.get(0).reward();
+                    if (first.type().equals("xp") || first.type().equals("xp_levels")) {
+                        drawItem(new ItemStack(net.minecraft.init.Items.EXPERIENCE_BOTTLE), x + 1, y + 1, 1f); // no amount on a table's picture
+                    } else {
+                        drawRewardIcon(fr, first, x, y);
+                    }
+                } else {
+                    drawItem(new ItemStack(net.minecraft.init.Blocks.CHEST), x + 1, y + 1, 1f);
+                }
+                break;
+            }
+            case "advancement":
+                drawItem(pm.getString("advancement", "").endsWith("/root") ? new ItemStack(net.minecraft.init.Blocks.GRASS) : new ItemStack(net.minecraft.init.Items.WHEAT), x + 1, y + 1, 1f);
+                break;
+            case "toast":
+                drawItem(new ItemStack(net.minecraft.init.Items.SIGN), x + 1, y + 1, 1f);
                 break;
             default: {
                 ItemStack own = pm.get("icon") instanceof DataNode.Compound ic && !ic.entries().isEmpty() ? QuestText.stackOf(ic) : null;
@@ -2337,6 +2467,8 @@ final class QuestBookWidget extends Widget {
                     drawItem(own, x + 1, y + 1, 1f);
                 } else if (rw.type().equals("command")) {
                     drawItem(new ItemStack(net.minecraft.init.Blocks.COMMAND_BLOCK), x + 1, y + 1, 1f);
+                } else if (rw.type().equals("custom") && Ui.icon(Ui.LIBRARY, "textures/icons/color_hsb.png", x + 1, y + 1, 16, 16, 0xFFFFFFFF)) {
+                    // the colour wheel, as FTB Quests draws a custom reward (and as the custom task above)
                 } else {
                     iconBox(fr, rw.type().isEmpty() ? "?" : rw.type().substring(0, 1).toUpperCase(java.util.Locale.ROOT), x, y);
                 }
@@ -2411,7 +2543,7 @@ final class QuestBookWidget extends Widget {
     /** One reward as a line: "4-8x Nether Quartz" for items (with their random bonus), the usual text otherwise. */
     private static String rewardLine(Reward rw) {
         if (rw.type().equals("item")) {
-            int count = Math.max(1, rw.params().getInt("count", 1));
+            int count = (int) Math.min(Integer.MAX_VALUE, Task.itemCount(rw.params()));
             int bonus = Math.max(0, rw.params().getInt("random_bonus", 0));
             String amount = bonus > 0 ? count + "-" + (count + bonus) + "x " : count > 1 ? count + "x " : "";
             return amount + QuestText.itemName(rw.params().get("item"));
@@ -2598,11 +2730,13 @@ final class QuestBookWidget extends Widget {
         int y = top;
 
         // ---- Tasks | Rewards section
-        int perRow = Math.max(1, (r.width() / 2 - 24) / 20);
         int taskSlots = q.tasks.size() + (isEditing() ? 1 : 0);
         int rewardSlots = q.rewards.size() + (isEditing() ? 1 : 0);
-        int taskRows = (taskSlots + perRow - 1) / perRow;
-        int rewardRows = (rewardSlots + perRow - 1) / perRow;
+        // FTB Quests 26.1.2 fills a column with at most 4 icons a row and balances the rows: 4 stay in one row, 5 become 3 + 2
+        int taskPer = balancedPerRow(taskSlots);
+        int rewardPer = balancedPerRow(rewardSlots);
+        int taskRows = (taskSlots + taskPer - 1) / taskPer;
+        int rewardRows = (rewardSlots + rewardPer - 1) / rewardPer;
         int rows = Math.max(1, Math.max(taskRows, rewardRows));
         int secH = 18 + rows * 21 + 4;
         int mid = r.x() + r.width() / 2;
@@ -2644,9 +2778,9 @@ final class QuestBookWidget extends Widget {
         boolean canWork = !p.isCompleted(q.id) && QuestRules.canProgress(book, p, q) && QuestRules.dependenciesMet(book, p, q);
         for (int i = 0; i < q.tasks.size(); i++) {
             Task t = q.tasks.get(i);
-            int inRow = Math.min(perRow, taskSlots - (i / perRow) * perRow);
-            int sx = r.x() + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % perRow) * 20;
-            int sy = y + 18 + (i / perRow) * 21;
+            int inRow = Math.min(taskPer, taskSlots - (i / taskPer) * taskPer);
+            int sx = r.x() + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % taskPer) * 20;
+            int sy = y + 18 + (i / taskPer) * 21;
             boolean done = QuestRules.taskDone(p, t);
             slotHover(sx, sy);
             drawTaskIcon(fr, t, done, sx, sy);
@@ -2701,6 +2835,23 @@ final class QuestBookWidget extends Widget {
                     tip.append("\n\n§e§nClick to submit");
                     act = () -> QuestNet.submit(t.id());
                 }
+            } else if (t.type().equals("fluid")) {
+                long mb = t.maxProgress();
+                String amount = mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB";
+                String fname = com.levviata.reflibquests.game.TaskTrackerNames.fluidLabel(t.params());
+                long got = Math.min(p.taskProgress(t.id()), mb);
+                tip.append("§f").append(amount).append(" of ").append(fname);
+                tip.append("\n§a").append(got).append(" mB / ").append(amount).append(" [").append(mb == 0 ? 0 : got * 100 / mb).append("%]");
+                if (!done && canWork) {
+                    tip.append("\n\n§e§nClick to submit");
+                    act = () -> QuestNet.submit(t.id());
+                }
+            } else if (t.type().equals("forge_energy")) {
+                tip.append("§fForge Energy: §a").append(t.maxProgress()).append(" FE");
+                if (!done && canWork) {
+                    tip.append("\n\n§e§nClick to submit");
+                    act = () -> QuestNet.submit(t.id());
+                }
             } else if (t.type().equals("dimension")) {
                 tip.append("§fVisit Dimension: §a").append(t.params().getString("dimension", "?")); // FTB: the dimension's id in green
             } else {
@@ -2716,7 +2867,7 @@ final class QuestBookWidget extends Widget {
             if (t.type().equals("item") && t.params().getBool("task_screen_only", false)) {
                 tip.append("\n\n§e§nItems can ONLY be submitted via a Task Screen!");
             }
-            if (t.maxProgress() > 1 && !t.type().equals("item")) { // item tasks already have it, in green under the name
+            if (t.maxProgress() > 1 && !t.type().equals("item") && !t.type().equals("fluid")) { // item and fluid tasks already have it, in green under the name
                 tip.append("\n§7").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
             }
             final String taskId = t.id();
@@ -2726,9 +2877,9 @@ final class QuestBookWidget extends Widget {
         }
         if (isEditing()) {
             int i = q.tasks.size();
-            int inRow = Math.min(perRow, taskSlots - (i / perRow) * perRow);
-            int sx = r.x() + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % perRow) * 20;
-            int sy = y + 18 + (i / perRow) * 21;
+            int inRow = Math.min(taskPer, taskSlots - (i / taskPer) * taskPer);
+            int sx = r.x() + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % taskPer) * 20;
+            int sy = y + 18 + (i / taskPer) * 21;
             Rect plus = new Rect(sx, sy, 18, 18);
             if (!Ui.icon(Ui.LIBRARY, "textures/icons/add.png", sx + 1, sy + 1, 16, 16, 0xFFFFFFFF)) {
                 iconBox(fr, "+", sx, sy);
@@ -2739,9 +2890,9 @@ final class QuestBookWidget extends Widget {
         }
         for (int i = 0; i < q.rewards.size(); i++) {
             Reward rw = q.rewards.get(i);
-            int inRow = Math.min(perRow, rewardSlots - (i / perRow) * perRow);
-            int sx = mid + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % perRow) * 20;
-            int sy = y + 18 + (i / perRow) * 21;
+            int inRow = Math.min(rewardPer, rewardSlots - (i / rewardPer) * rewardPer);
+            int sx = mid + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % rewardPer) * 20;
+            int sy = y + 18 + (i / rewardPer) * 21;
             boolean claimed = me != null && p.isClaimed(rw.id(), me);
             boolean ready = me != null && engine.canClaim(p, me, rw);
             slotHover(sx, sy);
@@ -2776,9 +2927,9 @@ final class QuestBookWidget extends Widget {
         }
         if (isEditing()) {
             int i = q.rewards.size();
-            int inRow = Math.min(perRow, rewardSlots - (i / perRow) * perRow);
-            int sx = mid + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % perRow) * 20;
-            int sy = y + 18 + (i / perRow) * 21;
+            int inRow = Math.min(rewardPer, rewardSlots - (i / rewardPer) * rewardPer);
+            int sx = mid + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % rewardPer) * 20;
+            int sy = y + 18 + (i / rewardPer) * 21;
             Rect plus = new Rect(sx, sy, 18, 18);
             if (!Ui.icon(Ui.LIBRARY, "textures/icons/add.png", sx + 1, sy + 1, 16, 16, 0xFFFFFFFF)) {
                 iconBox(fr, "+", sx, sy);
@@ -2814,8 +2965,9 @@ final class QuestBookWidget extends Widget {
                 pages = lay.pages();
                 descPage = Math.max(0, Math.min(pages - 1, descPage));
                 final QuestBook shownBook = book;
-                DescriptionView.draw(fr, lay, r.x() + 7, y, lastMouseX, lastMouseY, (box, click) ->
-                        addHit(new Rect(box[0], box[1], box[2], box[3]), () -> onLink(shownBook, click), click.value()));
+                DescriptionView.draw(fr, lay, r.x() + 7, y, lastMouseX, lastMouseY, (box, click, hover) ->
+                        addHit(new Rect(box[0], box[1], box[2], box[3]), click == null ? () -> { } : () -> onLink(shownBook, click),
+                                !hover.isEmpty() ? hover : click.value()));
                 y += lay.height() + 2;
             }
             if (inlineOn("line", q)) {
@@ -3245,7 +3397,7 @@ final class QuestBookWidget extends Widget {
         boolean done = p != null && QuestRules.taskDone(p, t);
         int at = q.tasks.indexOf(t);
         List<MenuItem> items = new ArrayList<>();
-        items.add(menuHeader(RichText.stripCodes(QuestText.task(t))));
+        items.add(menuHeader(RichText.stripCodes(QuestText.taskTitle(t))));
         items.add(new MenuItem("Move Left", "", "lib:left", true, () -> {
             if (at > 0) {
                 send("move_task", args("id", t.id(), "by", -1));
@@ -3258,9 +3410,9 @@ final class QuestBookWidget extends Widget {
         }));
         if (t.type().equals("item")) {
             items.add(new MenuItem("Grab Copy of Item", "", "lib:add_gray", false, () -> grabCopy(q, t)));
-            items.add(new MenuItem("Use Task Icon as Quest Icon", "", "settings", false,
-                    () -> send("set_icon", args("kind", "quest", "id", q.id, "mode", "task", "task", t.id()))));
         }
+        items.add(new MenuItem("Use Task Icon as Quest Icon", "", "settings", false,
+                () -> send("set_icon", args("kind", "quest", "id", q.id, "mode", "task", "task", t.id()))));
         items.add(new MenuItem("Edit", "", "settings", false, () -> mc().displayGuiScreen(new TaskRewardScreen(mc().currentScreen, t, null))));
         items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickTask(q, t)));
         items.add(new MenuItem("Delete", "", "lib:remove", false, () -> send("remove_task", args("id", t.id()))));
@@ -3317,6 +3469,10 @@ final class QuestBookWidget extends Widget {
         }));
         items.add(new MenuItem("Edit", "", "settings", false, () -> mc().displayGuiScreen(new TaskRewardScreen(mc().currentScreen, null, rw))));
         items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickReward(rw)));
+        if (com.levviata.reflibquests.model.BookEditor.TABLE_REWARD_TYPES.contains(rw.type())) {
+            final String tableToEdit = com.levviata.reflibquests.io.Ids.tableId(rw.params());
+            items.add(new MenuItem("Edit Reward Table", "", "settings", false, () -> mc().displayGuiScreen(new RewardTablesScreen(mc().currentScreen, tableToEdit))));
+        }
         items.add(new MenuItem("Delete", "", "lib:remove", false, () -> send("remove_reward", args("id", rw.id()))));
         items.add(new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(rw.id())));
         menu = items;
@@ -3342,7 +3498,7 @@ final class QuestBookWidget extends Widget {
 
     private void quickTask(Quest q, Task t) {
         List<MenuItem> items = new ArrayList<>();
-        items.add(menuHeader(RichText.stripCodes(QuestText.task(t))));
+        items.add(menuHeader(RichText.stripCodes(QuestText.taskTitle(t))));
         boolean toastOff = t.params().getBool("disable_toast", false);
         items.add(new MenuItem("Disable Completion Toast", "", toastOff ? "lib:check" : "lib:check@dim", true,
                 () -> send("set_task_prop", args("id", t.id(), "key", "disable_toast", "value", String.valueOf(!toastOff)))));
@@ -3568,6 +3724,40 @@ final class QuestBookWidget extends Widget {
         return new MenuItem(label, "", icon, false, action);
     }
 
+    /**
+     * The small box FTB Quests 26.1.2 shows when an XP task or reward is created: a heading, the amount (selected, so
+     * typing replaces it) and a check mark and a cross. It opens where the mouse is; nothing is created on cancel.
+     */
+    private static void askNumber(String title, int initial, java.util.function.IntConsumer created) {
+        ScaledResolution res = new ScaledResolution(mc());
+        int px = Mouse.getX() / res.getScaleFactor();
+        int py = (mc().displayHeight - Mouse.getY()) / res.getScaleFactor();
+        mc().displayGuiScreen(new NamePrompt(mc().currentScreen, px + 7, py + 12, title, String.valueOf(initial), 9, text -> {
+            try {
+                int n = Integer.parseInt(text.trim());
+                if (n > 0) {
+                    created.accept(n);
+                }
+            } catch (NumberFormatException ignored) {
+                // not a number: nothing is created
+            }
+        }));
+    }
+
+    /** FTB Quests opens an item picker when an item task or reward is made; the book screen is shown again once an item is chosen. */
+    private static void pickItem(java.util.function.Consumer<ItemStack> chosen) {
+        mc().displayGuiScreen(new ItemPickerScreen(mc().currentScreen, chosen));
+    }
+
+    /** What the server needs to know about a picked item: its registry name and variant. */
+    private static DataNode.Compound itemSpec(ItemStack stack) {
+        DataNode.Compound spec = DataNode.Compound.empty().with("id", String.valueOf(stack.getItem().getRegistryName()));
+        if (stack.getMetadata() != 0) {
+            spec = spec.with("damage", stack.getMetadata());
+        }
+        return spec;
+    }
+
     private static MenuItem typeOff(String label, String icon) {
         return new MenuItem(label, "", icon + "@off", false, () -> { });
     }
@@ -3575,37 +3765,42 @@ final class QuestBookWidget extends Widget {
     /** FTB's "Select Task Type" list, in its order. Types without support yet are listed greyed out. */
     private static MenuItem[] taskTypeMenu(String owner) {
         return new MenuItem[] {
-            typeItem("Item", "item:diamond", () -> send("add_task", args("id", owner, "type", "item"))),
+            typeItem("Item", "item:diamond", () -> mc().displayGuiScreen(new ItemPickerScreen(mc().currentScreen, true,
+                    (stack, n) -> send("add_task", args("id", owner, "type", "item", "item", itemSpec(stack), "count", n))))),
             typeItem("Custom", "lib:color_hsb", () -> send("add_task", args("id", owner, "type", "custom"))),
-            typeItem("XP Levels", "item:experience_bottle", () -> send("add_task", args("id", owner, "type", "xp", "params", args("value", 5, "points", false)))),
+            typeItem("XP Levels", "item:experience_bottle", () -> askNumber("XP Levels", 1,
+                    n -> send("add_task", args("id", owner, "type", "xp", "params", args("value", n, "points", false))))),
             typeItem("Visit Dimension", "item:ender_eye", () -> send("add_task", args("id", owner, "type", "dimension", "params", args("dimension", "minecraft:the_nether")))),
-            typeOff("Stat", "item:iron_sword"),
-            typeItem("Kill Entity", "item:diamond_sword", () -> send("add_task", args("id", owner, "type", "kill", "params", args("entity", "minecraft:zombie", "value", 10)))),
+            typeItem("Stat", "item:iron_sword", () -> send("add_task", args("id", owner, "type", "stat", "params", args("stat", "minecraft:mob_kills", "value", 1)))), // FTB's defaults: Mob Kills, 1
+            typeItem("Kill Entity", "item:diamond_sword", () -> send("add_task", args("id", owner, "type", "kill", "params", args("entity", "minecraft:zombie", "value", 100)))),
             typeItem("Location", "item:stone_pressure_plate", () -> send("add_task", args("id", owner, "type", "location"))),
             typeItem("Checkmark", "check_gray", () -> send("add_task", args("id", owner, "type", "checkmark"))),
             typeItem("Advancement", "item:wheat", () -> send("add_task", args("id", owner, "type", "advancement", "params", args("advancement", "minecraft:story/root")))),
             typeItem("Observation", "item:painting", () -> send("add_task", args("id", owner, "type", "observation", "params", args("observation_type", "block", "to_observe", "minecraft:stone", "timer", 0)))),
             typeItem("Visit Biome", "item:sapling", () -> send("add_task", args("id", owner, "type", "biome", "params", args("biome", "minecraft:plains")))),
             typeItem("Find Structure", "item:paper", () -> send("add_task", args("id", owner, "type", "structure", "params", args("structure", "minecraft:village")))),
-            typeOff("Stage", "lib:controller"),
-            typeOff("Fluid", "item:bucket"),
-            typeOff("Interaction", "item:diamond_pickaxe"),
-            typeOff("Forge Energy", "item:redstone_block"),
+            typeItem("Stage", "lib:controller", () -> send("add_task", args("id", owner, "type", "gamestage"))),
+            typeItem("Fluid", "item:bucket", () -> send("add_task", args("id", owner, "type", "fluid", "params", args("fluid", DataNode.Compound.empty().with("fluid", "minecraft:water").with("amount", 1000))))), // FTB's default: 1000 mB of water
+            typeItem("Interaction", "item:diamond_pickaxe", () -> send("add_task", args("id", owner, "type", "interaction"))),
+            typeItem("Forge Energy", "item:redstone_block", () -> askNumber("Forge Energy", 1,
+                    n -> send("add_task", args("id", owner, "type", "forge_energy", "params", args("value", n))))),
         };
     }
 
     /** FTB's "Select Reward Type" list, in its order. Table rewards ask which table to use. */
     private MenuItem[] rewardTypeMenu(String owner) {
         return new MenuItem[] {
-            typeItem("Item", "item:diamond", () -> send("add_reward", args("id", owner, "type", "item"))),
+            typeItem("Item", "item:diamond", () -> pickItem(stack -> send("add_reward", args("id", owner, "type", "item", "item", itemSpec(stack))))),
             typeItem("Choice Reward", "lib:color_rgb", () -> chooseTable(owner, "choice")),
             typeItem("All Table Reward", "lib:color_hsb", () -> chooseTable(owner, "all_table")),
             typeItem("Random Reward", "lib:dice", () -> chooseTable(owner, "random")),
             typeItem("Loot Reward", "lib:money_bag", () -> chooseTable(owner, "loot")),
             typeItem("Command", "item:command_block", () -> send("add_reward", args("id", owner, "type", "command", "params", args("command", "/say Hi, @p!")))),
             typeItem("Custom", "lib:color_hsb", () -> send("add_reward", args("id", owner, "type", "custom"))),
-            typeItem("XP", "item:experience_bottle", () -> send("add_reward", args("id", owner, "type", "xp", "params", args("xp", 10)))),
-            typeItem("XP Levels", "item:experience_bottle", () -> send("add_reward", args("id", owner, "type", "xp_levels", "params", args("xp_levels", 1)))),
+            typeItem("XP", "item:experience_bottle", () -> askNumber("XP", 100,
+                    n -> send("add_reward", args("id", owner, "type", "xp", "params", args("xp", n))))),
+            typeItem("XP Levels", "item:experience_bottle", () -> askNumber("XP Levels", 5,
+                    n -> send("add_reward", args("id", owner, "type", "xp_levels", "params", args("xp_levels", n))))),
             typeItem("Advancement", "item:wheat", () -> send("add_reward", args("id", owner, "type", "advancement", "params", args("advancement", "minecraft:story/root")))),
             typeItem("Toast", "item:sign", () -> send("add_reward", args("id", owner, "type", "toast", "params", args("description", "Well done!")))),
             typeOff("Stage", "lib:controller"),
@@ -4290,7 +4485,9 @@ final class QuestBookWidget extends Widget {
         }
         Chapter chapter = currentChapter(book);
         if (chapter != null && mapRect().contains(mouseX, mouseY)) {
-            viewFor(chapter, mapRect()).zoomAt(mouseX, mouseY, delta > 0 ? 1.15 : 1 / 1.15);
+            ViewTransform zv = viewFor(chapter, mapRect());
+            zv.zoomAt(mouseX, mouseY, delta > 0 ? 1.15 : 1 / 1.15);
+            sharedZoom = zv.zoom();
             return true;
         }
         return false;
@@ -4590,6 +4787,10 @@ final class QuestBookWidget extends Widget {
         }
         if (movingQuest != null && keyCode == Keyboard.KEY_ESCAPE) {
             endQuestMove(false);
+            return true;
+        }
+        if (keyCode == Keyboard.KEY_ESCAPE && detailOpen() && inlineKind.isEmpty() && !searching) {
+            selectedQuest = ""; // FTB Quests 26.1.2: Esc closes the open quest window first and leaves the book open
             return true;
         }
         if (isEditing() && inlineKind.isEmpty() && movingQuest == null && !searching && GuiScreen.isCtrlKeyDown()

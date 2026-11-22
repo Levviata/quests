@@ -86,14 +86,25 @@ public final class Definitions {
             }
         }
 
+        /** The amount an item task asks for: FTB Quests 26.1.2 nests it in {@code item: {id, count}}, older files put it beside it. */
+        public static long itemCount(DataNode.Compound params) {
+            if (params.has("count")) {
+                return Math.max(1, params.getLong("count", 1));
+            }
+            return params.get("item") instanceof DataNode.Compound spec ? Math.max(1, spec.getLong("count", 1)) : 1;
+        }
+
         public long maxProgress() {
             switch (type) {
                 case "item":
-                    return Math.max(1, params.getLong("count", 1));
+                    return itemCount(params);
+                case "fluid":
+                    return params.get("fluid") instanceof DataNode.Compound f ? Math.max(1, f.getLong("amount", 1000)) : 1000;
                 case "xp":
                 case "kill":
                 case "stat":
                 case "energy":
+                case "forge_energy":
                     return Math.max(1, params.getLong("value", 1));
                 default:
                     return 1;

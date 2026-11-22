@@ -111,6 +111,28 @@ public class ReflibQuestsMod {
     }
 
     @SubscribeEvent
+    public void onRightClickBlock(net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock event) {
+        QuestServer qs = QuestServer.get();
+        if (qs != null && event.getHand() == net.minecraft.util.EnumHand.MAIN_HAND && event.getEntityPlayer() instanceof EntityPlayerMP) {
+            net.minecraft.util.ResourceLocation key = event.getWorld().getBlockState(event.getPos()).getBlock().getRegistryName();
+            if (key != null) {
+                qs.tracker().onInteract((EntityPlayerMP) event.getEntityPlayer(), false, key.toString());
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onEntityInteract(net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract event) {
+        QuestServer qs = QuestServer.get();
+        if (qs != null && event.getHand() == net.minecraft.util.EnumHand.MAIN_HAND && event.getEntityPlayer() instanceof EntityPlayerMP) {
+            net.minecraft.util.ResourceLocation key = net.minecraft.entity.EntityList.getKey(event.getTarget());
+            if (key != null) {
+                qs.tracker().onInteract((EntityPlayerMP) event.getEntityPlayer(), true, key.toString());
+            }
+        }
+    }
+
+    @SubscribeEvent
     public void onAdvancement(AdvancementEvent event) {
         QuestServer qs = QuestServer.get();
         if (qs != null && event.getEntityPlayer() instanceof EntityPlayerMP) {

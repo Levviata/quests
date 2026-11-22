@@ -39,11 +39,19 @@ public final class BookEditor {
     public static final long MAX_VALUE = 1_000_000_000L;
 
     /** Task types the editor may add. */
-    public static final Set<String> TASK_TYPES = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom", "biome", "structure", "observation");
+    public static final Set<String> TASK_TYPES = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom", "biome", "structure", "observation", "stat", "fluid",
+            "gamestage", "interaction", "forge_energy");
+    /** FTB's Interaction types. */
+    public static final List<String> INTERACTION_TYPES = List.of("block", "block_tag", "block_state", "entity_type", "entity_type_tag");
     /** Reward types the editor may add. */
     public static final Set<String> REWARD_TYPES = Set.of("item", "xp", "xp_levels", "command", "toast", "advancement", "custom");
     /** Reward types that draw from a reward table (given as {@code table_id}). */
     public static final Set<String> TABLE_REWARD_TYPES = Set.of("choice", "random", "loot", "all_table");
+    /** The statistics a stat task can name (the ones this game keeps; names as FTB Quests 26.1.2 writes them, without {@code minecraft:}). */
+    public static final List<String> STATS = List.of("mob_kills", "player_kills", "deaths", "jump", "damage_dealt", "damage_taken",
+            "play_one_minute", "time_since_death", "walk_one_cm", "sprint_one_cm", "crouch_one_cm", "swim_one_cm", "fall_one_cm",
+            "climb_one_cm", "fly_one_cm", "boat_one_cm", "horse_one_cm", "minecart_one_cm", "pig_one_cm", "animals_bred",
+            "fish_caught", "talked_to_villager", "traded_with_villager", "leave_game", "drop");
     public static final Set<String> SHAPES = Set.of("", "circle", "square", "diamond", "hexagon", "octagon", "pentagon", "heart", "gear", "rsquare", "none");
     public static final Set<String> FLAGS = Set.of("optional", "invisible", "repeatable", "sequential", "hide_details", "hide_deps_visible", "hide_deps_complete");
 
@@ -165,6 +173,36 @@ public final class BookEditor {
             }
             c.icon = icon;
             return Result.OK;
+        }
+        if (kind.equals("task")) {
+            Quest q = book.questOfTask(id);
+            if (q == null) {
+                return Result.NOT_FOUND;
+            }
+            for (int i = 0; i < q.tasks.size(); i++) {
+                Task t = q.tasks.get(i);
+                if (t.id().equals(id)) {
+                    q.tasks.set(i, new Task(t.id(), t.type(), icon.entries().isEmpty() ? t.params().without("icon") : t.params().with("icon", icon)));
+                    book.reindex();
+                    return Result.OK;
+                }
+            }
+            return Result.NOT_FOUND;
+        }
+        if (kind.equals("reward")) {
+            for (Chapter c : book.chapters()) {
+                for (Quest q : c.quests) {
+                    for (int i = 0; i < q.rewards.size(); i++) {
+                        Reward r = q.rewards.get(i);
+                        if (r.id().equals(id)) {
+                            q.rewards.set(i, new Reward(r.id(), r.type(), icon.entries().isEmpty() ? r.params().without("icon") : r.params().with("icon", icon)));
+                            book.reindex();
+                            return Result.OK;
+                        }
+                    }
+                }
+            }
+            return Result.NOT_FOUND;
         }
         return Result.INVALID;
     }
@@ -1229,7 +1267,18 @@ public final class BookEditor {
         if (type.equals("item") && !p.has("item")) {
             return null;
         }
-        if ((type.equals("xp") || type.equals("kill")) && !p.has("value")) {
+        if (type.equals("gamestage") && !p.has("stage")) {
+            p = p.with("stage", "myStage"); // FTB's default
+        }
+        if (type.equals("interaction")) {
+            if (!p.has("to_interact")) {
+                p = p.with("to_interact", "minecraft:air");
+            }
+            if (!p.has("interaction_type")) {
+                p = p.with("interaction_type", "block");
+            }
+        }
+        if ((type.equals("xp") || type.equals("kill") || type.equals("stat") || type.equals("forge_energy")) && !p.has("value")) {
             p = p.with("value", 1);
         }
         String id = newId();
@@ -1294,7 +1343,40 @@ public final class BookEditor {
                     q.icon = DataNode.Compound.empty().with("id", s.value());
                     return Result.OK;
                 }
-                return Result.INVALID;
+                // the other task types show a picture of their own; the quest takes the same item (FTB lists this entry for every task)
+                DataNode.Compound own = t.params().getCompound("icon");
+                if (!own.entries().isEmpty()) {
+                    q.icon = own;
+                    return Result.OK;
+                }
+                String id;
+                switch (t.type()) {
+                    case "xp" -> id = "minecraft:experience_bottle";
+                    case "dimension" -> id = "minecraft:ender_eye";
+                    case "stat" -> id = "minecraft:iron_sword";
+                    case "location" -> id = "minecraft:compass";
+                    case "advancement" -> id = t.params().getString("advancement", "").endsWith("/root") ? "minecraft:grass" : "minecraft:wheat";
+                    case "biome" -> id = "minecraft:sapling";
+                    case "structure" -> id = "minecraft:paper";
+                    case "fluid" -> id = "minecraft:bucket";
+                    case "gamestage" -> id = "minecraft:lever";
+                    case "interaction" -> id = "minecraft:diamond_pickaxe";
+                    case "forge_energy" -> id = "minecraft:redstone_block";
+                    case "kill" -> {
+                        String entity = t.params().getString("entity", "");
+                        if (entity.isEmpty()) {
+                            return Result.INVALID;
+                        }
+                        q.icon = DataNode.Compound.empty().with("id", "minecraft:spawn_egg").with("tag", DataNode.Compound.empty()
+                                .with("EntityTag", DataNode.Compound.empty().with("id", entity.contains(":") ? entity : "minecraft:" + entity)));
+                        return Result.OK;
+                    }
+                    default -> {
+                        return Result.INVALID; // checkmark, custom and observation have no item to take
+                    }
+                }
+                q.icon = DataNode.Compound.empty().with("id", id);
+                return Result.OK;
             }
         }
         return Result.NOT_FOUND;
@@ -1321,7 +1403,7 @@ public final class BookEditor {
             if (!t.id().equals(taskId)) {
                 continue;
             }
-            String key = t.type().equals("item") ? "count" : List.of("xp", "kill", "stat", "energy").contains(t.type()) ? "value" : null;
+            String key = t.type().equals("item") ? "count" : List.of("xp", "kill", "stat", "energy", "forge_energy").contains(t.type()) ? "value" : null;
             if (key == null || value < 1 || value > MAX_VALUE) {
                 return Result.INVALID;
             }
@@ -1343,11 +1425,13 @@ public final class BookEditor {
             return null;
         }
         if (tableType) {
-            String tid = params.getString("table_id", "");
+            String tid = com.levviata.reflibquests.io.Ids.tableId(params);
             if (!book.tables().containsKey(tid)) {
                 return null;
             }
-            params = DataNode.Compound.empty().with("table_id", tid);
+            // written the way FTB Quests 26.1.2 writes it: the id as a number, and left out of "claim all"
+            DataNode tableRef = tid.matches("[0-9A-F]{1,16}") ? new DataNode.Lng(Long.parseUnsignedLong(tid, 16)) : new DataNode.Str(tid);
+            params = DataNode.Compound.empty().with("table_id", tableRef).with("exclude_from_claim_all", true);
         }
         String id = newId();
         q.rewards.add(new Reward(id, type, params));
@@ -1404,6 +1488,154 @@ public final class BookEditor {
             DataNode.Compound p = t.params();
             switch (key) {
                 case "title" -> p = withText(p, "title", value, 200);
+                case "tags" -> {
+                                    List<DataNode> tagList = new ArrayList<>();
+                                    for (String part : value.split(",")) {
+                                        String tg = part.strip();
+                                        if (!tg.isEmpty()) {
+                                            if (tg.length() > 40) {
+                                                return Result.INVALID;
+                                            }
+                                            tagList.add(new DataNode.Str(tg));
+                                        }
+                                    }
+                                    if (tagList.size() > 20) {
+                                        return Result.INVALID;
+                                    }
+                                    p = tagList.isEmpty() ? p.without("tags") : p.with("tags", new DataNode.Lst(tagList));
+                                }
+                case "item" -> {
+                    // an item picked for an item task: "name" or "name|damage"
+                    if (!t.type().equals("item")) {
+                        return Result.INVALID;
+                    }
+                    String[] parts = value.strip().split("[|]");
+                    net.minecraft.util.ResourceLocation rl = parts[0].contains(":") ? new net.minecraft.util.ResourceLocation(parts[0]) : null;
+                    if (rl == null || !net.minecraftforge.fml.common.registry.ForgeRegistries.ITEMS.containsKey(rl)) {
+                        return Result.INVALID;
+                    }
+                    DataNode.Compound spec = DataNode.Compound.empty().with("id", parts[0]);
+                    if (parts.length > 1) {
+                        try {
+                            int damage = Integer.parseInt(parts[1]);
+                            if (damage > 0 && damage < 32767) {
+                                spec = spec.with("damage", damage);
+                            }
+                        } catch (NumberFormatException ex) {
+                            return Result.INVALID;
+                        }
+                    }
+                    p = p.with("item", spec);
+                }
+                case "fluid", "fluid_amount" -> {
+                    if (!t.type().equals("fluid")) {
+                        return Result.INVALID;
+                    }
+                    DataNode.Compound f = p.get("fluid") instanceof DataNode.Compound fc ? fc : DataNode.Compound.empty().with("fluid", "minecraft:water").with("amount", 1000);
+                    if (key.equals("fluid")) {
+                        String name = value.strip();
+                        String bare = name.startsWith("minecraft:") ? name.substring("minecraft:".length()) : name;
+                        if (!net.minecraftforge.fluids.FluidRegistry.isFluidRegistered(bare)) {
+                            return Result.INVALID;
+                        }
+                        f = f.with("fluid", name.contains(":") ? name : "minecraft:" + name);
+                    } else {
+                        long amount;
+                        try {
+                            amount = Long.parseLong(value.strip());
+                        } catch (NumberFormatException ex) {
+                            return Result.INVALID;
+                        }
+                        if (amount < 1 || amount > 1_000_000_000L) {
+                            return Result.INVALID;
+                        }
+                        f = f.with("amount", (int) amount);
+                    }
+                    p = p.with("fluid", f);
+                }
+                case "stat" -> {
+                    String path = value.contains(":") ? value.substring(value.indexOf(':') + 1) : value;
+                    if (!t.type().equals("stat") || !STATS.contains(path)) {
+                        return Result.INVALID;
+                    }
+                    p = p.with(key, "minecraft:" + path);
+                }
+                case "stage" -> {
+                    String v = value.strip();
+                    if (!t.type().equals("gamestage") || v.isEmpty() || v.length() > 100) {
+                        return Result.INVALID;
+                    }
+                    p = p.with(key, v);
+                }
+                case "team_stage" -> {
+                    if (!t.type().equals("gamestage") || !value.equals("true") && !value.equals("false")) {
+                        return Result.INVALID;
+                    }
+                    p = value.equals("true") ? p.with(key, true) : p.without(key);
+                }
+                case "to_interact" -> {
+                    String v = value.strip();
+                    if (!t.type().equals("interaction") || v.isEmpty() || v.length() > 200) {
+                        return Result.INVALID;
+                    }
+                    p = p.with(key, v);
+                }
+                case "interaction_type" -> {
+                    if (!t.type().equals("interaction") || !INTERACTION_TYPES.contains(value)) {
+                        return Result.INVALID;
+                    }
+                    p = p.with(key, value);
+                }
+                case "criterion" -> {
+                    if (!t.type().equals("advancement") || value.length() > 200) {
+                        return Result.INVALID;
+                    }
+                    p = value.strip().isEmpty() ? p.without(key) : p.with(key, value.strip());
+                }
+                case "timer" -> {
+                    int ticks;
+                    try {
+                        ticks = Integer.parseInt(value.strip());
+                    } catch (NumberFormatException ex) {
+                        return Result.INVALID;
+                    }
+                    if (!t.type().equals("observation") || ticks < 0 || ticks > 1_000_000) {
+                        return Result.INVALID;
+                    }
+                    p = p.with(key, ticks);
+                }
+                case "observation_type" -> {
+                    if (!t.type().equals("observation") || !List.of("block", "entity").contains(value)) {
+                        return Result.INVALID;
+                    }
+                    p = p.with(key, value);
+                }
+                case "dimension" -> {
+                    if (!t.type().equals("location") || !value.strip().matches("[a-z0-9_.-]+:[a-z0-9_./-]+|-?[0-9]+")) {
+                        return Result.INVALID;
+                    }
+                    p = p.with(key, value.strip());
+                }
+                case "ignore_dimension" -> {
+                    if (!t.type().equals("location") || !value.equals("true") && !value.equals("false")) {
+                        return Result.INVALID;
+                    }
+                    p = value.equals("true") ? p.with(key, true) : p.without(key);
+                }
+                case "custom_name", "entityTypeTag", "nbt_filter" -> {
+                    if (!t.type().equals("kill") || value.length() > 300) {
+                        return Result.INVALID;
+                    }
+                    String v = value.strip();
+                    if (key.equals("nbt_filter") && !v.isEmpty()) {
+                        try {
+                            net.minecraft.nbt.JsonToNBT.getTagFromJson(v);
+                        } catch (net.minecraft.nbt.NBTException ex) {
+                            return Result.INVALID;
+                        }
+                    }
+                    p = v.isEmpty() ? p.without(key) : p.with(key, v);
+                }
                 case "optional_task" -> {
                     if (!value.equals("true") && !value.equals("false")) {
                         return Result.INVALID;
@@ -1494,6 +1726,22 @@ public final class BookEditor {
                     DataNode.Compound p = r.params();
                     switch (key) {
                         case "title" -> p = withText(p, "title", value, 200);
+                        case "tags" -> {
+                                            List<DataNode> tagList = new ArrayList<>();
+                                            for (String part : value.split(",")) {
+                                                String tg = part.strip();
+                                                if (!tg.isEmpty()) {
+                                                    if (tg.length() > 40) {
+                                                        return Result.INVALID;
+                                                    }
+                                                    tagList.add(new DataNode.Str(tg));
+                                                }
+                                            }
+                                            if (tagList.size() > 20) {
+                                                return Result.INVALID;
+                                            }
+                                            p = tagList.isEmpty() ? p.without("tags") : p.with("tags", new DataNode.Lst(tagList));
+                                        }
                         case "auto" -> {
                             if (!AUTO_CLAIM.contains(value)) {
                                 return Result.INVALID;
@@ -1535,6 +1783,24 @@ public final class BookEditor {
                                 return Result.INVALID;
                             }
                             p = value.equals("default") ? p.without(key) : p.with(key, value.equals("true"));
+                        }
+                        case "feedback_message" -> {
+                            if (!r.type().equals("command") || value.length() > 500) {
+                                return Result.INVALID;
+                            }
+                            p = value.strip().isEmpty() ? p.without(key) : p.with(key, value.strip());
+                        }
+                        case "random_bonus" -> {
+                            int bonus;
+                            try {
+                                bonus = Integer.parseInt(value.strip());
+                            } catch (NumberFormatException ex) {
+                                return Result.INVALID;
+                            }
+                            if (!r.type().equals("item") || bonus < 0 || bonus > 100_000) {
+                                return Result.INVALID;
+                            }
+                            p = bonus == 0 ? p.without(key) : p.with(key, bonus);
                         }
                         case "permission_level" -> {
                             if (!r.type().equals("command") || !value.matches("[0-4]")) {
@@ -1619,7 +1885,7 @@ public final class BookEditor {
         for (Chapter c : book.chapters()) {
             for (Quest q : c.quests) {
                 for (Reward r : q.rewards) {
-                    if (id.equalsIgnoreCase(r.params().getString("table_id", ""))) {
+                    if (id.equalsIgnoreCase(com.levviata.reflibquests.io.Ids.tableId(r.params()))) {
                         return Result.INVALID;
                     }
                 }

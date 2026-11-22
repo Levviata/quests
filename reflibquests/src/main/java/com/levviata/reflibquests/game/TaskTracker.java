@@ -73,6 +73,21 @@ public final class TaskTracker {
                 case "item":
                     pollItem(player, t, e);
                     break;
+                case "stat": {
+                    net.minecraft.stats.StatBase stat = statOf(t.params().getString("stat", ""));
+                    if (stat != null) {
+                        quests.setTaskProgress(player, t, Math.min(t.maxProgress(), player.getStatFile().readStat(stat)));
+                    }
+                    break;
+                }
+                case "gamestage": {
+                    // 1.12.2 has no game stages: the stage is a player tag, given with /tag <player> add <stage>
+                    String stage = t.params().getString("stage", "");
+                    if (!stage.isEmpty() && player.getTags().contains(stage)) {
+                        quests.setTaskProgress(player, t, 1);
+                    }
+                    break;
+                }
                 case "dimension": {
                     var id = Names.dimensionId(t.params().getString("dimension", ""));
                     if (id.isPresent() && player.dimension == id.getAsInt()) {
@@ -116,6 +131,106 @@ public final class TaskTracker {
                     break;
             }
         }
+    }
+
+    /**
+     * FTB Quests 26.1.2 names a statistic like {@code minecraft:mob_kills}; 1.12.2 knows the same counters under older
+     * ids. Only the statistics of the basic list are known; null for any other.
+     */
+    static net.minecraft.stats.StatBase statOf(String id) {
+        String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
+        String old;
+        switch (path) {
+            case "mob_kills": old = "stat.mobKills"; break;
+            case "player_kills": old = "stat.playerKills"; break;
+            case "deaths": old = "stat.deaths"; break;
+            case "jump": old = "stat.jump"; break;
+            case "damage_dealt": old = "stat.damageDealt"; break;
+            case "damage_taken": old = "stat.damageTaken"; break;
+            case "play_one_minute": case "play_time": old = "stat.playOneMinute"; break;
+            case "time_since_death": old = "stat.timeSinceDeath"; break;
+            case "walk_one_cm": old = "stat.walkOneCm"; break;
+            case "sprint_one_cm": old = "stat.sprintOneCm"; break;
+            case "crouch_one_cm": old = "stat.crouchOneCm"; break;
+            case "swim_one_cm": old = "stat.swimOneCm"; break;
+            case "fall_one_cm": old = "stat.fallOneCm"; break;
+            case "climb_one_cm": old = "stat.climbOneCm"; break;
+            case "fly_one_cm": old = "stat.flyOneCm"; break;
+            case "boat_one_cm": old = "stat.boatOneCm"; break;
+            case "horse_one_cm": old = "stat.horseOneCm"; break;
+            case "minecart_one_cm": old = "stat.minecartOneCm"; break;
+            case "pig_one_cm": old = "stat.pigOneCm"; break;
+            case "animals_bred": old = "stat.animalsBred"; break;
+            case "fish_caught": old = "stat.fishCaught"; break;
+            case "talked_to_villager": old = "stat.talkedToVillager"; break;
+            case "traded_with_villager": old = "stat.tradedWithVillager"; break;
+            case "leave_game": old = "stat.leaveGame"; break;
+            case "drop": old = "stat.drop"; break;
+            default: return null;
+        }
+        return net.minecraft.stats.StatList.getOneShotStat(old);
+    }
+
+    /** The fluid of a fluid task as 1.12.2 names it (no namespace for the vanilla ones: {@code water}). */
+    static String fluidNameOf(DataNode.Compound p) {
+        DataNode f = p.get("fluid");
+        String name = f instanceof DataNode.Compound c ? c.getString("fluid", "") : f instanceof DataNode.Str s ? s.value() : "";
+        return name.startsWith("minecraft:") ? name.substring("minecraft:".length()) : name;
+    }
+
+    /**
+     * Hand in fluid, the way FTB Quests for 1.12.2 does it: clicking the task empties the containers (buckets, tanks)
+     * the player carries into it, one container at a time, until the task has what it asks for. A container that
+     * holds more than is still needed gives up only the missing part.
+     */
+    private String submitFluid(EntityPlayerMP player, Task t) {
+        TeamProgress team = quests.progressOf(player);
+        Quest q = quests.book().questOfTask(t.id());
+        if (team.isCompleted(q.id) || QuestRules.taskDone(team, t)) {
+            return "Already done.";
+        }
+        if (!QuestRules.canProgress(quests.book(), team, q) || !QuestRules.dependenciesMet(quests.book(), team, q)) {
+            return "That quest is not available yet.";
+        }
+        String fluid = fluidNameOf(t.params());
+        long need = t.maxProgress() - team.taskProgress(t.id());
+        long taken = 0;
+        for (int i = 0; i < player.inventory.mainInventory.size() && taken < need; i++) {
+            while (taken < need) {
+                ItemStack stack = player.inventory.mainInventory.get(i);
+                if (stack.isEmpty()) {
+                    break;
+                }
+                ItemStack one = stack.copy();
+                one.setCount(1);
+                net.minecraftforge.fluids.capability.IFluidHandlerItem handler = net.minecraftforge.fluids.FluidUtil.getFluidHandler(one);
+                net.minecraftforge.fluids.FluidStack contained = handler == null ? null : net.minecraftforge.fluids.FluidUtil.getFluidContained(one);
+                if (contained == null || contained.getFluid() == null || !contained.getFluid().getName().equals(fluid)) {
+                    break;
+                }
+                net.minecraftforge.fluids.FluidStack drained = handler.drain((int) Math.min(contained.amount, need - taken), true);
+                if (drained == null || drained.amount <= 0) {
+                    break; // a container that only gives up all of its content at once and the task needs less
+                }
+                taken += drained.amount;
+                ItemStack result = handler.getContainer();
+                if (stack.getCount() == 1) {
+                    player.inventory.mainInventory.set(i, result);
+                } else {
+                    stack.shrink(1);
+                    if (!player.inventory.addItemStackToInventory(result)) {
+                        player.dropItem(result, false);
+                    }
+                    break; // the emptied one went elsewhere: look at the next slot
+                }
+            }
+        }
+        if (taken == 0) {
+            return "You do not carry a container with that fluid.";
+        }
+        quests.addTaskProgress(player, t, taken);
+        player.inventoryContainer.detectAndSendChanges();
+        return "Handed in " + taken + " mB.";
     }
 
     /**
@@ -220,6 +335,65 @@ public final class TaskTracker {
 
     // ------------------------------------------------------------------ events
 
+    /**
+     * A right click on a block ({@code block}) or entity ({@code entity}) with the registry name {@code name}.
+     * Types: block and block_state (the block's name; a state's {@code [...]} part is ignored) or entity_type. Tags
+     * cannot be evaluated here (1.12.2 has none), so they match nothing. {@code minecraft:air} in a block task matches
+     * any block, which is what FTB's default "Match" means for a fresh task.
+     */
+    public void onInteract(EntityPlayerMP player, boolean entity, String name) {
+        TeamProgress team = quests.progressOf(player);
+        for (Entry e : new ArrayList<>(entries)) {
+            if (!e.task().type().equals("interaction") || !open(team, e)) {
+                continue;
+            }
+            String type = e.task().params().getString("interaction_type", "block");
+            String match = e.task().params().getString("to_interact", "");
+            boolean wantsEntity = type.equals("entity_type");
+            if (wantsEntity != entity || !(wantsEntity || type.equals("block") || type.equals("block_state"))) {
+                continue;
+            }
+            int bracket = match.indexOf('[');
+            String wanted = bracket >= 0 ? match.substring(0, bracket) : match;
+            if (wanted.equals(name) || !entity && wanted.equals("minecraft:air")) {
+                quests.setTaskProgress(player, e.task(), 1);
+            }
+        }
+    }
+
+    /**
+     * Hand in Forge Energy: clicking the task drains the energy of the items the player carries (batteries and the
+     * like) into it, as the fluid task does with containers.
+     */
+    private String submitEnergy(EntityPlayerMP player, Task t) {
+        TeamProgress team = quests.progressOf(player);
+        Quest q = quests.book().questOfTask(t.id());
+        if (team.isCompleted(q.id) || QuestRules.taskDone(team, t)) {
+            return "Already done.";
+        }
+        if (!QuestRules.canProgress(quests.book(), team, q) || !QuestRules.dependenciesMet(quests.book(), team, q)) {
+            return "That quest is not available yet.";
+        }
+        long need = t.maxProgress() - team.taskProgress(t.id());
+        long taken = 0;
+        for (int i = 0; i < player.inventory.mainInventory.size() && taken < need; i++) {
+            ItemStack stack = player.inventory.mainInventory.get(i);
+            if (stack.getCount() != 1) {
+                continue; // a stack of several cannot be told apart from one charged item
+            }
+            net.minecraftforge.energy.IEnergyStorage storage = stack.getCapability(net.minecraftforge.energy.CapabilityEnergy.ENERGY, null);
+            if (storage != null && storage.canExtract()) {
+                taken += storage.extractEnergy((int) Math.min(Integer.MAX_VALUE, need - taken), false);
+            }
+        }
+        if (taken == 0) {
+            return "You do not carry an item with stored energy.";
+        }
+        quests.addTaskProgress(player, t, taken);
+        player.inventoryContainer.detectAndSendChanges();
+        return "Handed in " + taken + " FE.";
+    }
+
     public void onKill(EntityPlayerMP killer, EntityLivingBase victim) {
         ResourceLocation key = EntityList.getKey(victim);
         if (key == null) {
@@ -230,10 +404,28 @@ public final class TaskTracker {
             if (!e.task().type().equals("kill") || !open(team, e)) {
                 continue;
             }
-            String wanted = quests.idMap().entity(e.task().params().getString("entity", ""));
-            if (wanted.equals(key.toString())) {
-                quests.addTaskProgress(killer, e.task(), 1);
+            DataNode.Compound tp = e.task().params();
+            String entityId = tp.getString("entity", "");
+            // an entity type tag cannot be evaluated here (1.12.2 has none): with a tag and no entity nothing can match
+            if (entityId.isEmpty() ? true : !quests.idMap().entity(entityId).equals(key.toString())) {
+                continue;
             }
+            String name = tp.getString("custom_name", "");
+            if (!name.isEmpty() && !name.equals(victim.getCustomNameTag())) {
+                continue;
+            }
+            String filter = tp.getString("nbt_filter", "");
+            if (!filter.isEmpty()) {
+                try {
+                    net.minecraft.nbt.NBTTagCompound wantedNbt = net.minecraft.nbt.JsonToNBT.getTagFromJson(filter);
+                    if (!net.minecraft.nbt.NBTUtil.areNBTEquals(wantedNbt, victim.writeToNBT(new net.minecraft.nbt.NBTTagCompound()), true)) {
+                        continue;
+                    }
+                } catch (net.minecraft.nbt.NBTException ex) {
+                    continue; // a filter that does not parse matches nothing
+                }
+            }
+            quests.addTaskProgress(killer, e.task(), 1);
         }
     }
 
@@ -298,6 +490,12 @@ public final class TaskTracker {
         Task t = quests.book().task(taskId);
         if (t != null && t.type().equals("xp")) {
             return submitExperience(player, t);
+        }
+        if (t != null && t.type().equals("fluid")) {
+            return submitFluid(player, t);
+        }
+        if (t != null && t.type().equals("forge_energy")) {
+            return submitEnergy(player, t);
         }
         if (t == null || !t.type().equals("item")) {
             return "No item task '" + taskId + "'.";

@@ -556,6 +556,58 @@ class BookEditorTest {
     }
 
     @Test
+    void tasksAndRewardsTakeTagsAndAnIcon() {
+        Quest q = ed.createQuest(chapter.id, 0, 0);
+        String task = ed.addTask(q.id, "checkmark", DataNode.Compound.empty());
+        assertEquals(OK, ed.setTaskProp(task, "tags", "easy, daily"));
+        assertEquals(2, book.task(task).params().getList("tags").size());
+        assertEquals(OK, ed.setTaskProp(task, "tags", ""));
+        assertEquals(false, book.task(task).params().has("tags"), "no tags removes the key");
+        assertEquals(INVALID, ed.setTaskProp(task, "tags", "x".repeat(41)));
+        DataNode.Compound icon = DataNode.Compound.empty().with("id", "minecraft:diamond");
+        assertEquals(OK, ed.setIcon("task", task, icon));
+        assertEquals("minecraft:diamond", book.task(task).params().getCompound("icon").getString("id", ""));
+        assertEquals(OK, ed.setIcon("task", task, DataNode.Compound.empty()));
+        assertEquals(false, book.task(task).params().has("icon"));
+        assertEquals(NOT_FOUND, ed.setIcon("task", "nope", icon));
+        String kill = ed.addTask(q.id, "kill", DataNode.Compound.empty().with("entity", "minecraft:zombie"));
+        assertEquals(OK, ed.setTaskProp(kill, "custom_name", "Bob"));
+        assertEquals("Bob", book.task(kill).params().getString("custom_name", ""));
+        assertEquals(OK, ed.setTaskProp(kill, "entityTypeTag", "minecraft:boats"));
+        assertEquals(OK, ed.setTaskProp(kill, "custom_name", ""));
+        assertEquals(false, book.task(kill).params().has("custom_name"));
+        assertEquals(INVALID, ed.setTaskProp(task, "custom_name", "x"), "only kill tasks have them");
+        String stat = ed.addTask(q.id, "stat", DataNode.Compound.empty().with("stat", "minecraft:mob_kills"));
+        assertEquals(OK, ed.setTaskProp(stat, "stat", "minecraft:deaths"));
+        assertEquals("minecraft:deaths", book.task(stat).params().getString("stat", ""));
+        assertEquals(INVALID, ed.setTaskProp(stat, "stat", "minecraft:not_a_stat"));
+        String adv = ed.addTask(q.id, "advancement", DataNode.Compound.empty().with("advancement", "minecraft:story/root"));
+        assertEquals(OK, ed.setTaskProp(adv, "criterion", "crafting_table"));
+        assertEquals("crafting_table", book.task(adv).params().getString("criterion", ""));
+        assertEquals(INVALID, ed.setTaskProp(task, "criterion", "x"), "only advancement tasks");
+        String obs = ed.addTask(q.id, "observation", DataNode.Compound.empty().with("to_observe", "minecraft:stone"));
+        assertEquals(OK, ed.setTaskProp(obs, "timer", "40"));
+        assertEquals(INVALID, ed.setTaskProp(obs, "timer", "-1"));
+        assertEquals(OK, ed.setTaskProp(obs, "observation_type", "entity"));
+        assertEquals(INVALID, ed.setTaskProp(obs, "observation_type", "sky"));
+        String loc = ed.addTask(q.id, "location", DataNode.Compound.empty());
+        assertEquals(OK, ed.setTaskProp(loc, "dimension", "minecraft:the_nether"));
+        assertEquals(OK, ed.setTaskProp(loc, "ignore_dimension", "true"));
+        assertEquals(true, book.task(loc).params().getBool("ignore_dimension", false));
+        String reward = ed.addReward(q.id, "xp", DataNode.Compound.empty().with("xp", 5));
+        assertEquals(OK, ed.setRewardProp(reward, "tags", "boss"));
+        String cmd = ed.addReward(q.id, "command", DataNode.Compound.empty().with("command", "/say Hi, @p!"));
+        assertEquals(OK, ed.setRewardProp(cmd, "feedback_message", "hello"));
+        assertEquals(INVALID, ed.setRewardProp(reward, "feedback_message", "x"), "only command rewards");
+        DataNode.Compound dirt = DataNode.Compound.empty().with("item", DataNode.Compound.empty().with("id", "minecraft:dirt"));
+        String itemReward = ed.addReward(q.id, "item", dirt);
+        assertEquals(OK, ed.setRewardProp(itemReward, "random_bonus", "4"));
+        assertEquals(INVALID, ed.setRewardProp(itemReward, "random_bonus", "-1"));
+        assertEquals(INVALID, ed.setRewardProp(cmd, "random_bonus", "2"), "only item rewards");
+        assertEquals(OK, ed.setIcon("reward", reward, icon));
+    }
+
+    @Test
     void tasksAddRemoveAndSetValue() {
         Quest q = ed.createQuest(chapter.id, 0, 0);
         DataNode.Compound item = DataNode.Compound.empty().with("item", DataNode.Compound.empty().with("id", "minecraft:dirt")).with("count", 3);
@@ -573,11 +625,33 @@ class BookEditorTest {
         String check = q.tasks.get(0).id();
         assertEquals(INVALID, ed.setTaskValue(check, 5), "checkmarks have no amount");
         assertNull(ed.addTask(q.id, "item", DataNode.Compound.empty()), "an item task needs an item");
-        assertNull(ed.addTask(q.id, "fluid", DataNode.Compound.empty()), "only editor task types");
+        assertNull(ed.addTask(q.id, "energy", DataNode.Compound.empty()), "only editor task types");
         assertNull(ed.addTask("nope", "checkmark", DataNode.Compound.empty()));
         assertEquals(OK, ed.removeTask(taskId));
         assertNull(book.task(taskId));
         assertEquals(NOT_FOUND, ed.removeTask(taskId));
+    }
+
+    @Test
+    void stageInteractionAndEnergyTasks() {
+        Quest q = ed.createQuest(chapter.id, 0, 0);
+        String stage = ed.addTask(q.id, "gamestage", DataNode.Compound.empty());
+        assertEquals("myStage", book.task(stage).params().getString("stage", ""));
+        assertEquals(OK, ed.setTaskProp(stage, "stage", "gold"));
+        assertEquals(OK, ed.setTaskProp(stage, "team_stage", "true"));
+        assertTrue(book.task(stage).params().getBool("team_stage", false));
+        assertEquals(INVALID, ed.setTaskProp(stage, "stage", " "));
+        assertEquals(INVALID, ed.setTaskProp(stage, "to_interact", "minecraft:chest"), "only interaction tasks");
+        String act = ed.addTask(q.id, "interaction", DataNode.Compound.empty());
+        assertEquals("minecraft:air", book.task(act).params().getString("to_interact", ""));
+        assertEquals("block", book.task(act).params().getString("interaction_type", ""));
+        assertEquals(OK, ed.setTaskProp(act, "to_interact", "minecraft:chest"));
+        assertEquals(OK, ed.setTaskProp(act, "interaction_type", "entity_type"));
+        assertEquals(INVALID, ed.setTaskProp(act, "interaction_type", "wall"));
+        String fe = ed.addTask(q.id, "forge_energy", DataNode.Compound.empty().with("value", 500));
+        assertEquals(500, book.task(fe).maxProgress());
+        assertEquals(OK, ed.setTaskValue(fe, 750));
+        assertEquals(750, book.task(fe).maxProgress());
     }
 
     @Test
