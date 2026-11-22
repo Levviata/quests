@@ -397,6 +397,8 @@ final class ChangeLog {
                 return new Desc("Delete", "Image", "");
             case "set_image_props":
                 return new Desc("Modify", "Image", "");
+            case "create_image":
+                return new Desc("Create", "Image", "");
             case "create_link":
                 return new Desc("Create", "Quest Link", "");
             case "delete_link":

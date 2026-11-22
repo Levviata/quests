@@ -46,6 +46,7 @@ final class ChapterPropertiesScreen extends SettingsScreen {
         values.put("min_width", String.valueOf(c.minWindowWidth));
         values.put("shape", SHAPE_LABELS.get(Math.max(0, SHAPE_NAMES.indexOf(c.defaultQuestShape.equals("default") ? "" : c.defaultQuestShape))));
         values.put("quest_size", String.valueOf(c.defaultQuestSize));
+        values.put("preset", c.preset.isEmpty() ? "None" : c.preset);
         values.put("always_invisible", String.valueOf(c.alwaysInvisible));
         values.put("hide_dep_lines", String.valueOf(c.defaultHideDependencyLines));
         values.put("hide_details", String.valueOf(c.hideQuestDetailsUntilStartable));
@@ -76,6 +77,17 @@ final class ChapterPropertiesScreen extends SettingsScreen {
         number("Default Quest Size", false, () -> values.get("quest_size"),
                 v -> values.put("quest_size", String.valueOf(Math.max(0.0625, Math.min(64.0, Double.parseDouble(v))))))
                 .tip("The size new quests of this chapter start with.").defaults("1");
+        java.util.List<String> presetNames = new java.util.ArrayList<>();
+        presetNames.add("None");
+        com.levviata.reflibquests.model.QuestBook presetBook = com.levviata.reflibquests.client.ClientQuests.book();
+        if (presetBook != null) {
+            presetNames.addAll(presetBook.settings.getCompound("presets").entries().keySet());
+        }
+        if (!presetNames.contains(values.get("preset"))) {
+            presetNames.add(values.get("preset"));
+        }
+        choice("Default Visual Preset", presetNames, () -> values.get("preset"), v -> values.put("preset", v))
+                .tip("Visual preset to be used by all quests in this chapter which don't override it").defaults("None");
 
         section("Chapter → Visibility");
         flag("Always Invisible", "always_invisible", "The chapter is not shown in the chapter list.");

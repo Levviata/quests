@@ -371,6 +371,8 @@ final class QuestText {
                 return "Command: §c" + p.getString("command", ""); // the command in red, as FTB Quests shows it
             case "toast":
                 return "Toast";
+            case "gamestage":
+                return "Stage: " + p.getString("stage", "");
             case "advancement": {
                 String adv = p.getString("advancement", "");
                 String last = adv.contains("/") ? adv.substring(adv.lastIndexOf('/') + 1) : adv.contains(":") ? adv.substring(adv.indexOf(':') + 1) : adv;

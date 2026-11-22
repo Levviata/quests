@@ -903,6 +903,10 @@ final class RewardTablesScreen extends GuiScreen {
         private final String initialTitle;
         private final String initialEmpty;
         private final String initialLoot;
+        private String hideTip;
+        private String useTitle;
+        private final String initialHideTip;
+        private final String initialUseTitle;
 
         TableProperties(GuiScreen parent, RewardTable t) {
             super(parent, RichText.stripCodes(t.title.isEmpty() ? t.id : t.title));
@@ -913,12 +917,18 @@ final class RewardTablesScreen extends GuiScreen {
             this.initialTitle = title;
             this.initialEmpty = empty;
             this.initialLoot = loot;
+            this.hideTip = t.raw.getBool("hide_tooltip", false) ? "True" : "False";
+            this.useTitle = t.raw.getBool("use_title", false) ? "True" : "False";
+            this.initialHideTip = hideTip;
+            this.initialUseTitle = useTitle;
             section("Reward Table");
             text("Title", () -> title, v -> title = v).tip("The name shown when a quest uses this table.");
             number("Empty Weight", false, () -> empty, v -> empty = trim(Math.max(0, Float.parseFloat(v))))
                     .tip("How likely it is that nothing is given, in the same units as the entry weights.");
+            choice("Hide Tooltip", java.util.List.of("False", "True"), () -> hideTip, v -> hideTip = v).defaults("False");
             number("Loot Size", true, () -> loot, v -> loot = String.valueOf(Math.max(0, Math.min(100, Integer.parseInt(v)))))
                     .tip("How many things a loot crate of this table gives.");
+            choice("Use Title", java.util.List.of("False", "True"), () -> useTitle, v -> useTitle = v).defaults("False");
         }
 
         @Override
@@ -931,6 +941,12 @@ final class RewardTablesScreen extends GuiScreen {
             }
             if (!loot.equals(initialLoot)) {
                 TableEdits.record("set_table_prop", args("id", table.id).with("key", "loot_size").with("value", loot));
+            }
+            if (!hideTip.equals(initialHideTip)) {
+                TableEdits.record("set_table_prop", args("id", table.id).with("key", "hide_tooltip").with("value", hideTip.toLowerCase(java.util.Locale.ROOT)));
+            }
+            if (!useTitle.equals(initialUseTitle)) {
+                TableEdits.record("set_table_prop", args("id", table.id).with("key", "use_title").with("value", useTitle.toLowerCase(java.util.Locale.ROOT)));
             }
         }
 

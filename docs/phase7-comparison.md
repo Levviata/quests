@@ -176,3 +176,41 @@ In game (2026-11-22): a new quest with a Stage task ("myStage") and an Interacti
 
 ### Icon row says "None" (FTB) in task and reward windows (2026-11-22; compiled, not yet seen in game)
 While a task or reward has no icon of its own the Icon row shows "None" with the choices None and Held Item, as FTB does; once it has one, it shows "Unchanged" with Unchanged, Held Item and Clear. Chapter, quest and book windows still say "Unchanged".
+
+
+---
+## Session 2026-11-22 (second pass), first in-game checks of ours (driver `tools/window-driver`)
+Ours was launched from this worktree with the FTB showcase book plus the new `Quest Options` chapter (`tools/window-driver/shots/o*.png`).
+- **Preset, verified**: the test quest (preset `goal`, icon scale 1.5) draws as the preset's hexagon with the enlarged icon, as FTB does (`o4`). After setting Shape Circle and Size 3 through our own Properties window and accepting, the map still showed the hexagon (`o10`): the preset wins, as measured in FTB.
+- **Icon Scaling, Visual Preset, Guide Page, Max Completable Dependents rows exist** in our Quest Properties and show the values read from FTB's file (`o7`). Max Completable Dependents and the guide link behaviour not exercised in game.
+- **Differences found (to fix)**: (1) our row order was Shape, Icon Scaling, Visual Preset, Size, Z; FTB's is Icon Scaling, Min Opened Quest Window Width, Shape, Size, Visual Preset, X, Y (reordered now; compiled). (2) Ours has no Min Opened Quest Window Width, X or Y rows, no Tags/Description/Disable Completion Toast rows in the first section, and a Z Position row FTB lacks (original Reflib feature, kept). (3) FTB shows a `Click here to read more...` line in the quest window when `guide_page` is set; ours shows nothing (`o9`). (4) FTB's Edit menu lists shortcut keys [T][S][D][L][P][I][Q]; ours has none. (5) Our window title reads `Quest Properties: Options Test`, FTB `Options Test [Quest]`; ours has `-`/`+` section buttons and Undo/Redo where FTB has two arrow buttons. (6) Chapter panel opens only when the mouse is within about 12 px of the left edge; clicking the arrow tab at the edge did not open it.
+
+### Tags and Stage reward seen in ours (2026-11-22, relaunch with the refreshed FTB book)
+- Quest Properties shows the `Tags` row with `"showcase_tag"` and loads shape Circle, size 3, preset goal, icon scale 1.50 from FTB's file (`r5`).
+- The Stage reward from FTB's file shows in the quest window, its right-click menu is FTB's (`"Stage: rewardStage"`, Move Left, Move Right, Edit, Quick Edit Properties..., Delete, Copy ID; `r3`) and its Edit window has FTB's rows and values: Title, Icon, Tags, Auto-claim `Enabled, Invisible`, Disable Reward Screen Blur, Exclude from Claim All, Ignore reward blocking `True`, Per-Team Reward `False`, Remove `True`, Stage `"rewardStage"` (`r4`). Not exercised: claiming it.
+- **Found and fixed**: the Stage reward drew as a grey box with a `G`; FTB draws the controller. Now drawn with the controller icon (compiled, not seen again).
+- **Still different**: FTB greys out `Ignore reward blocking` on a Stage reward; ours keeps it editable. FTB shows an empty Tags list as `[]`, ours as `""`. FTB's quest window shows `Click here to read more...` for a set `guide_page`; ours shows nothing (what the click opens in FTB is not captured, so it is not faked).
+
+### Chapter presets seen in ours (2026-11-22, relaunch with the committed build, same FTB book)
+- A quest with no preset of its own (Shape Circle, Size 3 in its data) is drawn as the chapter's `normal` preset, a size-1 square, exactly as FTB draws it (`s1`).
+- Chapter Edit window: loads `Default Min Opened Quest Window Width 150`, `Default Quest Size 2`, `Default Visual Preset normal` from FTB's file, in FTB's row order (`s5`); chapter right-click menu has FTB's entries (`s4`).
+- Quest Quick Edit list is now FTB's list in FTB's order including `Visual Preset` (`s3`); our map window is small so the long menu overflows the top and bottom (header not visible), to check again maximized.
+- Not exercised: clicking Visual Preset in Quick Edit, changing the chapter preset in the window, and inherited-preset Resize rule (FTB's rule was measured with the quest's own preset set).
+
+### Chapter images seen in ours (2026-11-22, relaunch with commit cb046f6)
+- The FTB test image (`dev: true`, Run a Command, locked) is hidden in player mode and loads: "Only visible in Editing Mode" works.
+- Map right-click menu in edit mode: `New Quest`, `Image`. `Image` opens the painting list; choosing Kebab created the picture at the click point (log line `Create Image`, `u4`). Size 0.25 x 0.25 for a 1 x 1 block painting (rule blocks / 4).
+- Image right-click menu = FTB's (header `minecraft:kebab`, Edit, Move, Resize, Rotate, Copy ID, Delete; `u5`); image Edit window has FTB's rows (`u6`); Click Action cycles `No Action -> Open a URI` (`u7`).
+- With Open a URI + `https://example.com`, a left click on the image in player mode opens the game's "Are you sure you want to open the following website?" screen with Yes / Copy to Clipboard / No (`u10`); declined with No, nothing opened.
+- Differences: FTB's status line counts images (`Selected 0/2` with one quest and one image), ours counts quests only (`0/1`); FTB's picker is a texture grid with a preview, ours a list; FTB's map menu is the task-type list ending in Image.
+- Not exercised: Jump to a Quest, Show Recipes for Item (no JEI in the dev game?), Lock Position, undo of `create_image`.
+
+### More FTB captures (2026-11-22): description rendering, completion
+- FTB's quest window draws a description quest-link as underlined white text, left-aligned (`ct0`), with the guide-page line `Click here to read more...` (book icon) under it. Ours already underlines links; the guide line is still missing.
+- Quest right-click menu on an open (not completed) quest in FTB: Edit, Move, Quick Edit Properties..., Delete, Complete Instantly, Set as Autofocused Quest, Copy ID (`ct1c`; no Resize, since the test quest has a preset).
+- Complete Instantly asks `Complete this task instantly?` with the quest name under it and Yes / No (vanilla confirm screen); the wording says "task" for a quest, and ours uses the same wording (`QuestBookWidget` l.860). After Yes the quest has a green outline and a green tick top right (`ts2`). No toast was visible while the book stayed open (toasts in FTB probably show only once the book is closed; not captured).
+
+### Description editor seen in ours (2026-11-22, relaunch with commit ca3fd63; window maximized)
+- The quest-link description FTB saved loads and draws like FTB's (underlined white text, left aligned; `h4`). The guide-page line `Click here to read more...` is still missing.
+- Our editor's toolbar order matches FTB's: accept, (our undo/redo), B I U S, palette, link, Q, H, eraser, page break, image, `{}` (`h5`). The line holds FTB's exact JSON.
+- H: with a plain line `hover me` and the caret on it, the `Hovered tooltip` box opened (`h6`); `my tip` + Enter turned the line into `[ { "text": "hover me", "hover_event": {"value":{"translate":"my tip"},"action":"show_text"} } ]`, FTB's format (`h7`). Not exercised: the link and Q buttons writing the new spelling, hovering the result in the quest window.

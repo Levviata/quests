@@ -25,7 +25,10 @@ import com.levviata.reflibquests.model.Definitions.ChapterImage;
 final class ImagePropertiesScreen extends SettingsScreen {
 
     private static final List<String> ALIGN = List.of("Start", "Middle", "End");
-    private static final List<String> ACTIONS = List.of("No Action", "Open a URI");
+    private static final List<String> ACTIONS = List.of("No Action", "Open a URI", "Jump to a Quest", "Run a Command",
+            "Post Custom Event", "Show Recipes for Item", "Show a Docs Page");
+    /** FTB Quests 26.1.2 click action type ids, in the order of {@link #ACTIONS} (id of "run_command" read from FTB's saved file, the others from its lang file). */
+    private static final List<String> ACTION_IDS = List.of("", "open_uri", "open_quest", "run_command", "custom_event", "show_recipe", "show_docs");
     private static final String CLICK_DATA_TIP = "▪ Open URI: a http://, https:// or file:/// URL\n"
             + "▪ Jump to a Quest: a quest ID - use 'Copy Quest ID' context menu entry\n"
             + "▪ Run a Command: command to run on the server\n"
@@ -75,12 +78,14 @@ final class ImagePropertiesScreen extends SettingsScreen {
                     int n = v.isBlank() ? 0 : v.split(",").length;
                     return "[ " + n + " item" + (n == 1 ? "" : "s") + " ]";
                 }).plainText().tip("Tags separated by commas.").defaults("[ 0 items ]");
-        List<String> actions = values.get("click_type").isEmpty() || values.get("click_type").equals("open_uri")
-                ? ACTIONS : List.of("No Action", "Open a URI", values.get("click_type"));
+        List<String> actions = new java.util.ArrayList<>(ACTIONS);
+        if (!ACTION_IDS.contains(values.get("click_type"))) {
+            actions.add(values.get("click_type")); // a type from a newer version: kept as it is
+        }
         choice("Click Action", actions,
-                () -> values.get("click_type").isEmpty() ? "No Action" : values.get("click_type").equals("open_uri") ? "Open a URI" : values.get("click_type"),
-                v -> values.put("click_type", v.equals("No Action") ? "" : v.equals("Open a URI") ? "open_uri" : v))
-                .defaults("Open a URI").listing();
+                () -> ACTION_IDS.contains(values.get("click_type")) ? ACTIONS.get(ACTION_IDS.indexOf(values.get("click_type"))) : values.get("click_type"),
+                v -> values.put("click_type", ACTIONS.contains(v) ? ACTION_IDS.get(ACTIONS.indexOf(v)) : v))
+                .defaults("No Action").listing();
         text("Click Action Data", () -> values.get("click_data"), v -> values.put("click_data", v)).tip(CLICK_DATA_TIP).defaults("");
         text("Dependency", () -> values.get("dependency"), v -> values.put("dependency", v.strip())).plainText()
                 .info(() -> "ID: " + (values.get("dependency").isEmpty() ? "null" : values.get("dependency")));

@@ -55,6 +55,11 @@ final class QuestPropertiesScreen extends SettingsScreen {
         values.put("hide_dep_lines", tri(q.hideDependencyLines));
         values.put("hide_dependent_lines", tri(q.hideDependentLines));
         values.put("min_required_dependencies", String.valueOf(q.minRequiredDependencies));
+        values.put("tags", String.join(", ", q.tags));
+        values.put("max_completable_dependents", String.valueOf(q.maxCompletableDependents));
+        values.put("icon_scale", String.valueOf(q.iconScale));
+        values.put("guide_page", q.guidePage);
+        values.put("preset", q.preset.isEmpty() ? "None" : q.preset);
         values.put("optional", String.valueOf(q.optional));
         values.put("repeatable", tri(q.canRepeat));
         values.put("sequential", tri(q.requireSequentialTasks));
@@ -72,11 +77,25 @@ final class QuestPropertiesScreen extends SettingsScreen {
         choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
                 .tip("Held Item takes the item in your main hand. Clear goes back to the icon of the first task or reward.")
                 .defaults(ChapterPropertiesScreen.ICON_KEEP);
+        text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Comma separated labels, e.g. for styles.").defaults("");
         section("Quest → Appearance");
+        number("Icon Scaling", false, () -> values.get("icon_scale"), v -> values.put("icon_scale", String.valueOf(Math.max(0.0625, Math.min(16.0, Double.parseDouble(v))))))
+                .tip("Independent of the overall button size").defaults("1.00");
         choice("Shape", SHAPE_LABELS, () -> values.get("shape"), v -> values.put("shape", v))
                 .tip("How the quest is drawn on the map.").defaults("Default");
         number("Size", false, () -> values.get("size"), v -> values.put("size", String.valueOf(Math.max(0.0625, Math.min(64.0, Double.parseDouble(v))))))
                 .tip("Size of the quest on the map.").defaults("1.00");
+        List<String> presetNames = new ArrayList<>();
+        presetNames.add("None");
+        com.levviata.reflibquests.model.QuestBook presetBook = com.levviata.reflibquests.client.ClientQuests.book();
+        if (presetBook != null) {
+            presetNames.addAll(presetBook.settings.getCompound("presets").entries().keySet());
+        }
+        if (!presetNames.contains(values.get("preset"))) {
+            presetNames.add(values.get("preset")); // a preset the book no longer lists: keep it selectable
+        }
+        choice("Visual Preset", presetNames, () -> values.get("preset"), v -> values.put("preset", v))
+                .tip("Visual preset to be used by this quest").defaults("None");
         number("Z Position", false, () -> values.get("z"), v -> values.put("z", String.valueOf(Math.max(-1000.0, Math.min(1000.0, Double.parseDouble(v))))))
                 .tip("Quests with a higher Z are drawn over quests with a lower one. At the same Z the bigger quest is on top.").defaults("0");
         section("Quest → Visibility");
@@ -96,6 +115,8 @@ final class QuestPropertiesScreen extends SettingsScreen {
                 .tip("What has to be true of the quests this one needs.").defaults("All Completed");
         triState("Hide Dependency Lines", "hide_dep_lines", "Hide the lines to the quests this quest needs (they still show while it is hovered).");
         triState("Hide Dependent Lines", "hide_dependent_lines", "Hide the lines to the quests that need this quest (they still show while it is hovered).");
+        number("Max Completable Dependents", true, () -> values.get("max_completable_dependents"), v -> values.put("max_completable_dependents", String.valueOf(Math.max(0, Math.min(50, Integer.parseInt(v))))))
+                .tip("If > 0, at most this number of dependents can be completed, and uncompleted dependents become unavailable. Useful to have exclusive branches in a questline").defaults("0");
         number("Min Required Dependencies", true, () -> values.get("min_required_dependencies"), v -> values.put("min_required_dependencies", String.valueOf(Math.max(0, Math.min(50, Integer.parseInt(v))))))
                 .tip("If above 0, this many of the dependencies are enough.").defaults("0");
         section("Quest → Misc");
@@ -106,6 +127,7 @@ final class QuestPropertiesScreen extends SettingsScreen {
         number("Quest Repeat Cooldown", true, () -> values.get("repeat_cooldown"),
                 v -> values.put("repeat_cooldown", String.valueOf(Math.max(0L, Math.min(31_536_000L, Long.parseLong(v))))))
                 .tip("Only applies if 'Repeatable Quest' is true.\nThe delay in seconds between claiming all the rewards for the quest and being able to redo the quest's tasks.").defaults("0");
+        text("Guide Page", () -> values.get("guide_page"), v -> values.put("guide_page", v)).tip("Guide page to open when the 'Click here to read more...' link in the quest window is used").defaults("");
         triState("Disable JEI Recipe", "disable_jei", "Clicking an item of this quest does not show its recipes.");
         bool("Ignore reward blocking", () -> Boolean.parseBoolean(values.get("ignore_reward_blocking")),
                 v -> values.put("ignore_reward_blocking", String.valueOf(v)))

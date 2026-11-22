@@ -44,7 +44,7 @@ public final class BookEditor {
     /** FTB's Interaction types. */
     public static final List<String> INTERACTION_TYPES = List.of("block", "block_tag", "block_state", "entity_type", "entity_type_tag");
     /** Reward types the editor may add. */
-    public static final Set<String> REWARD_TYPES = Set.of("item", "xp", "xp_levels", "command", "toast", "advancement", "custom");
+    public static final Set<String> REWARD_TYPES = Set.of("item", "xp", "xp_levels", "command", "toast", "advancement", "custom", "gamestage");
     /** Reward types that draw from a reward table (given as {@code table_id}). */
     public static final Set<String> TABLE_REWARD_TYPES = Set.of("choice", "random", "loot", "all_table");
     /** The statistics a stat task can name (the ones this game keeps; names as FTB Quests 26.1.2 writes them, without {@code minecraft:}). */
@@ -276,6 +276,12 @@ public final class BookEditor {
                 }
                 c.defaultQuestSize = d;
             }
+            case "preset" -> {
+                if (value.length() > 64) {
+                    return Result.INVALID;
+                }
+                c.preset = value.equals("None") ? "" : value;
+            }
             case "min_width" -> {
                 int n;
                 try {
@@ -345,6 +351,18 @@ public final class BookEditor {
                     return Result.INVALID;
                 }
                 s = s.with(key, v.equals("true"));
+            }
+            case "reward_team_item", "reward_team_choice", "reward_team_all_table", "reward_team_random", "reward_team_loot",
+                    "reward_team_command", "reward_team_custom", "reward_team_xp", "reward_team_xp_levels",
+                    "reward_team_advancement", "reward_team_toast", "reward_team_gamestage", "reward_team_currency" -> {
+                // "Per-Team Reward by Type": a switch per reward type, kept like FTB 26.1.2 keeps it
+                if (!List.of("default", "true", "false").contains(v)) {
+                    return Result.INVALID;
+                }
+                String typeKey = "ftbquests:" + key.substring("reward_team_".length());
+                DataNode.Compound byType = s.getCompound("default_reward_team_by_type");
+                byType = v.equals("default") ? byType.without(typeKey) : byType.with(typeKey, v.equals("true"));
+                s = byType.entries().isEmpty() ? s.without("default_reward_team_by_type") : s.with("default_reward_team_by_type", byType);
             }
             case "default_autoclaim_rewards" -> {
                 if (!AUTO_CLAIM.contains(v) || v.equals("default")) {
@@ -844,6 +862,9 @@ public final class BookEditor {
             for (int i = 0; i < c.images.size(); i++) {
                 Definitions.ChapterImage img = c.images.get(i);
                 if (img.id().equals(imageId)) {
+                    if (img.raw().getBool("position_locked", false)) {
+                        return Result.INVALID; // "Lock Position": the image cannot be moved
+                    }
                     c.images.set(i, new Definitions.ChapterImage(img.id(), img.raw().with("x", Math.round(x * 4.0) / 4.0).with("y", Math.round(y * 4.0) / 4.0)));
                     return Result.OK;
                 }
@@ -1024,6 +1045,25 @@ public final class BookEditor {
         return Result.NOT_FOUND;
     }
 
+    /**
+     * A new picture on a chapter's map, written the way FTB Quests 26.1.2 writes one: x, y, width, height, rotation, image, id.
+     *
+     * @return the new image's id, or null if the chapter, the name or the place is not acceptable
+     */
+    public String createImage(String chapterId, String image, double x, double y, double width, double height) {
+        Chapter c = book.chapter(chapterId);
+        String name = clean(image, 200);
+        if (c == null || name == null || name.isEmpty() || !coordOk(x) || !coordOk(y) || c.images.size() >= 500
+                || !(width >= 0.0625 && width <= 200) || !(height >= 0.0625 && height <= 200)) {
+            return null;
+        }
+        String id = newId();
+        DataNode.Compound raw = DataNode.Compound.empty().with("x", snap(x)).with("y", snap(y))
+                .with("width", width).with("height", height).with("rotation", 0.0).with("image", name).with("id", id);
+        c.images.add(new Definitions.ChapterImage(id, raw));
+        return id;
+    }
+
     public Result deleteImage(String imageId) {
         for (Chapter c : book.chapters()) {
             if (c.images.removeIf(img -> img.id().equals(imageId))) {
@@ -1143,6 +1183,51 @@ public final class BookEditor {
                     q.minRequiredDependencies = n;
                     return Result.OK;
                 }
+                case "tags": {
+                    List<String> tags = new ArrayList<>();
+                    for (String part : v.split(",")) {
+                        String t = part.strip();
+                        if (!t.isEmpty()) {
+                            if (t.length() > 40) {
+                                return Result.INVALID;
+                            }
+                            tags.add(t);
+                        }
+                    }
+                    if (tags.size() > 20) {
+                        return Result.INVALID;
+                    }
+                    q.tags = tags;
+                    return Result.OK;
+                }
+                case "max_completable_dependents": {
+                    int n = Integer.parseInt(v);
+                    if (n < 0 || n > 50) {
+                        return Result.INVALID;
+                    }
+                    q.maxCompletableDependents = n;
+                    return Result.OK;
+                }
+                case "icon_scale": {
+                    double d = Double.parseDouble(v);
+                    if (!(d >= 0.0625 && d <= 16.0)) {
+                        return Result.INVALID;
+                    }
+                    q.iconScale = d;
+                    return Result.OK;
+                }
+                case "guide_page":
+                    if (v.length() > 200) {
+                        return Result.INVALID;
+                    }
+                    q.guidePage = v;
+                    return Result.OK;
+                case "preset":
+                    if (v.length() > 64) {
+                        return Result.INVALID;
+                    }
+                    q.preset = v.equals("None") ? "" : v;
+                    return Result.OK;
                 case "invisible_until_tasks": {
                     int n = Integer.parseInt(v);
                     if (n < 0 || n > 20) {
@@ -1423,6 +1508,18 @@ public final class BookEditor {
         }
         if (type.equals("item") && !params.has("item")) {
             return null;
+        }
+        if (type.equals("gamestage")) {
+            if (params.getString("stage", "").isBlank()) {
+                return null;
+            }
+            // as FTB 26.1.2 writes a new Stage reward: claimed by itself, whatever blocks rewards
+            if (!params.has("auto")) {
+                params = params.with("auto", "invisible");
+            }
+            if (!params.has("ignore_reward_blocking")) {
+                params = params.with("ignore_reward_blocking", true);
+            }
         }
         if (tableType) {
             String tid = com.levviata.reflibquests.io.Ids.tableId(params);
@@ -1778,6 +1875,19 @@ public final class BookEditor {
                             }
                             p = value.equals("true") ? p.with(key, true) : p.without(key);
                         }
+                        case "stage" -> {
+                            String v = value.strip();
+                            if (!r.type().equals("gamestage") || v.isEmpty() || v.length() > 100) {
+                                return Result.INVALID;
+                            }
+                            p = p.with("stage", v);
+                        }
+                        case "remove" -> {
+                            if (!r.type().equals("gamestage") || !value.equals("true") && !value.equals("false")) {
+                                return Result.INVALID;
+                            }
+                            p = value.equals("true") ? p.with("remove", true) : p.without("remove");
+                        }
                         case "team_reward" -> {
                             if (!List.of("default", "true", "false").contains(value)) {
                                 return Result.INVALID;
@@ -1909,6 +2019,13 @@ public final class BookEditor {
                         return Result.INVALID;
                     }
                     t.emptyWeight = v;
+                }
+                case "hide_tooltip", "use_title" -> {
+                    // FTB 26.1.2 table switches, kept in the table's own data like the file keeps them
+                    if (!value.equals("true") && !value.equals("false")) {
+                        return Result.INVALID;
+                    }
+                    t.raw = t.raw.with(key, value.equals("true"));
                 }
                 case "loot_size" -> {
                     int v = Integer.parseInt(value);

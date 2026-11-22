@@ -80,6 +80,22 @@ public final class TaskTracker {
                     }
                     break;
                 }
+                case "advancement": {
+                    // also detects an advancement earned before the quest was started; a named criterion is checked alone
+                    net.minecraft.server.MinecraftServer server = player.getServer();
+                    String id = t.params().getString("advancement", "");
+                    net.minecraft.advancements.Advancement adv = server == null || id.isEmpty() ? null
+                            : server.getAdvancementManager().getAdvancement(new ResourceLocation(id));
+                    if (adv != null) {
+                        net.minecraft.advancements.AdvancementProgress progress = player.getAdvancements().getProgress(adv);
+                        String criterion = t.params().getString("criterion", "");
+                        net.minecraft.advancements.CriterionProgress cp = criterion.isEmpty() ? null : progress.getCriterionProgress(criterion);
+                        if (criterion.isEmpty() ? progress.isDone() : cp != null && cp.isObtained()) {
+                            quests.setTaskProgress(player, t, 1);
+                        }
+                    }
+                    break;
+                }
                 case "gamestage": {
                     // 1.12.2 has no game stages: the stage is a player tag, given with /tag <player> add <stage>
                     String stage = t.params().getString("stage", "");
@@ -284,8 +300,8 @@ public final class TaskTracker {
     }
 
     private void pollItem(EntityPlayerMP player, Task t, Entry e) {
-        if (consumes(t)) {
-            return; // consumed only through submit
+        if (consumes(t) || t.params().getBool("only_from_crafting", false)) {
+            return; // consumed only through submit; "Only Detect From Crafting" counts only what is crafted (see onCraft)
         }
         List<ItemResolver.Resolved> set = ItemSet.resolveAll(t.params().get("item"), quests.idMap());
         if (set.isEmpty()) {
@@ -426,6 +442,21 @@ public final class TaskTracker {
                 }
             }
             quests.addTaskProgress(killer, e.task(), 1);
+        }
+    }
+
+    /** An item was crafted: counts for item tasks that have "Only Detect From Crafting". */
+    public void onCraft(EntityPlayerMP player, ItemStack crafted) {
+        TeamProgress team = quests.progressOf(player);
+        for (Entry e : new ArrayList<>(entries)) {
+            Task t = e.task();
+            if (!t.type().equals("item") || !t.params().getBool("only_from_crafting", false) || consumes(t) || !open(team, e)) {
+                continue;
+            }
+            List<ItemResolver.Resolved> set = ItemSet.resolveAll(t.params().get("item"), quests.idMap());
+            if (!set.isEmpty() && ItemSet.matches(set, crafted, exactNbt(t))) {
+                quests.addTaskProgress(player, t, crafted.getCount());
+            }
         }
     }
 

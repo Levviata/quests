@@ -54,7 +54,12 @@ public final class RewardGranter {
                 if (bonus > 0) {
                     count += RANDOM.nextInt(bonus + 1);
                 }
-                give(player, r.toStack(count));
+                ItemStack stack = r.toStack(count);
+                // "Only One": nothing is given while the player carries that item (FTB: "ignores NBT")
+                if (p.getBool("only_one", false) && carries(player, stack)) {
+                    return Result.GRANTED;
+                }
+                give(player, stack);
                 return Result.GRANTED;
             }
             case "xp":
@@ -83,6 +88,19 @@ public final class RewardGranter {
                     }
                 } else {
                     player.getAdvancements().grantCriterion(adv, criterion);
+                }
+                return Result.GRANTED;
+            }
+            case "gamestage": {
+                // 1.12.2 has no game stages: a stage is a player tag (the Stage task looks for the same tag); team stages are not kept
+                String stage = p.getString("stage", "");
+                if (stage.isEmpty()) {
+                    return Result.FAILED;
+                }
+                if (p.getBool("remove", false)) {
+                    player.removeTag(stage);
+                } else {
+                    player.addTag(stage);
                 }
                 return Result.GRANTED;
             }
@@ -137,6 +155,18 @@ public final class RewardGranter {
                 }
                 return grant(player, table.entries.get(choice).reward(), -1);
         }
+    }
+
+    private static boolean carries(EntityPlayerMP player, ItemStack wanted) {
+        for (java.util.List<ItemStack> inv : java.util.List.of(player.inventory.mainInventory, player.inventory.armorInventory,
+                player.inventory.offHandInventory)) {
+            for (ItemStack s : inv) {
+                if (!s.isEmpty() && s.getItem() == wanted.getItem() && s.getMetadata() == wanted.getMetadata()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static void give(EntityPlayerMP player, ItemStack stack) {
