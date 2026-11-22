@@ -2020,6 +2020,13 @@ public final class BookEditor {
                     }
                     t.emptyWeight = v;
                 }
+                case "hide_tooltip", "use_title" -> {
+                    // FTB 26.1.2 table switches, kept in the table's own data like the file keeps them
+                    if (!value.equals("true") && !value.equals("false")) {
+                        return Result.INVALID;
+                    }
+                    t.raw = t.raw.with(key, value.equals("true"));
+                }
                 case "loot_size" -> {
                     int v = Integer.parseInt(value);
                     if (v < 0 || v > 100) {

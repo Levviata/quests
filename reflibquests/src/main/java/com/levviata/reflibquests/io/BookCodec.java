@@ -77,8 +77,14 @@ public final class BookCodec {
         for (WeightedReward w : t.entries) {
             entries.add(writeReward(w.reward()).with("weight", (double) w.weight()));
         }
-        return DataNode.Compound.empty().with("id", t.id).with("title", t.title)
+        DataNode.Compound out = DataNode.Compound.empty().with("id", t.id).with("title", t.title)
                 .with("empty", (double) t.emptyWeight).with("loot", t.lootSize).with("entries", new DataNode.Lst(entries));
+        for (String flag : List.of("hide_tooltip", "use_title")) { // the table's own switches (FTB 26.1.2)
+            if (t.raw.has(flag)) {
+                out = out.with(flag, t.raw.getBool(flag, false));
+            }
+        }
+        return out;
     }
 
     public static RewardTable tableFrom(DataNode.Compound t) {
@@ -86,6 +92,11 @@ public final class BookCodec {
         table.title = t.getString("title", "");
         table.emptyWeight = (float) t.getDouble("empty", 0);
         table.lootSize = (int) t.getLong("loot", 0);
+        for (String flag : List.of("hide_tooltip", "use_title")) {
+            if (t.has(flag)) {
+                table.raw = table.raw.with(flag, t.getBool(flag, false));
+            }
+        }
         for (DataNode e : t.getList("entries")) {
             if (e instanceof DataNode.Compound ec) {
                 table.entries.add(new WeightedReward((float) ec.getDouble("weight", 1), readReward(ec)));
