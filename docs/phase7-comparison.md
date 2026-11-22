@@ -190,3 +190,9 @@ Ours was launched from this worktree with the FTB showcase book plus the new `Qu
 - The Stage reward from FTB's file shows in the quest window, its right-click menu is FTB's (`"Stage: rewardStage"`, Move Left, Move Right, Edit, Quick Edit Properties..., Delete, Copy ID; `r3`) and its Edit window has FTB's rows and values: Title, Icon, Tags, Auto-claim `Enabled, Invisible`, Disable Reward Screen Blur, Exclude from Claim All, Ignore reward blocking `True`, Per-Team Reward `False`, Remove `True`, Stage `"rewardStage"` (`r4`). Not exercised: claiming it.
 - **Found and fixed**: the Stage reward drew as a grey box with a `G`; FTB draws the controller. Now drawn with the controller icon (compiled, not seen again).
 - **Still different**: FTB greys out `Ignore reward blocking` on a Stage reward; ours keeps it editable. FTB shows an empty Tags list as `[]`, ours as `""`. FTB's quest window shows `Click here to read more...` for a set `guide_page`; ours shows nothing (what the click opens in FTB is not captured, so it is not faked).
+
+### Chapter presets seen in ours (2026-11-22, relaunch with the committed build, same FTB book)
+- A quest with no preset of its own (Shape Circle, Size 3 in its data) is drawn as the chapter's `normal` preset, a size-1 square, exactly as FTB draws it (`s1`).
+- Chapter Edit window: loads `Default Min Opened Quest Window Width 150`, `Default Quest Size 2`, `Default Visual Preset normal` from FTB's file, in FTB's row order (`s5`); chapter right-click menu has FTB's entries (`s4`).
+- Quest Quick Edit list is now FTB's list in FTB's order including `Visual Preset` (`s3`); our map window is small so the long menu overflows the top and bottom (header not visible), to check again maximized.
+- Not exercised: clicking Visual Preset in Quick Edit, changing the chapter preset in the window, and inherited-preset Resize rule (FTB's rule was measured with the quest's own preset set).
