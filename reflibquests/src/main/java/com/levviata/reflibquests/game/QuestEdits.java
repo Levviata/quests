@@ -87,6 +87,10 @@ final class QuestEdits {
                 return fail(ed.addLines(a.getString("id", ""), lines(a.getList("lines"))));
             case "move_image":
                 return fail(ed.moveImage(a.getString("id", ""), a.getDouble("x", 0), a.getDouble("y", 0)));
+            case "create_image":
+                return ed.createImage(a.getString("chapter", ""), a.getString("image", ""), a.getDouble("x", Double.NaN),
+                        a.getDouble("y", Double.NaN), a.getDouble("width", 1), a.getDouble("height", 1)) != null
+                        ? null : "Could not put that picture there.";
             case "delete_image":
                 return fail(ed.deleteImage(a.getString("id", "")));
             case "set_image_props":

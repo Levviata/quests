@@ -1033,6 +1033,25 @@ public final class BookEditor {
         return Result.NOT_FOUND;
     }
 
+    /**
+     * A new picture on a chapter's map, written the way FTB Quests 26.1.2 writes one: x, y, width, height, rotation, image, id.
+     *
+     * @return the new image's id, or null if the chapter, the name or the place is not acceptable
+     */
+    public String createImage(String chapterId, String image, double x, double y, double width, double height) {
+        Chapter c = book.chapter(chapterId);
+        String name = clean(image, 200);
+        if (c == null || name == null || name.isEmpty() || !coordOk(x) || !coordOk(y) || c.images.size() >= 500
+                || !(width >= 0.0625 && width <= 200) || !(height >= 0.0625 && height <= 200)) {
+            return null;
+        }
+        String id = newId();
+        DataNode.Compound raw = DataNode.Compound.empty().with("x", snap(x)).with("y", snap(y))
+                .with("width", width).with("height", height).with("rotation", 0.0).with("image", name).with("id", id);
+        c.images.add(new Definitions.ChapterImage(id, raw));
+        return id;
+    }
+
     public Result deleteImage(String imageId) {
         for (Chapter c : book.chapters()) {
             if (c.images.removeIf(img -> img.id().equals(imageId))) {

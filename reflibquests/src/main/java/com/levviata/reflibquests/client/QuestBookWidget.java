@@ -3989,6 +3989,54 @@ final class QuestBookWidget extends Widget {
         ghostY = Math.round(v.worldY(py) / GRID * 2.0) / 2.0;
     }
 
+    /**
+     * "Image" of the map menu (FTB Quests 26.1.2 ends its list with it): choose a picture, and it is put where the menu was
+     * opened. The list holds the painting names this game knows; "Other..." asks for any texture name.
+     */
+    private void pickImageAt(int mouseX, int mouseY) {
+        QuestBook book = ClientQuests.book();
+        Chapter chapter = book == null ? null : currentChapter(book);
+        if (chapter == null) {
+            return;
+        }
+        ViewTransform v = viewFor(chapter, mapRect());
+        final double wx = v.worldX(mouseX) / GRID;
+        final double wy = v.worldY(mouseY) / GRID;
+        final String chapterId = chapter.id;
+        List<ListPickerScreen.Option> options = new ArrayList<>();
+        for (net.minecraft.entity.item.EntityPainting.EnumArt art : net.minecraft.entity.item.EntityPainting.EnumArt.values()) {
+            options.add(new ListPickerScreen.Option(art.title + " [minecraft:" + art.title.toLowerCase(java.util.Locale.ROOT) + "]",
+                    "minecraft:" + art.title.toLowerCase(java.util.Locale.ROOT)));
+        }
+        options.add(new ListPickerScreen.Option("Other... (any texture name)", "::other"));
+        mc().displayGuiScreen(new ListPickerScreen(mc().currentScreen, "Image", options, chosen -> {
+            if (chosen.equals("::other")) {
+                ScaledResolution res = new ScaledResolution(mc());
+                int px = Mouse.getX() / res.getScaleFactor();
+                int py = (mc().displayHeight - Mouse.getY()) / res.getScaleFactor();
+                mc().displayGuiScreen(new NamePrompt(mc().currentScreen, px + 7, py + 12, "Image", "", 200, text -> {
+                    if (!text.isBlank()) {
+                        sendNewImage(chapterId, text.strip(), wx, wy);
+                    }
+                }));
+            } else {
+                sendNewImage(chapterId, chosen, wx, wy);
+            }
+        }));
+    }
+
+    /** The size a new picture starts with: a painting keeps its shape (blocks / 4, as FTB sized the 3 x 4 backyard 0.75 x 1), others are 1 x 1. */
+    private void sendNewImage(String chapterId, String image, double x, double y) {
+        double w = 1;
+        double h = 1;
+        net.minecraft.entity.item.EntityPainting.EnumArt art = paintingArt(image);
+        if (art != null) {
+            w = art.sizeX / 64.0;
+            h = art.sizeY / 64.0;
+        }
+        send("create_image", args("chapter", chapterId, "image", image, "x", x, "y", y, "width", w, "height", h));
+    }
+
     private void createQuestAt(int mouseX, int mouseY) {
         QuestBook book = ClientQuests.book();
         Chapter chapter = book == null ? null : currentChapter(book);
@@ -4371,7 +4419,8 @@ final class QuestBookWidget extends Widget {
                 } else if (hit == null) {
                     final int cx = mouseX;
                     final int cy = mouseY;
-                    openMenu(mouseX, mouseY, new MenuItem("New Quest", () -> createQuestAt(cx, cy)));
+                    openMenu(mouseX, mouseY, new MenuItem("New Quest", () -> createQuestAt(cx, cy)),
+                            new MenuItem("Image", "", "lib:art", false, () -> pickImageAt(cx, cy)));
                 } else if (linkIds.containsKey(hit)) {
                     linkMenu(hit);
                 } else {
