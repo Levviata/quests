@@ -183,6 +183,11 @@ final class SelectorScreen extends GuiScreen {
     }
 
     /** Opens with a fluid and its amount already chosen (the Fluid row of a fluid task). */
+    SelectorScreen preselectFluid(String fluidName, long amount, String nbt) {
+        selectedNbt = nbt == null ? "" : nbt;
+        return preselectFluid(fluidName, amount);
+    }
+
     SelectorScreen preselectFluid(String fluidName, long amount) {
         String bare = fluidName.startsWith("minecraft:") ? fluidName.substring("minecraft:".length()) : fluidName;
         ItemStack bucket = bucketOf(bare);

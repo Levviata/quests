@@ -1658,6 +1658,22 @@ public final class BookEditor {
                     }
                     p = p.with("item", spec);
                 }
+                case "fluid_nbt" -> {
+                    if (!t.type().equals("fluid")) {
+                        return Result.INVALID;
+                    }
+                    DataNode.Compound f = p.get("fluid") instanceof DataNode.Compound fc ? fc : DataNode.Compound.empty().with("fluid", "minecraft:water").with("amount", 1000);
+                    if (value.isBlank()) {
+                        f = f.without("nbt");
+                    } else {
+                        DataNode.Compound nbt = parseNbt(value.strip());
+                        if (nbt == null) {
+                            return Result.INVALID;
+                        }
+                        f = nbt.entries().isEmpty() ? f.without("nbt") : f.with("nbt", nbt);
+                    }
+                    p = p.with("fluid", f);
+                }
                 case "fluid", "fluid_amount" -> {
                     if (!t.type().equals("fluid")) {
                         return Result.INVALID;
@@ -1792,7 +1808,7 @@ public final class BookEditor {
                     p = value.equals("default") ? p.without(key) : p.with(key, value.equals("true"));
                 }
                 case "match_components" -> {
-                    if (!t.type().equals("item") || !List.of("default", "fuzzy", "exact").contains(value)) {
+                    if (!(t.type().equals("item") || t.type().equals("fluid")) || !List.of("default", "fuzzy", "exact").contains(value)) {
                         return Result.INVALID;
                     }
                     p = value.equals("default") ? p.without(key) : p.with(key, value);
