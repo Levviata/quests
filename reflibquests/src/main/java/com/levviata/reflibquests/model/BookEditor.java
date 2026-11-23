@@ -202,9 +202,34 @@ public final class BookEditor {
                     }
                 }
             }
+            for (RewardTable tbl : book.tables().values()) {
+                for (int ti = 0; ti < tbl.entries.size(); ti++) {
+                    Definitions.WeightedReward entry = tbl.entries.get(ti);
+                    if (entry.reward().id().equals(id)) {
+                        Reward r = entry.reward();
+                        tbl.entries.set(ti, new Definitions.WeightedReward(entry.weight(),
+                                new Reward(r.id(), r.type(), icon.entries().isEmpty() ? r.params().without("icon") : r.params().with("icon", icon))));
+                        return Result.OK;
+                    }
+                }
+            }
             return Result.NOT_FOUND;
         }
         return Result.INVALID;
+    }
+
+    /** SNBT text as data, or null when it is not valid NBT (or is absurdly long). */
+    public static DataNode.Compound parseNbt(String text) {
+        if (text == null || text.length() > 4000) {
+            return null;
+        }
+        try {
+            DataNode.Compound c = com.levviata.reflib.api.data.Snbt.parse(text);
+            net.minecraft.nbt.JsonToNBT.getTagFromJson(com.levviata.reflib.api.data.Snbt.printCompact(c)); // must be NBT the game can read
+            return c;
+        } catch (RuntimeException | net.minecraft.nbt.NBTException ex) {
+            return null;
+        }
     }
 
     /** Sets one chapter-wide property; keys match the Chapter Properties screen. */
@@ -638,7 +663,7 @@ public final class BookEditor {
         }
         Quest q = new Quest(newId());
         q.size = c.defaultQuestSize; // new quests start with the chapter's size
-        q.title = "New quest";
+        q.title = ""; // FTB Quests names a new quest after its first task or its item; the client does that for a quest without a title
         q.x = snap(x);
         q.y = snap(y);
         q.tasks.add(new Task(newId(), "checkmark", DataNode.Compound.empty()));
@@ -1606,7 +1631,7 @@ public final class BookEditor {
                     if (!t.type().equals("item")) {
                         return Result.INVALID;
                     }
-                    String[] parts = value.strip().split("[|]");
+                    String[] parts = value.strip().split("[|]", 3);
                     net.minecraft.util.ResourceLocation rl = parts[0].contains(":") ? new net.minecraft.util.ResourceLocation(parts[0]) : null;
                     if (rl == null || !net.minecraftforge.fml.common.registry.ForgeRegistries.ITEMS.containsKey(rl)) {
                         return Result.INVALID;
@@ -1620,6 +1645,15 @@ public final class BookEditor {
                             }
                         } catch (NumberFormatException ex) {
                             return Result.INVALID;
+                        }
+                    }
+                    if (parts.length > 2 && !parts[2].isBlank()) {
+                        DataNode.Compound nbt = parseNbt(parts[2]);
+                        if (nbt == null) {
+                            return Result.INVALID;
+                        }
+                        if (!nbt.entries().isEmpty()) {
+                            spec = spec.with("nbt", nbt);
                         }
                     }
                     p = p.with("item", spec);
@@ -1643,7 +1677,7 @@ public final class BookEditor {
                         } catch (NumberFormatException ex) {
                             return Result.INVALID;
                         }
-                        if (amount < 1 || amount > 1_000_000_000L) {
+                        if (amount < 1 || amount > Integer.MAX_VALUE) {
                             return Result.INVALID;
                         }
                         f = f.with("amount", (int) amount);
@@ -1813,8 +1847,39 @@ public final class BookEditor {
         if (key == null || value == null) {
             return Result.INVALID;
         }
+        // a reward inside a reward table is edited the same way, on a stand-in quest that holds only it
+        for (RewardTable tbl : book.tables().values()) {
+            for (int ti = 0; ti < tbl.entries.size(); ti++) {
+                Definitions.WeightedReward entry = tbl.entries.get(ti);
+                if (entry.reward().id().equals(rewardId)) {
+                    Quest stand = new Quest("stand-in");
+                    stand.rewards.add(entry.reward());
+                    Result res = setRewardPropIn(stand, rewardId, key, value);
+                    if (res == Result.OK) {
+                        tbl.entries.set(ti, new Definitions.WeightedReward(entry.weight(), stand.rewards.get(0)));
+                    }
+                    return res;
+                }
+            }
+        }
         for (Chapter c : book.chapters()) {
             for (Quest q : c.quests) {
+                Result res = setRewardPropIn(q, rewardId, key, value);
+                if (res != Result.NOT_FOUND) {
+                    return res;
+                }
+            }
+        }
+        return Result.NOT_FOUND;
+    }
+
+    private Result setRewardPropIn(Quest q, String rewardId, String key, String value) {
+        if (key == null || value == null) {
+            return Result.INVALID;
+        }
+
+        {
+            {
                 for (int i = 0; i < q.rewards.size(); i++) {
                     Reward r = q.rewards.get(i);
                     if (!r.id().equals(rewardId)) {
@@ -1822,6 +1887,31 @@ public final class BookEditor {
                     }
                     DataNode.Compound p = r.params();
                     switch (key) {
+                        case "item" -> {
+                            // the Item row of an item reward: "name", "name|damage" or "name|damage|nbt"
+                            if (!r.type().equals("item")) {
+                                return Result.INVALID;
+                            }
+                            String[] parts = value.strip().split("[|]", 3);
+                            net.minecraft.util.ResourceLocation rl = parts[0].contains(":") ? new net.minecraft.util.ResourceLocation(parts[0]) : null;
+                            if (rl == null || !net.minecraftforge.fml.common.registry.ForgeRegistries.ITEMS.containsKey(rl)) {
+                                return Result.INVALID;
+                            }
+                            DataNode.Compound spec = DataNode.Compound.empty().with("id", parts[0]);
+                            if (parts.length > 1 && parts[1].matches("[0-9]+") && Integer.parseInt(parts[1]) > 0 && Integer.parseInt(parts[1]) < 32767) {
+                                spec = spec.with("damage", Integer.parseInt(parts[1]));
+                            }
+                            if (parts.length > 2 && !parts[2].isBlank()) {
+                                DataNode.Compound nbt = parseNbt(parts[2]);
+                                if (nbt == null) {
+                                    return Result.INVALID;
+                                }
+                                if (!nbt.entries().isEmpty()) {
+                                    spec = spec.with("nbt", nbt);
+                                }
+                            }
+                            p = p.with("item", spec);
+                        }
                         case "title" -> p = withText(p, "title", value, 200);
                         case "tags" -> {
                                             List<DataNode> tagList = new ArrayList<>();
@@ -2033,6 +2123,97 @@ public final class BookEditor {
                         return Result.INVALID;
                     }
                     t.lootSize = v;
+                }
+                case "loot_enabled" -> {
+                    if (value.equals("true")) {
+                        if (!t.raw.has("loot_crate")) {
+                            t.raw = t.raw.with("loot_crate", DataNode.Compound.empty().with("string_id", t.id).with("color", 0xFFFFFF)
+                                    .with("drops", DataNode.Compound.empty().with("passive", 0).with("monster", 0).with("boss", 0)));
+                        }
+                    } else if (value.equals("false")) {
+                        t.raw = t.raw.without("loot_crate");
+                    } else {
+                        return Result.INVALID;
+                    }
+                }
+                case "tags" -> {
+                    List<DataNode> tagList = new ArrayList<>();
+                    for (String part : value.split(",")) {
+                        String tg = part.strip();
+                        if (!tg.isEmpty()) {
+                            if (tg.length() > 40 || tagList.size() >= 20) {
+                                return Result.INVALID;
+                            }
+                            tagList.add(new DataNode.Str(tg));
+                        }
+                    }
+                    t.raw = tagList.isEmpty() ? t.raw.without("tags") : t.raw.with("tags", new DataNode.Lst(tagList));
+                }
+                case "icon" -> {
+                    // "item:<id>|<damage>", "image:<picture id>" or "clear"
+                    if (value.equals("clear")) {
+                        t.raw = t.raw.without("icon");
+                    } else if (value.startsWith("image:") && value.length() < 206) {
+                        t.raw = t.raw.with("icon", DataNode.Compound.empty().with("image", value.substring(6)));
+                    } else if (value.startsWith("item:") && value.substring(5).split("[|]", 3)[0].matches("[a-z0-9_.-]+:[a-z0-9_./-]+")) {
+                        String[] parts = value.substring(5).split("[|]", 3);
+                        DataNode.Compound item = DataNode.Compound.empty().with("id", parts[0]);
+                        if (parts.length > 1 && parts[1].matches("[0-9]+") && Integer.parseInt(parts[1]) > 0) {
+                            item = item.with("damage", Integer.parseInt(parts[1]));
+                        }
+                        if (parts.length > 2 && !parts[2].isBlank()) {
+                            DataNode.Compound nbt = parseNbt(parts[2]);
+                            if (nbt == null) {
+                                return Result.INVALID;
+                            }
+                            if (!nbt.entries().isEmpty()) {
+                                item = item.with("nbt", nbt);
+                            }
+                        }
+                        t.raw = t.raw.with("icon", item);
+                    } else {
+                        return Result.INVALID;
+                    }
+                }
+                case "loot_string_id", "loot_item_name", "loot_color", "loot_glow", "loot_boss", "loot_monster", "loot_passive" -> {
+                    DataNode.Compound crate = t.raw.getCompound("loot_crate");
+                    DataNode.Compound drops = crate.getCompound("drops");
+                    switch (key) {
+                        case "loot_string_id" -> {
+                            if (value.length() > 60 || !value.matches("[a-z0-9_]*")) {
+                                return Result.INVALID;
+                            }
+                            crate = crate.with("string_id", value);
+                        }
+                        case "loot_item_name" -> {
+                            if (value.length() > 100) {
+                                return Result.INVALID;
+                            }
+                            crate = crate.with("item_name", value);
+                        }
+                        case "loot_color" -> {
+                            String hex = value.startsWith("#") ? value.substring(1) : value;
+                            if (!hex.matches("[0-9a-fA-F]{6}")) {
+                                return Result.INVALID;
+                            }
+                            crate = crate.with("color", Integer.parseInt(hex, 16));
+                        }
+                        case "loot_glow" -> {
+                            if (!value.equals("true") && !value.equals("false")) {
+                                return Result.INVALID;
+                            }
+                            crate = crate.with("glow", value.equals("true"));
+                        }
+                        default -> {
+                            int weight = Integer.parseInt(value);
+                            if (weight < 0 || weight > 1_000_000) {
+                                return Result.INVALID;
+                            }
+                            drops = drops.with(key.substring(5), weight);
+                            crate = crate.with("drops", drops);
+                        }
+                    }
+                    t.raw = t.raw.with("loot_crate", crate);
                 }
                 default -> {
                     return Result.INVALID;

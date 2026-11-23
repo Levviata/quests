@@ -74,9 +74,9 @@ final class QuestPropertiesScreen extends SettingsScreen {
         section("Quest");
         text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("The name of the quest. Formatting codes such as &6 work.");
         text("Subtitle", () -> values.get("subtitle"), v -> values.put("subtitle", v)).tip("A short line shown under the sections of the quest window.");
-        choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
-                .tip("Held Item takes the item in your main hand. Clear goes back to the icon of the first task or reward.")
-                .defaults(ChapterPropertiesScreen.ICON_KEEP);
+        IconPicker.decorate(choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
+                .tip("The icon of the quest. None goes back to the icon of the first task or reward.")
+                .defaults("None"), quest.icon);
         text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Comma separated labels, e.g. for styles.").defaults("");
         section("Quest → Appearance");
         number("Icon Scaling", false, () -> values.get("icon_scale"), v -> values.put("icon_scale", String.valueOf(Math.max(0.0625, Math.min(16.0, Double.parseDouble(v))))))
@@ -165,8 +165,10 @@ final class QuestPropertiesScreen extends SettingsScreen {
                 continue;
             }
             if (key.equals("icon")) {
-                TableEdits.send("set_icon", DataNode.Compound.empty().with("kind", "quest").with("id", quest.id)
-                        .with("mode", e.getValue().equals("Clear") ? "clear" : "held"));
+                DataNode.Compound iconEdit = IconPicker.edit("quest", quest.id, e.getValue());
+                if (iconEdit != null) {
+                    TableEdits.send("set_icon", iconEdit);
+                }
                 continue;
             }
             String v = e.getValue();

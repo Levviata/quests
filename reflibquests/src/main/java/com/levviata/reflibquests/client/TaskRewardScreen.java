@@ -80,8 +80,74 @@ final class TaskRewardScreen extends SettingsScreen {
         }
     }
 
+    /** A quest that is being made: nothing exists until Accept; Cancel (or leaving the window) makes nothing. */
+    record Draft(String chapter, double x, double y, DataNode.Compound taskArgs) {}
+
+    /** A reward that is being added to a reward table: the table gets it, with the edits made here, when Accept is pressed. */
+    record RewardDraft(String tableId, String entryId, String type, DataNode.Compound params) {}
+
+    private RewardDraft rewardDraft;
+
+    /** The options window of a reward type picked for a table; nothing is added on Cancel. */
+    static TaskRewardScreen forRewardDraft(GuiScreen parent, RewardDraft draft) {
+        TaskRewardScreen screen = new TaskRewardScreen(parent, null, new Reward(draft.entryId(), draft.type(), draft.params()), true);
+        screen.rewardDraft = draft;
+        return screen;
+    }
+
+    private Draft draft;
+    private final List<DataNode.Compound> draftEdits = new java.util.ArrayList<>();
+
+    /** The id the window's edits use for the task that does not exist yet; the server swaps in the real one. */
+    static final String DRAFT_TASK = "@task";
+
+    /** The window of the first task of a quest that is about to be created. */
+    static TaskRewardScreen forDraft(GuiScreen parent, Draft draft) {
+        DataNode.Compound a = draft.taskArgs();
+        DataNode.Compound params = a.getCompound("params");
+        if (a.getString("type", "").equals("item")) {
+            params = DataNode.Compound.empty().with("item", a.getCompound("item")).with("count", a.getInt("count", 1));
+        }
+        TaskRewardScreen screen = new TaskRewardScreen(parent, new Task(DRAFT_TASK, a.getString("type", ""), params), null);
+        screen.draft = draft;
+        return screen;
+    }
+
+    private void emit(String op, DataNode.Compound args) {
+        if (draft != null || rewardDraft != null) {
+            draftEdits.add(DataNode.Compound.empty().with("op", op).with("args", args));
+        } else {
+            TableEdits.send(op, args);
+        }
+    }
+
+    private boolean bigWindow;
+
+    @Override
+    protected float uiScale() {
+        return 1f; // back to the measured size; the window is made wide enough for its values instead
+    }
+
+    /** The window of a reward that already sits in a reward table. */
+    static TaskRewardScreen forTableEntry(GuiScreen parent, Reward reward) {
+        return new TaskRewardScreen(parent, null, reward, true);
+    }
+
+    /** Bold, with the colours of the reward's own text (FTB Quests 26.1.2 names a table entry's window that way). */
+    private static String boldTitle(String text) {
+        return "§l" + text.replaceAll("§([0-9a-fA-F])", "§$1§l");
+    }
+
     TaskRewardScreen(GuiScreen parent, @Nullable Task task, @Nullable Reward reward) {
-        super(parent, task != null ? "§n" + com.levviata.reflibquests.text.RichText.stripCodes(QuestText.taskTitle(task)) + "§r §9[Task]" : "§n" + com.levviata.reflibquests.text.RichText.stripCodes(QuestText.reward(reward)) + "§r §d[Reward]");
+        this(parent, task, reward, task == null && reward != null && ClientQuests.book() != null
+                && ClientQuests.book().tables().values().stream().anyMatch(t -> t.entries.stream().anyMatch(e -> e.reward().id().equals(reward.id()))));
+    }
+
+    TaskRewardScreen(GuiScreen parent, @Nullable Task task, @Nullable Reward reward, boolean tableEntry) {
+        super(parent, task != null ? "§n" + com.levviata.reflibquests.text.RichText.stripCodes(QuestText.taskTitle(task)) + "§r §9[Task]"
+                : tableEntry ? boldTitle(QuestText.reward(reward))
+                : "§n" + com.levviata.reflibquests.text.RichText.stripCodes(QuestText.reward(reward)) + "§r §d[Reward]");
+        this.bigWindow = tableEntry;
         this.task = task;
         this.reward = reward;
         DataNode.Compound p = task != null ? task.params() : reward.params();
@@ -126,10 +192,9 @@ final class TaskRewardScreen extends SettingsScreen {
         text("Title", () -> title, v -> title = v).tip("A name shown instead of the one made from what it is. Empty keeps the automatic name.");
         // FTB Quests shows "None" while nothing has been set; once there is an icon, "Unchanged" keeps it and "Clear" removes it
         boolean hasIcon = !p.getCompound("icon").entries().isEmpty();
-        List<String> iconOptions = hasIcon ? ChapterPropertiesScreen.ICON_CHOICES : List.of(ICON_NONE, "Held Item");
-        iconChoice = hasIcon ? ChapterPropertiesScreen.ICON_KEEP : ICON_NONE;
-        choice("Icon", iconOptions, () -> iconChoice, v -> iconChoice = v)
-                .tip("Held Item takes the item in your main hand. Clear goes back to the automatic icon.").defaults(iconChoice);
+        iconChoice = ChapterPropertiesScreen.ICON_KEEP;
+        IconPicker.decorate(choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> iconChoice, v -> iconChoice = v)
+                .tip("The icon. None goes back to the automatic icon.").defaults("None"), p.getCompound("icon"));
         text("Tags", () -> tags, v -> tags = v).tip("Words that mark it, separated by commas.");
         if (!amount.isEmpty()) {
             number(task != null && (task.type().equals("item") || task.type().equals("kill")) ? "Count" : task != null && task.type().equals("stat") ? "Value" : "Amount", true, () -> amount,
@@ -147,9 +212,16 @@ final class TaskRewardScreen extends SettingsScreen {
         if (tk != null) {
             target = p.getString(tk, "");
             initialTarget = target;
-            Entry targetRow = text(task.type().equals("kill") ? "Entity Type" : task.type().equals("dimension") ? "Dimension" : task.type().equals("biome") ? "Biome"
-                    : task.type().equals("structure") ? "Structure" : "Advancement", () -> target, v -> target = v)
-                    .tip("A registry name such as minecraft:plains.");
+            boolean dimensionTask = task.type().equals("dimension");
+            List<String> dimensions = new java.util.ArrayList<>(com.levviata.reflibquests.io.Names.dimensionNames());
+            if (dimensionTask && !target.isEmpty() && !dimensions.contains(target)) {
+                dimensions.add(target); // a value from a file stays selectable
+            }
+            Entry targetRow = dimensionTask ? choice("Dimension", dimensions, () -> target, v -> target = v)
+                    : text(task.type().equals("kill") ? "Entity Type" : task.type().equals("biome") ? "Biome"
+                    : task.type().equals("structure") ? "Structure" : "Advancement", () -> target, v -> target = v);
+            targetRow.tip(dimensionTask ? "The dimension that has to be visited. Click to go through every dimension this game has registered."
+                    : "A registry name such as minecraft:plains.");
             if (task.type().equals("kill")) {
                 // FTB Quests lists the entity types: a search box over "Zombie [minecraft:zombie]" rows
                 targetRow.pick = done -> {
@@ -173,13 +245,16 @@ final class TaskRewardScreen extends SettingsScreen {
         }
         if (task != null && task.type().equals("item") && p.get("item") instanceof DataNode.Compound itemSpec) {
             // FTB Quests 26.1.2 has an Item row that opens the item picker
-            extra.put("item", itemSpec.getString("id", "") + (itemSpec.getInt("damage", 0) > 0 ? "|" + itemSpec.getInt("damage", 0) : ""));
+            String nbtText = itemSpec.getCompound("nbt").entries().isEmpty() ? "" : "|" + com.levviata.reflib.api.data.Snbt.printCompact(itemSpec.getCompound("nbt"));
+            extra.put("item", itemSpec.getString("id", "") + (itemSpec.getInt("damage", 0) > 0 || !nbtText.isEmpty() ? "|" + itemSpec.getInt("damage", 0) : "") + nbtText);
             initialExtra.put("item", extra.get("item"));
             Entry itemRow = text("Item", () -> extra.get("item"), v -> extra.put("item", v)).tip("The item that has to be handed in or collected.");
             itemRow.plain = true;
             itemRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
-                    new ItemPickerScreen(net.minecraft.client.Minecraft.getMinecraft().currentScreen, stack ->
-                            done.accept(stack.getItem().getRegistryName() + (stack.getMetadata() > 0 ? "|" + stack.getMetadata() : ""))));
+                    SelectorScreen.items(net.minecraft.client.Minecraft.getMinecraft().currentScreen, stack ->
+                            done.accept(stack.getItem().getRegistryName() + (stack.getMetadata() > 0 || stack.hasTagCompound() ? "|" + stack.getMetadata() : "")
+                                    + (stack.hasTagCompound() && !stack.getTagCompound().isEmpty() ? "|" + stack.getTagCompound() : ""))
+                    ).preselectItem(stackOfRow(extra.get("item"))));
         }
         if (task != null && task.type().equals("fluid")) {
             // FTB Quests 26.1.2 shows one "Fluid" row ("1000mB Water Bucket"); here the fluid and its amount are two rows
@@ -195,9 +270,16 @@ final class TaskRewardScreen extends SettingsScreen {
             extra.put("fluid_amount", String.valueOf(famount));
             initialExtra.put("fluid", extra.get("fluid"));
             initialExtra.put("fluid_amount", extra.get("fluid_amount"));
-            choice("Fluid", names, () -> extra.get("fluid"), v -> extra.put("fluid", v)).tip("The fluid that has to be handed in.");
-            number("Fluid Amount (mB)", true, () -> extra.get("fluid_amount"), v -> extra.put("fluid_amount", String.valueOf(Math.max(1L, Long.parseLong(v)))))
-                    .tip("Millibuckets. A bucket holds 1000.");
+            // one row, as in FTB Quests: "1000mB Water Bucket"; clicking it opens the fluid selector, which has the amount box
+            Entry fluidRow = choice("Fluid", names, () -> extra.get("fluid"), v -> extra.put("fluid", v))
+                    .tip("The fluid that has to be handed in, and how many millibuckets (a bucket holds 1000).");
+            fluidRow.plain = true;
+            fluidRow.formatted(v -> SelectorScreen.fluidLabel(v, parseLong(extra.get("fluid_amount"), 1000)));
+            fluidRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
+                    SelectorScreen.fluids(net.minecraft.client.Minecraft.getMinecraft().currentScreen, true, (name, amount, nbt) -> {
+                        extra.put("fluid_amount", String.valueOf(Math.max(1L, Math.min(Integer.MAX_VALUE, amount))));
+                        done.accept("minecraft:" + name);
+                    }).preselectFluid(extra.get("fluid"), parseLong(extra.get("fluid_amount"), 1000)));
         }
         if (task != null && task.type().equals("stat")) {
             // FTB Quests 26.1.2 picks the statistic from a list: "Mob Kills" is minecraft:mob_kills
@@ -298,6 +380,18 @@ final class TaskRewardScreen extends SettingsScreen {
             }
         } else {
             String rt = reward.type();
+            if (rt.equals("item") && p.get("item") instanceof DataNode.Compound rewardItem) {
+                // FTB Quests 26.1.2: an item reward has an Item row that opens the item selector with the item already chosen
+                String rewardNbt = rewardItem.getCompound("nbt").entries().isEmpty() ? "" : "|" + com.levviata.reflib.api.data.Snbt.printCompact(rewardItem.getCompound("nbt"));
+                extra.put("item", rewardItem.getString("id", "") + (rewardItem.getInt("damage", 0) > 0 || !rewardNbt.isEmpty() ? "|" + rewardItem.getInt("damage", 0) : "") + rewardNbt);
+                Entry rewardItemRow = text("Item", () -> extra.get("item"), v -> extra.put("item", v)).tip("The item that is given.");
+                rewardItemRow.plain = true;
+                rewardItemRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
+                        SelectorScreen.items(net.minecraft.client.Minecraft.getMinecraft().currentScreen, stack ->
+                                done.accept(stack.getItem().getRegistryName() + (stack.getMetadata() > 0 || stack.hasTagCompound() ? "|" + stack.getMetadata() : "")
+                                        + (stack.hasTagCompound() && !stack.getTagCompound().isEmpty() ? "|" + stack.getTagCompound() : ""))
+                        ).preselectItem(stackOfRow(extra.get("item"))));
+            }
             if (rt.equals("item")) {
                 extra.put("random_bonus", String.valueOf(Math.max(0, p.getInt("random_bonus", 0))));
                 text("Random Bonus", () -> extra.get("random_bonus"), v -> extra.put("random_bonus", v))
@@ -354,6 +448,35 @@ final class TaskRewardScreen extends SettingsScreen {
             if (rt.equals("item")) {
                 flag("Only One", "only_one", List.of("False", "True"), yesNo(p, "only_one"), "If inventory has that item, doesn't give it. Ignores NBT.");
             }
+        }
+    }
+
+    /** The item of an Item row ("id", "id|damage" or "id|damage|nbt") as a stack, or an empty one. */
+    private static net.minecraft.item.ItemStack stackOfRow(String row) {
+        if (row == null || row.isBlank()) {
+            return net.minecraft.item.ItemStack.EMPTY;
+        }
+        String[] parts = row.split("[|]", 3);
+        net.minecraft.item.Item item = net.minecraft.item.Item.getByNameOrId(parts[0]);
+        if (item == null) {
+            return net.minecraft.item.ItemStack.EMPTY;
+        }
+        net.minecraft.item.ItemStack stack = new net.minecraft.item.ItemStack(item, 1, (int) parseLong(parts.length > 1 ? parts[1] : "0", 0));
+        if (parts.length > 2 && !parts[2].isBlank()) {
+            try {
+                stack.setTagCompound(net.minecraft.nbt.JsonToNBT.getTagFromJson(parts[2]));
+            } catch (net.minecraft.nbt.NBTException ex) {
+                // data that is not valid NBT is left off; the item itself is still selected
+            }
+        }
+        return stack;
+    }
+
+    private static long parseLong(String s, long fallback) {
+        try {
+            return Long.parseLong(s == null ? "" : s.trim());
+        } catch (NumberFormatException ex) {
+            return fallback;
         }
     }
 
@@ -430,17 +553,48 @@ final class TaskRewardScreen extends SettingsScreen {
     }
 
     private void change(String op, String id, String key, String value) {
-        TableEdits.send(op, DataNode.Compound.empty().with("id", id).with("key", key).with("value", value));
+        emit(op, DataNode.Compound.empty().with("id", id).with("key", key).with("value", value));
     }
 
     @Override
     protected void accepted() {
+        applyEdits();
+        if (rewardDraft != null) {
+            TableEdits.record("add_table_entry", DataNode.Compound.empty().with("id", rewardDraft.tableId()).with("weight", 1.0)
+                    .with("entry", rewardDraft.entryId()).with("type", rewardDraft.type()).with("params", rewardDraft.params()));
+            for (DataNode.Compound e : draftEdits) {
+                String op = e.getString("op", "");
+                if (op.equals("set_reward_prop")) {
+                    TableEdits.record(op, e.getCompound("args"));
+                } else {
+                    TableEdits.send(op, e.getCompound("args"));
+                }
+            }
+        }
+        if (draft != null) {
+            // a new quest takes the title of its first task (the one typed here, else the task's own name) and keeps it
+            String questTitle = null;
+            for (DataNode.Compound e : draftEdits) {
+                if (e.getString("op", "").equals("set_task_prop") && e.getCompound("args").getString("key", "").equals("title")) {
+                    questTitle = e.getCompound("args").getString("value", "");
+                }
+            }
+            if (questTitle == null || questTitle.isBlank()) {
+                questTitle = com.levviata.reflibquests.text.RichText.stripCodes(QuestText.taskTitle(task));
+            }
+            DataNode.Compound create = DataNode.Compound.empty().with("chapter", draft.chapter()).with("x", draft.x()).with("y", draft.y())
+                    .with("title", questTitle).with("task", draft.taskArgs()).with("edits", new DataNode.Lst(new java.util.ArrayList<DataNode>(draftEdits)));
+            TableEdits.send("create_quest", create);
+        }
+    }
+
+    private void applyEdits() {
         sendFlags();
         String kindName = task != null ? "task" : "reward";
         String ownId = task != null ? task.id() : reward.id();
-        if (!iconChoice.equals(ChapterPropertiesScreen.ICON_KEEP) && !iconChoice.equals(ICON_NONE)) {
-            TableEdits.send("set_icon", DataNode.Compound.empty().with("kind", kindName).with("id", ownId)
-                    .with("mode", iconChoice.equals("Clear") ? "clear" : "held"));
+        DataNode.Compound iconEdit = IconPicker.edit(kindName, ownId, iconChoice);
+        if (iconEdit != null) {
+            emit("set_icon", iconEdit);
         }
         if (!tags.equals(initialTags)) {
             change(task != null ? "set_task_prop" : "set_reward_prop", ownId, "tags", tags);
@@ -450,7 +604,7 @@ final class TaskRewardScreen extends SettingsScreen {
                 change("set_task_prop", task.id(), "title", title.strip());
             }
             if (!amount.isEmpty() && !amount.equals(initialAmount)) {
-                TableEdits.send("task_value", DataNode.Compound.empty().with("id", task.id()).with("value", Long.parseLong(amount)));
+                emit("task_value", DataNode.Compound.empty().with("id", task.id()).with("value", Long.parseLong(amount)));
             }
             if (!box.equals(initialBox)) {
                 change("set_task_prop", task.id(), "box", box.strip());

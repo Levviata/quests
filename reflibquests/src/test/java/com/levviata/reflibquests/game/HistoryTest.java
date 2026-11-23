@@ -93,8 +93,8 @@ class HistoryTest {
     void moveCanBeUndoneAndRedone() {
         edit("move_quest", args("id", a.id), () -> ed.moveQuest(a.id, 7, 8));
         assertEquals(1, history.undoCount());
-        assertEquals("Moved \"New quest\"", history.undoLabel());
-        assertEquals("Moved \"New quest\"", undo());
+        assertEquals("Moved a quest", history.undoLabel());
+        assertEquals("Moved a quest", undo());
         Quest back = book.quest(a.id);
         assertEquals(1.0, back.x);
         assertEquals(1.0, back.y);

@@ -501,7 +501,7 @@ class BookEditorTest {
         Quest q = ed.createQuest(chapter.id, 1.26, -2.74);
         assertEquals(1.5, q.x);
         assertEquals(-2.5, q.y);
-        assertEquals("New quest", q.title);
+        assertEquals("", q.title); // named after its first task by the client, as FTB Quests does
         assertEquals(1, q.tasks.size());
         assertEquals("checkmark", q.tasks.get(0).type());
         assertSame(q, book.quest(q.id));

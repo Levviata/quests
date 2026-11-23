@@ -32,7 +32,8 @@ final class DescriptionView {
     private static final int LINK_COLOR = 0x7FB2FF;
     private static final int TEXT_COLOR = 0xFFFFFF;
 
-    record Op(String text, int x, int y, int width, int color, Click click, boolean rainbow, String hover) {}
+    /** {@code owner} is the span the word came from: all words of one link light up together. */
+    record Op(String text, int x, int y, int width, int color, Click click, boolean rainbow, String hover, Object owner) {}
 
     /** Receives every span that reacts to the mouse: its screen box, its click (or null) and its hover text (or empty). */
     interface LinkSink {
@@ -99,7 +100,7 @@ final class DescriptionView {
                         ww = fr.getStringWidth(prefix + shown);
                     }
                     if (!shown.isEmpty()) {
-                        ops.add(new Op(prefix + shown, x, y, ww, color, span.click(), span.rainbow(), span.hover()));
+                        ops.add(new Op(prefix + shown, x, y, ww, color, span.click(), span.rainbow(), span.hover(), span));
                         x += ww;
                     }
                 }
@@ -118,9 +119,15 @@ final class DescriptionView {
         for (Img img : layout.images()) {
             drawImage(fr, img, x + img.x(), y + img.y());
         }
+        Object hoveredLink = null;
         for (Op op : layout.ops()) {
-            boolean glint = op.click() != null && mouseX >= x + op.x() && mouseX < x + op.x() + op.width()
-                    && mouseY >= y + op.y() && mouseY < y + op.y() + LINE;
+            if (op.click() != null && mouseX >= x + op.x() && mouseX < x + op.x() + op.width()
+                    && mouseY >= y + op.y() && mouseY < y + op.y() + LINE) {
+                hoveredLink = op.owner();
+            }
+        }
+        for (Op op : layout.ops()) {
+            boolean glint = op.click() != null && hoveredLink != null && op.owner() == hoveredLink;
             if (op.rainbow()) {
                 Ui.drawText(fr, com.levviata.reflibquests.text.RichText.RAINBOW_MARK + op.text(), x + op.x(), y + op.y(), 0xFFFFFFFF, Integer.MAX_VALUE);
             } else {

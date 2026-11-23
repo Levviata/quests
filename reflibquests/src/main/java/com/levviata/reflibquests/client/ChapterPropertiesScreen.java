@@ -62,8 +62,8 @@ final class ChapterPropertiesScreen extends SettingsScreen {
 
         section("Chapter");
         text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("The name of the chapter. Formatting codes such as &6 work.");
-        choice("Icon", ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
-                .tip("Held Item takes the item in your main hand. Clear lets the chapter show its quests' icons.").defaults(ICON_KEEP);
+        IconPicker.decorate(choice("Icon", ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
+                .tip("The icon of the chapter. None lets the chapter show its quests' icons.").defaults("None"), chapter.icon);
         text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Words that mark the chapter, separated by commas.");
         text("Subtitle", () -> values.get("subtitle"), v -> values.put("subtitle", v)).tip("Shown under the chapter name. Use \\n for a new line.");
         flag("Disable Completion Toast", "disable_toast", "No pop-up when a quest of this chapter is completed.");
@@ -124,8 +124,10 @@ final class ChapterPropertiesScreen extends SettingsScreen {
                 continue;
             }
             if (key.equals("icon")) {
-                TableEdits.send("set_icon", DataNode.Compound.empty().with("kind", "chapter").with("id", chapter.id)
-                        .with("mode", e.getValue().equals("Clear") ? "clear" : "held"));
+                DataNode.Compound iconEdit = IconPicker.edit("chapter", chapter.id, e.getValue());
+                if (iconEdit != null) {
+                    TableEdits.send("set_icon", iconEdit);
+                }
                 continue;
             }
             String v = e.getValue();

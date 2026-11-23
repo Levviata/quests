@@ -71,8 +71,8 @@ final class BookSettingsScreen extends SettingsScreen {
 
         section("Quest Book");
         text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("The name of the quest book. Formatting codes such as &6 work.");
-        choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
-                .tip("Held Item takes the item in your main hand.").defaults(ChapterPropertiesScreen.ICON_KEEP);
+        IconPicker.decorate(choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
+                .tip("The icon of the quest book.").defaults("None"), book.settings.getCompound("icon"));
         text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Words that mark the book, separated by commas.");
         unusedBool("Disable GUI", "disable_gui", "The quest book cannot be opened by players who cannot edit it.");
         unusedBool("Drop FTB Quests Book on Death", "drop_book_on_death", "Stored in the book; Reflib Quests does not use it yet.");
@@ -163,8 +163,10 @@ final class BookSettingsScreen extends SettingsScreen {
                 continue;
             }
             if (key.equals("icon")) {
-                TableEdits.send("set_icon", DataNode.Compound.empty().with("kind", "book").with("id", "")
-                        .with("mode", v.equals("Clear") ? "clear" : "held"));
+                DataNode.Compound iconEdit = IconPicker.edit("book", "", v);
+                if (iconEdit != null) {
+                    TableEdits.send("set_icon", iconEdit);
+                }
                 continue;
             }
             switch (key) {
