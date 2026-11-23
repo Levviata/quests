@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 40 640 510" width="640" height="510">
+  <title>Checkmark</title>
+  <defs>
+    <clipPath id="c">
+      <polygon points="158.5,218.5 272.5,332.5 550,55 650,155 272.5,532.5 58.5,318.5"/>
+    </clipPath>
+  </defs>
+  <!-- uniform border: stroke is centered on the edge and clipped to the inside, so thickness = half the stroke width -->
+  <g clip-path="url(#c)">
+    <rect x="40" y="40" width="640" height="510" fill="#9bc600"/>
+    <polygon points="158.5,218.5 272.5,332.5 550,55 650,155 272.5,532.5 58.5,318.5"
+             fill="none" stroke="#468100" stroke-width="36" stroke-linejoin="miter"/>
+  </g>
+</svg>
