@@ -204,6 +204,17 @@ final class SelectorScreen extends GuiScreen {
         return bucket;
     }
 
+    private static void drawFluid(net.minecraft.client.Minecraft mc,String fluidName, double x, double y, double size) {
+        net.minecraftforge.fluids.Fluid f = net.minecraftforge.fluids.FluidRegistry.getFluid(fluidName);
+        if (f != null && QuestArt.fluid(f.getStill(), x, y, size, 0xFFFFFFFF)) {
+            return;
+        }
+        String tex = fluidTexture(fluidName);
+        if (tex != null) {
+            ImageCatalog.draw(mc, tex, x, y, size);
+        }
+    }
+
     private static String fluidTexture(String fluidName) {
         net.minecraftforge.fluids.Fluid f = net.minecraftforge.fluids.FluidRegistry.getFluid(fluidName);
         ResourceLocation still = f == null ? null : f.getStill();
@@ -467,7 +478,7 @@ final class SelectorScreen extends GuiScreen {
                     drawImage(selectedImage, p.x() + 2, p.y() + 2, 28);
                 }
             } else if (fluidMode && selectedFluid != null && fluidTexture(selectedFluid) != null) {
-                ImageCatalog.draw(mc, fluidTexture(selectedFluid), p.x() + 1, p.y() + 1, 30);
+                drawFluid(mc, selectedFluid, p.x() + 1, p.y() + 1, 30);
             } else {
                 GlStateManager.pushMatrix();
                 GlStateManager.translate(p.x() + 0, p.y() + 0, 0);
@@ -536,7 +547,7 @@ final class SelectorScreen extends GuiScreen {
                 if (cell.fluid() != null) {
                     String tex = fluidTexture(cell.fluid());
                     if (tex != null) {
-                        ImageCatalog.draw(mc, tex, cx + 1, cy + 1, 16);
+                        drawFluid(mc, cell.fluid(), cx + 1, cy + 1, 16);
                     }
                 } else if (cell.image() != null) {
                     drawImage(cell.image(), cx + 1, cy + 1, 16);

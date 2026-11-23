@@ -21,36 +21,36 @@ final class PreferencesScreen extends SettingsScreen {
     PreferencesScreen(GuiScreen parent) {
         super(parent, "Player Preferences");
         section("User Interface");
-        bool("Backspace Key for View History", () -> ClientPrefs.backspaceHistory, v -> ClientPrefs.backspaceHistory = v)
-                .tip("Not used yet: going back to the previous quest.").defaults("True");
-        bool("Chapter Panel Pinned Open", () -> ClientPrefs.chapterPanelPinned, v -> ClientPrefs.chapterPanelPinned = v)
-                .tip("Keep the chapter panel open instead of hiding it when the mouse leaves.").defaults("False");
-        bool("Old-style Scroll Wheel Behavior", () -> ClientPrefs.oldScrollWheel, v -> ClientPrefs.oldScrollWheel = v)
-                .tip("When false, scroll wheel scrolls up & down: hold Shift to pan, Ctrl to zoom\nWhen true, scroll wheel only zooms (1.19 and earlier behavior)").defaults("False");
-        bool("Show Icon for Locked Quests", () -> ClientPrefs.showLockIcon, v -> ClientPrefs.showLockIcon = v)
-                .tip("Draw the small lock on quests whose dependencies are not complete.").defaults("True");
+        bool("Backspace Goes Back", () -> ClientPrefs.backspaceHistory, v -> ClientPrefs.backspaceHistory = v)
+                .tip("Not used yet. Would take you back to the previous quest.").defaults("True");
+        bool("Keep Chapter Panel Open", () -> ClientPrefs.chapterPanelPinned, v -> ClientPrefs.chapterPanelPinned = v)
+                .tip("Chapter panel stays open instead of hiding when the mouse leaves.").defaults("False");
+        bool("Old Scroll Wheel", () -> ClientPrefs.oldScrollWheel, v -> ClientPrefs.oldScrollWheel = v)
+                .tip("Off: wheel scrolls up and down, Shift pans, Ctrl zooms\nOn: wheel only zooms, like 1.19 and before").defaults("False");
+        bool("Show Lock on Locked Quests", () -> ClientPrefs.showLockIcon, v -> ClientPrefs.showLockIcon = v)
+                .tip("Little lock on quests whose dependencies aren't done.").defaults("True");
         section("Notifications");
         choice("Completion Notification Style", List.of("Toast", "Chat", "None"), () -> ClientPrefs.completionNotification, v -> ClientPrefs.completionNotification = v)
-                .tip("How you are told that a quest or chapter was completed.").defaults("Toast");
+                .tip("How you hear about a finished quest or chapter.").defaults("Toast");
         bool("Play Completion Sounds", () -> ClientPrefs.completionSounds, v -> ClientPrefs.completionSounds = v).defaults("True");
         choice("Reward Notification Style", List.of("Toast", "Chat", "None"), () -> ClientPrefs.rewardNotification, v -> ClientPrefs.rewardNotification = v)
-                .tip("How you are told that a reward was collected.").defaults("Toast");
+                .tip("How you hear about a collected reward.").defaults("Toast");
         section("Pinned Quests");
         choice("Auto-pin Follows", List.of("Chapter", "Quest", "None"), () -> ClientPrefs.autoPinFollows, v -> ClientPrefs.autoPinFollows = v)
                 .tip("Not used yet.").defaults("Chapter");
         bool("Exclude Flexible-Mode Quests", () -> ClientPrefs.excludeFlexible, v -> ClientPrefs.excludeFlexible = v).defaults("True");
-        choice("Pinned Quests Panel Position", List.of("Right", "Left"), () -> ClientPrefs.pinnedPosition, v -> ClientPrefs.pinnedPosition = v).defaults("Right");
-        number("Pinned Quests Panel Scaling", false, () -> String.valueOf(ClientPrefs.pinnedScaling), v -> ClientPrefs.pinnedScaling = Math.max(0.25, Math.min(3.0, Double.parseDouble(v)))).defaults("0.75");
-        number("Pinned Quests Panel X Inset", true, () -> String.valueOf(ClientPrefs.pinnedXInset), v -> ClientPrefs.pinnedXInset = Integer.parseInt(v)).defaults("2");
-        number("Pinned Quests Panel Y Inset", true, () -> String.valueOf(ClientPrefs.pinnedYInset), v -> ClientPrefs.pinnedYInset = Integer.parseInt(v)).defaults("2");
+        choice("Pinned Panel Position", List.of("Right", "Left"), () -> ClientPrefs.pinnedPosition, v -> ClientPrefs.pinnedPosition = v).defaults("Right");
+        number("Pinned Panel Scale", false, () -> String.valueOf(ClientPrefs.pinnedScaling), v -> ClientPrefs.pinnedScaling = Math.max(0.25, Math.min(3.0, Double.parseDouble(v)))).defaults("0.75");
+        number("Pinned Panel X Offset", true, () -> String.valueOf(ClientPrefs.pinnedXInset), v -> ClientPrefs.pinnedXInset = Integer.parseInt(v)).defaults("2");
+        number("Pinned Panel Y Offset", true, () -> String.valueOf(ClientPrefs.pinnedYInset), v -> ClientPrefs.pinnedYInset = Integer.parseInt(v)).defaults("2");
         choice("Pinned Tracker Visibility", List.of("Quests and Tasks", "Quests only", "Hidden"), () -> ClientPrefs.trackerVisibility, v -> ClientPrefs.trackerVisibility = v).defaults("Quests and Tasks");
         section("Translations");
         text("Fallback Locale", () -> ClientPrefs.fallbackLocale, v -> ClientPrefs.fallbackLocale = v).tip("Not used yet.");
         bool("Highlight missing translations", () -> ClientPrefs.highlightMissing, v -> ClientPrefs.highlightMissing = v).tip("Not used yet.").defaults("True");
         text("Locale Override", () -> ClientPrefs.localeOverride, v -> ClientPrefs.localeOverride = v).tip("Not used yet.");
         section("Change History Display");
-        bool("Always Show Change History", () -> ClientPrefs.alwaysShowHistory, v -> ClientPrefs.alwaysShowHistory = v).tip("Keep the list of recent changes on the map instead of letting it fade.").defaults("False");
-        number("Change History Show Time (seconds)", false, () -> String.valueOf(ClientPrefs.historySeconds), v -> ClientPrefs.historySeconds = Double.parseDouble(v)).defaults("5.00");
+        bool("Always Show Recent Changes", () -> ClientPrefs.alwaysShowHistory, v -> ClientPrefs.alwaysShowHistory = v).tip("Recent changes stay on the map and don't fade.").defaults("False");
+        number("Recent Changes Show Time (seconds)", false, () -> String.valueOf(ClientPrefs.historySeconds), v -> ClientPrefs.historySeconds = Double.parseDouble(v)).defaults("5.00");
         number("Changelog Font Scale", false, () -> String.valueOf(ClientPrefs.changelogScale), v -> ClientPrefs.changelogScale = Double.parseDouble(v)).defaults("0.75");
         number("Max Line Count", true, () -> String.valueOf(ClientPrefs.maxLines), v -> ClientPrefs.maxLines = Integer.parseInt(v)).defaults("10");
     }

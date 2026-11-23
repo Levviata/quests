@@ -31,6 +31,9 @@ final class QuestToast implements IToast {
     @Nullable
     private final ItemStack icon;
 
+    @Nullable
+    net.minecraftforge.fluids.Fluid fluid;
+
     private final boolean info;
 
     int titleColor = 0xFFFF55;
@@ -111,7 +114,9 @@ final class QuestToast implements IToast {
             fr.drawStringWithShadow(lines.get(i), 30, ty, alpha << 24 | rgb);
             ty += 10;
         }
-        if (icon != null && !icon.isEmpty()) {
+        if (fluid != null && QuestArt.fluid(fluid.getStill(), 8, (h - 16) / 2, 16, fluid.getColor())) {
+            GlStateManager.disableBlend();
+        } else if (icon != null && !icon.isEmpty()) {
             RenderHelper.enableGUIStandardItemLighting();
             gui.getMinecraft().getRenderItem().renderItemAndEffectIntoGUI(icon, 8, (h - 16) / 2);
             RenderHelper.disableStandardItemLighting();

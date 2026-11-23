@@ -1035,25 +1035,25 @@ final class RewardTablesScreen extends GuiScreen {
             initialCrate.put("loot_passive", dropPassive);
             final String initialTags = tagsText;
             section("Reward Table");
-            text("Title", () -> title, v -> title = v).tip("The name shown when a quest uses this table.");
+            text("Title", () -> title, v -> title = v).tip("Name shown when a quest uses this table.");
             IconPicker.decorate(choice("Icon", IconPicker.ICON_CHOICES, () -> iconChoice, v -> iconChoice = v).defaults("None"), t.raw.getCompound("icon"));
-            text("Tags", () -> tagsText, v -> tagsText = v).tip("Words that mark the table, separated by commas.");
+            text("Tags", () -> tagsText, v -> tagsText = v).tip("Tags for the table, separated by commas.");
             number("Empty Weight", false, () -> empty, v -> empty = trim(Math.max(0, Float.parseFloat(v))))
-                    .tip("How likely it is that nothing is given, in the same units as the entry weights.");
+                    .tip("Chance of getting nothing, in the same units as the entry weights.");
             choice("Hide Tooltip", java.util.List.of("False", "True"), () -> hideTip, v -> hideTip = v).defaults("False");
             number("Loot Size", true, () -> loot, v -> loot = String.valueOf(Math.max(0, Math.min(100, Integer.parseInt(v)))))
-                    .tip("How many things a loot crate of this table gives.");
+                    .tip("How many things a crate from this table gives.");
             choice("Use Title", java.util.List.of("False", "True"), () -> useTitle, v -> useTitle = v).defaults("False");
             section("Reward Table \u2192 Loot Crate");
             text("Color", () -> crateColor, v -> crateColor = v.startsWith("#") ? v.toUpperCase(java.util.Locale.ROOT) : "#" + v.toUpperCase(java.util.Locale.ROOT)).plainText().withSwatch()
-                    .tip("The colour of the loot crate.").defaults("#FFFFFF");
-            choice("Glow", java.util.List.of("False", "True"), () -> crateGlow, v -> crateGlow = v).tip("The loot crate glows.").defaults("False");
-            text("ID", () -> crateId, v -> crateId = v).tip("The id of the loot crate.");
-            text("Item Name", () -> crateName, v -> crateName = v).tip("The name of the loot crate item. Empty uses the table's title.").defaults("");
+                    .tip("Crate color.").defaults("#FFFFFF");
+            choice("Glow", java.util.List.of("False", "True"), () -> crateGlow, v -> crateGlow = v).tip("Crate glows.").defaults("False");
+            text("ID", () -> crateId, v -> crateId = v).tip("Crate ID.");
+            text("Item Name", () -> crateName, v -> crateName = v).tip("Crate item name. Empty uses the table's title.").defaults("");
             section("Reward Table \u2192 Loot Crate \u2192 Entity Drops");
-            number("Boss", true, () -> dropBoss, v -> dropBoss = String.valueOf(Math.max(0, Integer.parseInt(v)))).tip("Weight of this crate among the drops of boss mobs.").defaults("0");
-            number("Monster", true, () -> dropMonster, v -> dropMonster = String.valueOf(Math.max(0, Integer.parseInt(v)))).tip("Weight of this crate among the drops of monsters.").defaults("0");
-            number("Passive", true, () -> dropPassive, v -> dropPassive = String.valueOf(Math.max(0, Integer.parseInt(v)))).tip("Weight of this crate among the drops of passive mobs.").defaults("0");
+            number("Boss", true, () -> dropBoss, v -> dropBoss = String.valueOf(Math.max(0, Integer.parseInt(v)))).tip("Weight of this crate in boss drops.").defaults("0");
+            number("Monster", true, () -> dropMonster, v -> dropMonster = String.valueOf(Math.max(0, Integer.parseInt(v)))).tip("Weight of this crate in monster drops.").defaults("0");
+            number("Passive", true, () -> dropPassive, v -> dropPassive = String.valueOf(Math.max(0, Integer.parseInt(v)))).tip("Weight of this crate in passive mob drops.").defaults("0");
             this.initialTagsText = initialTags;
         }
 

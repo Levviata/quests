@@ -206,6 +206,10 @@ final class ImageCatalog {
     }
 
     static void draw(Minecraft mc, String id, double x, double y, double size) {
+        draw(mc, id, x, y, size, 0xFFFFFFFF);
+    }
+
+    static void draw(Minecraft mc, String id, double x, double y, double size, int argb) {
         EntityPainting.EnumArt art = paintingOf(id);
         ResourceLocation tex;
         double w;
@@ -251,7 +255,7 @@ final class ImageCatalog {
         GlStateManager.enableBlend();
         GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
                 GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
-        GlStateManager.color(1f, 1f, 1f, 1f);
+        GlStateManager.color((argb >> 16 & 255) / 255f, (argb >> 8 & 255) / 255f, (argb & 255) / 255f, (argb >>> 24 & 255) / 255f);
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder bb = tess.getBuffer();
         bb.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
@@ -260,5 +264,6 @@ final class ImageCatalog {
         bb.pos(dx + dw, dy, 0).tex(u1, v0).endVertex();
         bb.pos(dx, dy, 0).tex(u0, v0).endVertex();
         tess.draw();
+        GlStateManager.color(1f, 1f, 1f, 1f);
     }
 }

@@ -60,22 +60,22 @@ final class ChapterPropertiesScreen extends SettingsScreen {
         initial.putAll(values);
 
         section("Chapter");
-        text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("The name of the chapter. Formatting codes such as &6 work.");
+        text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("Name of the chapter. Color codes like &6 work.");
         IconPicker.decorate(choice("Icon", ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
-                .tip("The icon of the chapter. None lets the chapter show its quests' icons.").defaults("None"), chapter.icon);
-        text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Words that mark the chapter, separated by commas.");
-        text("Subtitle", () -> values.get("subtitle"), v -> values.put("subtitle", v)).tip("Shown under the chapter name. Use \\n for a new line.");
-        flag("Disable Completion Toast", "disable_toast", "No pop-up when a quest of this chapter is completed.");
+                .tip("Icon of the chapter. None shows the quests' icons instead.").defaults("None"), chapter.icon);
+        text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Tags for the chapter, separated by commas.");
+        text("Subtitle", () -> values.get("subtitle"), v -> values.put("subtitle", v)).tip("Goes under the chapter name. \\n makes a new line.");
+        flag("Disable Completion Toast", "disable_toast", "No pop-up when a quest here is completed.");
 
         section("Chapter → Appearance");
-        number("Default Min Opened Quest Window Width", true, () -> values.get("min_width"),
+        number("Min Quest Window Width (default)", true, () -> values.get("min_width"),
                 v -> values.put("min_width", String.valueOf(Math.max(0, Math.min(1000, Integer.parseInt(v))))))
-                .tip("The quest window is at least this wide. 0 keeps the usual width.").defaults("0");
+                .tip("Quest windows are at least this wide. 0 keeps the normal width.").defaults("0");
         choice("Default Quest Shape", SHAPE_LABELS, () -> values.get("shape"), v -> values.put("shape", v))
-                .tip("The shape of quests in this chapter that do not choose their own.").defaults("Default");
+                .tip("Shape for quests here that don't pick their own.").defaults("Default");
         number("Default Quest Size", false, () -> values.get("quest_size"),
                 v -> values.put("quest_size", String.valueOf(Math.max(0.0625, Math.min(64.0, Double.parseDouble(v))))))
-                .tip("The size new quests of this chapter start with.").defaults("1");
+                .tip("Size new quests here start with.").defaults("1");
         java.util.List<String> presetNames = new java.util.ArrayList<>();
         presetNames.add("None");
         com.levviata.reflibquests.model.QuestBook presetBook = com.levviata.reflibquests.client.ClientQuests.book();
@@ -86,25 +86,25 @@ final class ChapterPropertiesScreen extends SettingsScreen {
             presetNames.add(values.get("preset"));
         }
         choice("Default Visual Preset", presetNames, () -> values.get("preset"), v -> values.put("preset", v))
-                .tip("Visual preset to be used by all quests in this chapter which don't override it").defaults("None");
+                .tip("Preset every quest here uses unless it picks its own").defaults("None");
 
         section("Chapter → Visibility");
-        flag("Always Invisible", "always_invisible", "The chapter is not shown in the chapter list.");
-        flag("Default 'Hide Dependency Lines'", "hide_dep_lines", "Quests hide their dependency lines unless they say otherwise (lines still show on hover).");
-        flag("Hide Quest Details Until Startable", "hide_details", "Quests in this chapter hide their text and tasks until they can be started.");
-        flag("Hide Quests Until Dependencies Complete", "hide_deps_complete", "Quests stay hidden until the quests they need are completed.");
-        flag("Hide Quests Until Dependencies Visible", "hide_deps_visible", "Quests stay hidden until the quests they need are visible.");
-        flag("Hide Text Until Quest is Completed", "hide_text", "Quest details can be opened, but no description text is displayed until the quest is completed.");
+        flag("Always Invisible", "always_invisible", "Chapter doesn't show in the chapter list.");
+        flag("Hide Dependency Lines by Default", "hide_dep_lines", "Quests hide their dependency lines unless they say otherwise (still shown on hover).");
+        flag("Hide Details Until You Can Start", "hide_details", "Quests here hide their text and tasks until they can be started.");
+        flag("Hide Until Dependencies Are Done", "hide_deps_complete", "Quests stay hidden until the ones they need are completed.");
+        flag("Hide Until Dependencies Show Up", "hide_deps_visible", "Quests stay hidden until the ones they need are visible.");
+        flag("Hide Text Until Done", "hide_text", "You can open the quest, but the description stays blank until it's completed.");
 
         section("Chapter → Misc");
         text("Autofocus Quest ID", () -> values.get("autofocus"), v -> values.put("autofocus", v))
-                .tip("The quest the chapter opens centred on. Empty for none.");
+                .tip("Quest the chapter opens centered on. Empty for none.");
         choice("Default 'Progression Mode'", MODES, () -> values.get("progression_mode"), v -> values.put("progression_mode", v))
-                .tip("Linear: quests must be complete before dependants start. Flexible: tasks can be progressed any time.").defaults("Default");
-        flag("Default 'Repeatable Quest'", "repeatable", "Quests in this chapter can be repeated unless they say otherwise.");
-        choice("Default Item Task 'Consume Items'", TRI, () -> values.get("consume_items"), v -> values.put("consume_items", v))
-                .tip("Whether item tasks of this chapter take the items when they are handed in. Default follows the book's setting.").defaults("Default");
-        flag("Sequential Task Completion", "sequential", "Tasks have to be completed in order.");
+                .tip("Linear: finish quests before dependants start. Flexible: tasks can progress any time.").defaults("Default");
+        flag("Default 'Repeatable Quest'", "repeatable", "Quests here can be repeated unless they say otherwise.");
+        choice("Item Tasks Consume Items by Default", TRI, () -> values.get("consume_items"), v -> values.put("consume_items", v))
+                .tip("Whether item tasks here take the items when handed in. Default follows the book.").defaults("Default");
+        flag("Sequential Task Completion", "sequential", "Tasks must be done in order.");
     }
 
     private void flag(String label, String key, String tip) {

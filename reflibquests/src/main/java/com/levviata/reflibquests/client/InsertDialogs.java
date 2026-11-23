@@ -34,7 +34,7 @@ final class InsertDialogs {
             section("Image");
             text("Image Location", () -> texture, v -> texture = v).tip("A texture such as modid:textures/gui/picture.png").defaults("none");
             choice("Alignment", List.of("Left", "Center", "Right"), () -> align, v -> align = v).defaults("Center");
-            bool("Fit to Panel Width?", () -> fit, v -> fit = v).tip("Scale the picture to the width of the quest window.").defaults("False");
+            bool("Stretch to Window Width?", () -> fit, v -> fit = v).tip("Resize the picture to fit the quest window width.").defaults("False");
             number("Image Height", true, () -> String.valueOf(h), v -> h = Math.max(1, Math.min(4096, Integer.parseInt(v)))).defaults("100");
             number("Image Width", true, () -> String.valueOf(w), v -> w = Math.max(1, Math.min(4096, Integer.parseInt(v)))).defaults("100");
         }
@@ -62,8 +62,8 @@ final class InsertDialogs {
             super(parent, "Insert URL/Docs Link");
             this.done = done;
             section("Link");
-            text("URL or 'docs:' link", () -> url, v -> url = v).tip("https://... for a web page. Players are asked before it opens.");
-            text("Text shown", () -> label, v -> label = v).tip("The words the player clicks. Empty: the address itself.");
+            text("Web link or 'docs:' link", () -> url, v -> url = v).tip("https://... for a website. Players get asked before it opens.");
+            text("Text shown", () -> label, v -> label = v).tip("Text players click on. Empty uses the address.");
         }
 
         @Override

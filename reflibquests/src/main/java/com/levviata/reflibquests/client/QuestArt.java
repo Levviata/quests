@@ -138,4 +138,31 @@ final class QuestArt {
         tess.draw();
         GlStateManager.color(1f, 1f, 1f, 1f);
     }
+
+    static boolean fluid(ResourceLocation still, double x, double y, double size, int argb) {
+        if (still == null) {
+            return false;
+        }
+        net.minecraft.client.renderer.texture.TextureMap map = Minecraft.getMinecraft().getTextureMapBlocks();
+        net.minecraft.client.renderer.texture.TextureAtlasSprite sprite = map.getAtlasSprite(still.toString());
+        if (sprite == null || sprite == map.getMissingSprite()) {
+            return false;
+        }
+        Minecraft.getMinecraft().getTextureManager().bindTexture(net.minecraft.client.renderer.texture.TextureMap.LOCATION_BLOCKS_TEXTURE);
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
+        GlStateManager.color((argb >> 16 & 255) / 255f, (argb >> 8 & 255) / 255f, (argb & 255) / 255f, (argb >>> 24 & 255) / 255f);
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder bb = tess.getBuffer();
+        bb.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
+        bb.pos(x, y + size, 0).tex(sprite.getMinU(), sprite.getMaxV()).endVertex();
+        bb.pos(x + size, y + size, 0).tex(sprite.getMaxU(), sprite.getMaxV()).endVertex();
+        bb.pos(x + size, y, 0).tex(sprite.getMaxU(), sprite.getMinV()).endVertex();
+        bb.pos(x, y, 0).tex(sprite.getMinU(), sprite.getMinV()).endVertex();
+        tess.draw();
+        GlStateManager.color(1f, 1f, 1f, 1f);
+        return true;
+    }
 }
