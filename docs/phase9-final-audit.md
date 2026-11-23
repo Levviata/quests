@@ -110,7 +110,7 @@ New in this update: the **Fluid task** is Complete, confirmed by the user in gam
 | 69 | Book item, inventory button | Missing | C: not implemented |
 | 70 | Search, pin, tracker | Complete | K earlier |
 | 71 | Claim, claim all, completion toast, alerts | Unverified | C: claim messages exist; not re-run since the first checks |
-| 72 | Key reference screen | Partial | C: present, not written to FTB's text |
+| 72 | Key reference screen | Unverified | C: lists the original's three sections with its wording and order, keys right-aligned, long actions wrapped, a draggable scroll bar and a boxed close button; the key names come from this game's keys (Minus and Equals, not the original's symbols) |
 | 73 | Info/Wiki button (opens docs after confirmation) | Complete | K earlier |
 | 74 | Gear menu: Download Quest Files, Reload Theme | Missing | C: the menu has Edit File, Reset Progress, Complete Instantly, Edit Reward Tables and Save on Server now; the other two entries do not exist |
 | 75 | Player preferences, notifications (toast/chat/none) | Partial | C: no action bar |
@@ -118,8 +118,8 @@ New in this update: the **Fluid task** is Complete, confirmed by the user in gam
 | 77 | Team progress, multiplayer sync | Complete | K earlier: two real clients; not re-run since |
 | 78 | `/rquests` command set | Partial | C: reload, export, problems, list, info, check, submit, claim, claimall, complete, reset, lock, blockrewards; no reset-all, complete-all, change_progress, editing_mode, chapter generation |
 | 79 | Theme in resource pack, styles by id/tag, line colour/animation, full-screen quest window | Missing | C: not implemented; the pictures come from the supplied FTB jars |
-| 80 | Book settings stored but inert (drop book on death, emergency items, loot crates drop, lock message, hide excluded quests, verify on load) | Missing | C: stored and exported, nothing reads them in the game or the client |
-| 81 | Book settings that work (detection delay, pause game, autoclaim default, progression mode, fallback locale, disable GUI) | Unverified | C: read by the server or client |
+| 80 | Book settings stored but inert (drop book on death, emergency items and cooldown, entities drop loot crates and the Boss/Monster/Passive drop weights, lock message, hide excluded quests, verify on load) | Missing | C: stored and exported, nothing reads them in the game or the client |
+| 81 | Book settings that work (detection delay, pause game, autoclaim default, progression mode, fallback locale, disable GUI, grid scale) | Unverified | C: read by the server or client; Grid Scale is the step quests, quest links and images snap to when placed or moved (0.5 by default, 0.0625 to 16) |
 | 82 | Suppress-all-autoclaim switch | Unverified | C: read in `QuestServer` |
 | 83 | Reference book import (all 5 chapters, 40 quests, 43 tasks, 10 rewards) | Complete | K earlier: 0 importer problems, round trip identical, book shown in game |
 | 84 | Upstream files: unknown keys kept (`raw`) and re-exported | Complete | K earlier: round trip, book loads |

@@ -26,7 +26,8 @@ final class PreferencesScreen extends SettingsScreen {
                 .tip("Not used yet: going back to the previous quest.").defaults("True");
         bool("Chapter Panel Pinned Open", () -> ClientPrefs.chapterPanelPinned, v -> ClientPrefs.chapterPanelPinned = v)
                 .tip("Keep the chapter panel open instead of hiding it when the mouse leaves.").defaults("False");
-        bool("Old-style Scroll Wheel Behavior", () -> ClientPrefs.oldScrollWheel, v -> ClientPrefs.oldScrollWheel = v).defaults("False");
+        bool("Old-style Scroll Wheel Behavior", () -> ClientPrefs.oldScrollWheel, v -> ClientPrefs.oldScrollWheel = v)
+                .tip("When false, scroll wheel scrolls up & down: hold Shift to pan, Ctrl to zoom\nWhen true, scroll wheel only zooms (1.19 and earlier behavior)").defaults("False");
         bool("Show Icon for Locked Quests", () -> ClientPrefs.showLockIcon, v -> ClientPrefs.showLockIcon = v)
                 .tip("Draw the small lock on quests whose dependencies are not complete.").defaults("True");
         section("Notifications");
