@@ -87,7 +87,10 @@ public final class LegacyImporter {
         }
     }
 
-    /** Names from an {@code index.snbt}, then any others (sorted) that it does not list. */
+    /**
+     * Names from an {@code index.snbt}, then any others (sorted) that it does not list. Chapter folders are the exception:
+     * FTB Quests only loads the chapters its index lists, so an unlisted chapter folder is left out and reported.
+     */
     private List<String> ordered(Path dir, boolean directories) {
         List<String> names = new ArrayList<>();
         DataNode.Compound index = Files.exists(dir.resolve("index.snbt")) ? read(dir.resolve("index.snbt")) : null;
@@ -113,9 +116,14 @@ public final class LegacyImporter {
         }
         found.sort(String::compareTo);
         names.removeIf(n -> !found.contains(n));
+        boolean listedOnly = directories && index != null;
         for (String n : found) {
             if (!names.contains(n)) {
-                names.add(n);
+                if (listedOnly) {
+                    problems.add("chapter folder " + n + " is not listed in " + dir.resolve("index.snbt") + "; skipped, as FTB Quests does");
+                } else {
+                    names.add(n);
+                }
             }
         }
         return names;

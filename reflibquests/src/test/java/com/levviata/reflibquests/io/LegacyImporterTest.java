@@ -56,6 +56,17 @@ class LegacyImporterTest {
     }
 
     @Test
+    void aChapterFolderTheIndexDoesNotListIsSkipped(@TempDir Path root) throws IOException {
+        folder(root);
+        write(root.resolve("chapters/cccc3333/chapter.snbt"), "{ title: \"Orphan\" }");
+        write(root.resolve("chapters/cccc3333/7777bbbb.snbt"), "{ x: 0.0d, y: 0.0d, tasks: [{ uid: \"55555555\", type: \"checkmark\" }] }");
+        UpstreamImporter.Result r = LegacyImporter.load(root);
+        assertEquals(2, r.book().chapters().size(), "only the chapters the index lists are loaded");
+        assertTrue(r.book().chapters().stream().noneMatch(c -> c.title.equals("Orphan")));
+        assertTrue(r.problems().stream().anyMatch(p -> p.contains("cccc3333") && p.contains("not listed")));
+    }
+
+    @Test
     void theOlderLayoutIsRecognisedOnlyUntilItIsConverted(@TempDir Path root) throws IOException {
         assertFalse(LegacyImporter.applies(root));
         folder(root);
@@ -69,6 +80,7 @@ class LegacyImporterTest {
         folder(root);
         // the group number is the id of the parent chapter ("bbbb2222"), written as a signed number
         write(root.resolve("chapters/aaaa1111/chapter.snbt"), "{ title: \"First\", group: " + (-1145363934) + " }");
+        write(root.resolve("chapters/index.snbt"), "{ index: [\"bbbb2222\", \"aaaa1111\", \"cccc3333\"] }");
         write(root.resolve("chapters/cccc3333/chapter.snbt"), "{ title: \"Third\", group: 123 }");
         write(root.resolve("chapters/cccc3333/aaaaaaaa.snbt"), "{ x: 0.0d, y: 0.0d, tasks: [{ uid: \"55555555\", type: \"checkmark\" }] }");
         QuestBook book = UpstreamImporter.load(root).book();

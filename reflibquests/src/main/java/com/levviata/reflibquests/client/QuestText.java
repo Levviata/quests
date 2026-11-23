@@ -71,7 +71,7 @@ final class QuestText {
             case "checkmark":
                 return "Checkmark";
             case "kill":
-                return "Kill: " + t.maxProgress() + "x " + titleCase(t.params().getString("entity", ""));
+                return "Kill: " + t.maxProgress() + "x " + entityName(t.params().getString("entity", ""));
             case "xp": {
                 boolean points = t.params().getBool("points", false);
                 net.minecraft.client.entity.EntityPlayerSP me = net.minecraft.client.Minecraft.getMinecraft().player;
@@ -213,6 +213,24 @@ final class QuestText {
     static ItemStack stackOfOld(@Nullable DataNode spec) {
         ItemResolver.Resolved r = ItemResolver.resolve(spec, ClientQuests.idMap());
         return r == null ? null : r.toStack(Math.max(1, r.count()));
+    }
+
+    /** The name the game shows for an entity ("Balls-O-Tron Prime"); the readable form of its id when the game has no name for it. */
+    static String entityName(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return "";
+        }
+        String mapped = ClientQuests.idMap().entity(raw);
+        String id = mapped == null || mapped.isEmpty() ? raw : mapped;
+        net.minecraft.util.ResourceLocation key = new net.minecraft.util.ResourceLocation(id.contains(":") ? id : "minecraft:" + id);
+        String translation = net.minecraft.entity.EntityList.getTranslationName(key);
+        if (translation != null) {
+            String lang = "entity." + translation + ".name";
+            if (net.minecraft.client.resources.I18n.hasKey(lang)) {
+                return net.minecraft.client.resources.I18n.format(lang);
+            }
+        }
+        return titleCase(raw);
     }
 
     /** The spawn egg of an entity, as the icon of a kill task. */
