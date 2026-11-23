@@ -1,84 +1,75 @@
 # AI hand-off: Reflib Quests (1:1 FTB Quests parity)
 
-Written 2026-11-21 for the next AI session. Read this, then `docs/comparison-plan.md`, `docs/feature-catalogue.md`, `docs/upstream-quest-format.md`.
+Rewritten 2026-11-22 (replaces the 2026-11-21 version). Read this, then `docs/progress.md` (phase table), `docs/phase9-final-audit.md` (what is done), `docs/phase7-comparison.md` (every difference found and fixed), `docs/upstream-quest-format.md`.
 
 ## 1. What this is
 
-`reflibquests` is a Cleanroom 1.12.2 quest mod on the library `reflib`, own code only, LGPL-2.1. The user wants it to look and behave **exactly like FTB Quests 26.1.2**. Exactness is the whole point: measure, never guess.
+`reflibquests` is a Cleanroom 1.12.2 quest mod on the library `reflib`, own code only, LGPL-2.1. The user wants it to look and behave **exactly like FTB Quests 26.1.2**, keeping our own visual theme (panel texture, map background) and the 1.12.2 behaviour where the user chose it (fluid tasks are handed in by clicking). Exactness is the point: measure, never guess.
 
-- Worktree (where all work lives): `G:\TRABAJO\referencing lib\.claude\worktrees\archaiclib-architecture-investigation-ea090b`, branch `claude/archaiclib-architecture-investigation-ea090b`.
-- Merged to `main` through PRs #1, #2, #3. Last merged commit `3c55078`. Later work is uncommitted (see section 7).
-- Build: `./gradlew.bat build --console=plain -q` from the worktree root (tests included). Launch the dev game: `./gradlew.bat :reflibquests:runClient --console=plain` (run it in the background).
-- Dev instance: `reflibquests\run\client\`. The dev book is read from `config\reflibquests` in FTB's file format (`data.json5`, `chapter_groups.json5`, `chapters\*.json5`, `lang\`, `reward_tables\`). Mod Director's jar in `mods\` is disabled on purpose (it crashed startup).
+- Worktree: `G:\TRABAJO\referencing lib\.claude\worktrees\archaiclib-architecture-investigation-ea090b`, branch `claude/archaiclib-architecture-investigation-ea090b`. Remote `origin` = `Levviata/referencing-lib`.
+- Merged to `main` through PRs #1 to #5. PR #5 (merge commit `dc7706c`) holds the whole phase 6-9 work. The only change after it is this file.
+- Build and tests: `./gradlew.bat build --console=plain` from the worktree root. Launch the dev game: `./gradlew.bat :reflibquests:runClient --console=plain` (run it in the background). Dev instance: `reflibquests\run\client\`; the dev book is read from `config\reflibquests` in FTB's file format.
+- Local `master` is still the initial commit; the real trunk is `origin/main`.
 
-## 2. Rules the user set (follow them)
+## 2. State of the assignment (9 phases, user message of 2026-11-21)
 
-- **Never close or kill the user's game unasked.** Check the process list and free RAM first (`Get-CimInstance Win32_OperatingSystem`); ask the user to close ours before building or relaunching if it is running.
-- **No guessing.** Values come from screenshots, captures or files FTB itself wrote. State exact numbers. If unsure, ask or capture.
-- **Allowed references:** assets and lang in the supplied jars (`reflibquests\run\client\reflib-supplied\ftb-quests-neoforge-26.1.2.10.jar`, `ftb-library-neoforge-2101.1.39.jar`, `atm-questpics.zip`), docs.feed-the-beast.com, the user's screenshots, and files FTB saved in the 26.1.2 instance. **No decompiling, no reading FTB source.**
-- **Work in three passes, never interleaved:** 0) decide what to check, 1) capture everything on both sides, 2) compare it all and write one list, 3) fix the whole list, build once, relaunch. The user was explicit that 123,123,123 is wrong.
-- **Be fast.** Create things where they belong; no create-then-move detours.
-- Use the best existing widget (`TextEditor`, `Scroller`, `Ui.vanillaButton`, `Ui.drawTooltip`, `SettingsScreen`) before building one.
-- Keep replies short. Commit and push only when asked. The user's spreadsheet `reflibquests\Reflib Quests vs FTB Quests comparación de funciones.xlsx` is untracked on purpose; leave it.
-- A safety hook refuses writes to a worktree other than the session's own, and `rm -rf` with globs. Use `mv`/rename instead of deleting.
+All nine phases are done at the level documented. Final numbers (`docs/phase9-final-audit.md`, 84 features): **20 Complete, 19 Partial, 12 Missing, 0 Broken, 33 Unverified**. "Complete" means seen working in game; nothing is Complete from code or unit tests alone.
 
-## 3. Tooling for the 26.1.2 game (the "window driver")
+What the next session should do, in order of value:
+1. **Close Unverified features by playing them in game** (33 rows): reward grants (choice, random, loot, all table, command, XP, advancement), detection of dimension, biome, location, XP, advancement, stat, fluid and energy tasks, claim and claim-all, chapter/quest editor operations, undo/redo, quest links, selection and paste, Bezier points. Ideally with two clients for multiplayer. Forge Energy needs an item with Forge Energy (none in the dev game).
+2. **Missing features** (12 rows): loot crates and blocks, theme/styles, visual presets, icon scaling and other quest options, book item, Stage and Currency rewards, extra commands, Download Quest Files. Each needs an FTB capture of the window and the keys FTB saves first. Do not guess keys.
+3. Open small differences: Forge Energy saves as `type: "forge_energy"`, `value` (a guess: FTB's file key was not captured); Fluid is two rows where FTB has one; quest right-click menu has extras (Add Dependency, Bezier) that the user has not decided on; "Edit Reward Table" opens the table list rather than a direct window; timer and criterion are stored but unused; chapter image `minecraft:backyard` cannot render (no such 1.12.2 painting).
 
-The user approved driving their running FTB 26.1.2 client (PolyMC instance `C:\Users\Lev\AppData\Roaming\PolyMC\instances\26.1.2`, GUI scale 3, en_us, no resource packs). Details are in memory `reference-26-1-2-window-driver`. The scripts live in the old session scratchpad; **rebuild them if gone**:
+## 3. Rules the user set (follow them)
 
-- Capture: `PrintWindow(hwnd, flags=2)` on the window handle gives a PNG of the whole window (2576x1416 when maximized), even behind other windows.
-- Drive: bring the window to the front with a verified focus (`ShowWindow(h,3)` + AttachThreadInput + ALT trick + `SetForegroundWindow`, check `GetForegroundWindow()==h`, retry), then real input: `SetCursorPos` + `mouse_event` (left/right, with a drag helper), keys with `SendKeys` (`{ESC}`, `^a`, text).
-- Windows: FTB = process `javaw`, title `Minecraft NeoForge* 26.1.2 - Singleplayer`. Ours = process `java`, title `Cleanroom`.
-- Pitfalls: `Lp` is a PowerShell alias (don't name a function that). `ShowWindow(h,9)` un-maximizes and breaks coordinates; use 3. In ours, Esc used to close the whole screen with a menu open (fixed). Esc with no menu open closes the quest screen. Clicking the pause-menu button via messages did not work, real input does.
-- Do not type into chat (characters get dropped and it posts garbage). The quest book key is unbound in 26.1.2: the user opens the book themselves.
-- Scope approved: read-only exploration plus building the showcase through the UI. Never click Accept/Delete/Reset/Complete on the user's real data without being told.
-- Measurement: 3 px per GUI px in FTB captures at GUI scale 3. Both windows were maximized at the same size when compared.
+- **Never close or kill the user's game unasked.** When the user says "restart" they are approving a restart of **ours**; stop the background `runClient` task with TaskStop, confirm no window titled `Cleanroom` remains, start it again, then ask the user to open the world (they do that themselves).
+- **No guessing.** Values come from screenshots, captures or files FTB itself wrote. Measure, state exact values, ask when unsure. Follow the literal request.
+- **Locate targets before clicking:** take a fresh screenshot, read the position, click, verify. Never reuse old coordinates (the user corrected this).
+- **Modify the FTB reference book freely** to learn what FTB does, even destructively; save, and read the keys from the saved file. Mention what was changed.
+- **Allowed references:** assets and lang in the supplied jars (`reflibquests\run\client\reflib-supplied\...`), docs.feed-the-beast.com, the user's screenshots, files FTB saved in the 26.1.2 instance. **No decompiling, no reading FTB source.**
+- Work in passes (decide, capture both sides, compare into one list, fix the list, build once, relaunch). Be fast; keep replies short.
+- Use the best existing widget (`TextEditor`, `Scroller`, `SettingsScreen`, `ItemPickerScreen`, `ListPickerScreen`, `NamePrompt`) before building one.
+- Nothing is marked Complete without an in-game check. Tell the user plainly what is verified and what is not.
+- Commit and push only when asked. Never stage the user's spreadsheet `reflibquests\Reflib Quests vs FTB Quests comparación de funciones.xlsx`; `docs/reference-shots/` (78 MB of captures) is deliberately untracked. Stage with explicit paths, not `git add -A`.
+- Use the Write/Edit tools for files; shell heredocs with quotes broke several times. Use `mv` instead of `rm -rf` with globs.
 
-## 4. Test data: the showcase book
+## 4. Driving the two games (window driver)
 
-Built through FTB's own UI (so every key is valid), saved at `...\26.1.2\.minecraft\config\ftbquests\quests\` and copied into our dev `config\reflibquests`. Chapters: `Shapes and Sizes`, `Dependencies`, `Visibility Options`, `Task Types`. Backups of what they replaced: `config\ftbquests\quests.backup-20261121` (user's original 26.1.2 test quests), `quests.ours-export-20261121` (our legacy book exported), and in our dev config `reflibquests.book-backup-20261121`.
+Script `drive3.ps1` lives in the session scratchpad `C:\Users\Lev\AppData\Local\Temp\claude\37da2ae53352b303\f0ac97a8-4fde-4eee-a610-2aed2dac2ec7\scratchpad` (it may be gone; rebuild it). Usage: `drive3.ps1 -Win ours|ftb -Dir <shots dir> -Steps "step; step; ..."`. Steps: `focus`, `move x y`, `click x y`, `rclick x y`, `mclick x y`, `wheel x y notches`, `drag x1 y1 x2 y2`, `key <SendKeys text>`, `type <text>`, `wait ms`, `shot <name>` (saves `<name>.jpg`), `ctrldown`, `ctrlup`, `rel`.
 
-Real FTB 26.1.2 keys read from those files are in memory `reference-ftbq-26-1-2-real-keys` (task keys: xp `value`+`points`, stat `stat`+`value`, kill `entity`+`value`, location `dimension`/`ignore_dimension`/`position`/`size`, advancement `advancement`+`criterion`, observation `timer`/`observation_type`/`to_observe`, biome, dimension, custom, checkmark, item; quest `dependencies`, `optional`, `size`, `x`, `y`). Task titles live in lang as `task.<id>.title`; chapter, quest and image titles likewise.
+- **`key` takes SendKeys syntax**: `{ESC}`, `{ENTER}`, `^s` for Ctrl+S. Writing `esc` or `ctrl+s` types those letters (it typed junk into the FTB chat once).
+- Windows: FTB = process `javaw`, title `Minecraft NeoForge* 26.1.2 - Singleplayer` (PolyMC instance `C:\Users\Lev\AppData\Roaming\PolyMC\instances\26.1.2`, GUI scale 3). Ours = title `Cleanroom`. If `javaw` is not running the driver fails with "no process named javaw"; for ours it still works.
+- Screenshots are JPEGs; coordinates are in the window's own pixel frame **as of the screenshot** (ours changes between about 870x519 and 2576x1416 depending on how the user sized the window). Re-screenshot after any resize.
+- Our book key is **J**. In FTB 26.1.2 `o` appeared to open the book (not confirmed; earlier notes say it is unbound).
+- Ctrl+S in FTB saves quest files **only from the book map screen**, not from inside a quest window. Closing the book also saves ("Quests saved on server").
+- Left-clicking in the world breaks blocks and plants; right-clicking with a spawn egg spawns a mob. Select a harmless item first.
+- 1.12.2 has **no `/tag` command**: use `/scoreboard players tag @p add <tag>`. `/rquests list|info|check|submit|claim|claimall|complete|reset` exist for quick state checks.
+- Measurement: 3 px per GUI px in FTB captures. `ShowWindow(h,9)` un-maximizes and breaks coordinates; use 3.
 
-FTB UI facts learned: quick-edit Shape cycles default, circle, diamond, gear, heart, hexagon, none, octagon, pentagon, rsquare, square; tri-state options cycle Default, false, true; Dependency Requirement cycles ALL_COMPLETED, ONE_COMPLETED...; a quest is created where you right-click the map; the quest window dims the map by about 63% of a dark grey.
+## 5. FTB 26.1.2 facts learned (keys read from files FTB saved)
 
-## 5. Where the code is
+- Format: json5 in `config/ftbquests/quests` (`chapters/`, `lang/en_us/`, `reward_tables/`, `data.json5`, `chapter_groups.json5`).
+- Rewards: numeric decimal `table_id` (the table file is keyed by the hex id), `exclude_from_claim_all`, command `feedback_message`.
+- Tasks: item = nested `item: {id, count}`; kill: `entity`, `value`, `entityTypeTag`, `custom_name`, `nbt_filter`; stat: `stat`, `value`; xp: `value`, `points`; location: `dimension`, `ignore_dimension`, `position`, `size`; observation: `timer`, `observation_type`, `to_observe`; fluid: `fluid: {fluid, amount}`; **Stage: `type: "gamestage"`, `stage`, `team_stage`**; **Interaction: `type: "interaction"`, `to_interact`, `interaction_type` (block, block_tag, block_state, entity_type, entity_type_tag)**; descriptions use `hover_event` / `click_event` components.
+- FTB's task type list order: Item, Custom, XP Levels, Visit Dimension, Stat, Kill Entity, Location, Checkmark, Advancement, Observation, Visit Biome, Find Structure, Stage, Fluid, Interaction, Forge Energy. Forge Energy asks only for a number (default 1).
+- Settings windows: Title, Icon (shows "None" when unset), Tags, then the type's own rows plus Optional Task in alphabetical order, Disable Completion Toast last; reward windows: everything after Tags alphabetical. Window titles read `<name> [Task]` / `<name> [Reward]`.
 
-`reflibquests/src/main/java/com/levviata/reflibquests/`: `client/QuestBookWidget.java` (the main screen, very large), `client/Ui.java`, `QuestArt.java`, `QuestText.java`, `SettingsScreen.java` and the `*PropertiesScreen`s (FTB-style settings windows with tooltips, ranges, disabled rows, option lists), `TableEdits.java` (client staging of edits), `model/BookEditor.java` (all edit ops, server-validated), `model/QuestRules.java`, `model/ProgressEngine.java`, `game/QuestServer.java` (edits, resync, commands), `game/TaskTracker.java`, `io/UpstreamImporter/Exporter` (FTB file format), `io/LegacyImporter.java`. Tests are under `src/test`.
+## 6. Where the code is
 
-## 6. What matches FTB already (verified by captures)
+`reflibquests/src/main/java/com/levviata/reflibquests/`:
+- `client/QuestBookWidget.java` (the main screen, very large: layout, menus incl. `taskTypeMenu`/`rewardTypeMenu`, icons `drawTaskIcon`), `TaskRewardScreen.java` (task and reward edit windows, row order in `initGui`), `QuestText.java` (titles, tooltips, task pictures), `ItemPickerScreen`, `ListPickerScreen`, `NamePrompt`, `SettingsScreen`, `ChangeLog.java` (edit log wording), `RewardTablesScreen`.
+- `model/BookEditor.java` (all edit ops, server-validated; `TASK_TYPES`, `setTaskProp`), `model/Definitions.java` (`Task.maxProgress`, `itemCount`), `model/QuestRules`, `ProgressEngine`.
+- `game/QuestServer.java` (`SUPPORTED_TASKS`), `game/TaskTracker.java` (polling, `onKill`, `onInteract`, `submitFluid`, `submitEnergy`), `RewardGranter`, `QuestEdits`, `ReflibQuestsMod.java` (event hooks).
+- `io/UpstreamImporter/Exporter`, `Ids.tableId`, `LegacyImporter`. Tests under `src/test` (`BookEditorTest`, `IdsTableTest`, `RichTextTest`, `ReferenceBookAuditTest` dev tool run with `-Ppack=<folder>`).
 
-Chapter panel structure; right-click menus for quest, chapter, group, task, reward; gear menu (Reset Progress / Complete Instantly with FTB's Yes/No screens); Player Preferences; file settings window; the quest window layout, dim, Edit menu, slot hover box; shadows (offset 3 GUI px, 16% black); dependency chevron lines; hidden-quest eye; locked tooltip text; image edit window rows and tooltips.
+## 7. Process notes
 
-## 7. Uncommitted and unverified (do this first)
+- Start by reading `MEMORY.md` (window driver, real keys, parity rules, never close the game, locate before clicking).
+- CI: the "build / build" check once failed on `:reobfJar` (Gradle configuration-cache error); it predates this work. Check whether it still fails on PR #5 / `main`.
+- The showcase book is built through FTB's UI so every key is valid; `Rewards and Images` chapter holds item, fluid, stat, kill, location, dimension, advancement, observation, biome, structure, custom and xp tasks plus command, advancement, choice, toast, random, loot, all_table, custom and item rewards. Our dev copy additionally has Stage, Interaction and Forge Energy tasks on the Iron Ingot quest and an extra empty test quest at the top left of that chapter (delete if unwanted). The user's FTB copy has Stage and Interaction tasks added on its Iron Ingot quest.
 
-Built and tests pass, but **not yet seen running**, because the last relaunch was interrupted:
+## 8. LvNTM book in 26.1.2 and the NeoForge debug helper (2026-11-23)
 
-- Task titles read from and written to lang (`task.<id>.title`) in `UpstreamImporter`/`UpstreamExporter`. **No test yet.**
-- FTB-style default quest titles and colours per task type (`QuestText.autoTitle`): "XP Levels: 5" (number red while the player is short), "Kill: 100x Zombie", "Mob Kills", "Location", "Visit Dimension: <id>", "Visit Biome: <id>", "Observation: <id>", "Advancement: <name>" (id or name in the FTB colours).
-- Task pictures: XP bottle, ender eye, iron sword, compass, grass block for the root advancement, sapling, paper; custom = rainbow (`color_hsb`), observation = landscape (`art`) icon.
-- Tooltip lines `[Optional Quest]` and `[Repeatable Quest]`; removed the `[Optional]` subtitle replacement.
-- Dependency chevron lines (`dependency.png` from the quests jar, 4 GUI px wide, tint `#7A6B71`), `check_gray` for unfinished checkmark quests, the eye on hidden quests in edit mode, slot check/rainbow icons.
-- `docs/comparison-plan.md`.
-
-Next step: relaunch ours (ask the user to close it first), open the book, re-capture the four chapters on both sides, and confirm each item above. Commit when the user says so.
-
-## 8. Known remaining differences (from the last comparison)
-
-- Map check icon: edges and fill differ slightly from FTB's; the exact FTB rendering is unresolved.
-- The "Edit ▼" arrow glyph in the quest window; the eye FTB draws in the quest window when its text is hidden.
-- The Visit Dimension quest in Task Types was never captured (off screen).
-- Quick-edit lists to compare: FTB's quest quick edit has Disable Completion Toast, Shape, Visual Preset, Hide Quest Until Dependencies Complete/Visible, Invisible Until Completed, Hide Details Until Startable, Hide Text Until Quest is Completed, Hide Lock Icon, Dependency Requirement, Hide Dependency Lines, Hide Dependent Lines, Disable JEI Recipe, Repeatable Quest, Optional Quest, Ignore reward blocking, Progression Mode, Sequential Task Completion. Compare with ours.
-- FTB's quest Edit window also has Icon Scaling, Min Opened Quest Window Width, Visual Preset, X/Y, Max Completable Dependents, Min Required Dependencies, Hide Dependent Lines, Description; ours lacks some.
-- Group "Quick Edit Properties" content in FTB is unknown (ours only has "Hold in Chapter...").
-- Toast sizes (FTB toasts grow taller for long names; vanilla slots are 32 px).
-
-## 9. Features not built yet (do after the visuals match, as the user asked)
-
-Stat/Stage/Fluid/Forge Energy/Interaction tasks, Stage reward, loot crates, Emergency Items list, Visual Presets and Default Visual Preset, Per-Team Reward by Type, colour picker (RGB wheel with palettes), description click/hover events (JSON components), Text Shadow and non-URI click actions for images (keys unknown: capture them in FTB first), item task via the item picker and structure task in the showcase, rewards and images chapters in the showcase, quest links keys.
-
-## 10. Process notes for the next session
-
-- Start by reading `MEMORY.md` entries named above (window driver, real keys, FTBQ parity, never close the game).
-- CI: the "build / build" check failed on `:reobfJar` (Gradle configuration-cache error). It predates this work; look at it separately.
-- Tell the user plainly what is verified in the game and what is not.
+- Conversion of the user's LvNTM 1.12.2 pack to FTB Quests 26.1.2 with a 26.1.2 Nuclear Tech id table: `docs/lvntm-26-1-2-conversion.md` (method, substitutions, what was changed on disk). Tool: `ConvertLegacyPackTool` (test source set, run with `-Ppack= -Pout= -Preport=`), `LegacyImporter.loadWide`, `LegacyModernizer`, table `reflibquests/src/main/resources/ntm/legacy_1_12_2_to_26_1_2.json` built by `reflibquests/tools/ntm/build_map.py`. FTB 26.1.2 needs **16-digit hex ids** (language keys); groups must not share an id with a chapter.
+- NeoForge helper: `reflibdebug/neoforge/` (plain javac, `python -I build.py`, Java 25, compiled against PolyMC's own libraries), jar `reflibdebug-neoforge-0.2.0.jar` in the 26.1.2 instance `mods`. Client: `reflibdebug/dbg.py neo|lv "cmd" ...` (same protocol as the 1.12.2 helper; aliases neo and lv). In 26.1.2: book key **P** (O is FTB Teams), `/ftbquests reload` re-reads the files while the game runs, `/ftbquests open_book <16-hex id>` jumps to a quest, `hbm:material` is the scraps component. Real FTB screens need `move`, ~300 ms, then `click`.
+- Opening a world in the 1.12.2 LvNTM game can stop at Forge's "missing registry entries" prompt; the helper cannot answer it (the client thread is blocked). It needs a click on the window.

@@ -49,7 +49,22 @@ public final class LegacyImporter {
     private final List<String> tableIds = new ArrayList<>();
     private final Map<Chapter, Long> chapterGroupNumbers = new LinkedHashMap<>();
 
+    /** When true ids are written the way FTB Quests 26.1.2 keeps them: 16 upper-case hex digits (its language keys need that form). */
+    private boolean wide;
+
     private LegacyImporter() {}
+
+    private String nid(String raw) {
+        String s = Ids.normalize(raw);
+        if (wide && s.matches("[0-9A-F]{1,16}")) {
+            return "0".repeat(16 - s.length()) + s;
+        }
+        return s;
+    }
+
+    private String generated(String base, String tag, int index) {
+        return wide ? String.format("%08X%08X", base.hashCode(), tag.hashCode() * 31 + index) : base + "_" + tag + index;
+    }
 
     /** True for a folder in the older layout that has not been converted yet. */
     public static boolean applies(Path folder) {
@@ -60,6 +75,13 @@ public final class LegacyImporter {
 
     public static UpstreamImporter.Result load(Path folder) {
         return new LegacyImporter().run(folder);
+    }
+
+    /** Like {@link #load} but with ids in the 16-digit form FTB Quests 26.1.2 uses (needed to write a book for it). */
+    public static UpstreamImporter.Result loadWide(Path folder) {
+        LegacyImporter i = new LegacyImporter();
+        i.wide = true;
+        return i.run(folder);
     }
 
     private UpstreamImporter.Result run(Path folder) {
@@ -202,7 +224,7 @@ public final class LegacyImporter {
             if (c == null) {
                 continue;
             }
-            String id = Ids.normalize(name);
+            String id = nid(name);
             RewardTable t = new RewardTable(id);
             t.filename = name;
             t.title = c.getString("title", "");
@@ -220,7 +242,7 @@ public final class LegacyImporter {
                     continue;
                 }
                 DataNode.Compound params = DataNode.Compound.empty().with("item", spec).with("count", Math.max(1, rc.getInt("count", 1)));
-                t.entries.add(new WeightedReward((float) rc.getDouble("weight", 1.0), new Reward(id + "_" + n++, "item", params)));
+                t.entries.add(new WeightedReward((float) rc.getDouble("weight", 1.0), new Reward(generated(id, "r", n++), "item", params)));
                 rewards++;
             }
             book.tables().put(id, t);
@@ -238,7 +260,7 @@ public final class LegacyImporter {
             if (c == null) {
                 continue;
             }
-            Chapter chapter = new Chapter(Ids.normalize(name));
+            Chapter chapter = new Chapter(nid(name));
             chapter.filename = name;
             chapter.order = order++;
             chapter.title = c.getString("title", name);
@@ -281,11 +303,11 @@ public final class LegacyImporter {
             long number = e.getValue();
             String groupId = idOfNumber.get(number);
             if (groupId == null) {
-                String hex = Ids.normalize(Integer.toHexString((int) number));
+                String hex = nid(Integer.toHexString((int) number));
                 Chapter parent = book.chapter(hex);
                 com.levviata.reflibquests.model.Definitions.ChapterGroup g;
                 if (parent != null) {
-                    g = new com.levviata.reflibquests.model.Definitions.ChapterGroup(hex);
+                    g = new com.levviata.reflibquests.model.Definitions.ChapterGroup(wide ? String.format("%08X%08X", hex.hashCode(), 0x67) : hex); // a group must not share its id with the chapter
                     g.title = parent.title;
                     g.raw = DataNode.Compound.empty().with("chapter", parent.id);
                 } else {
@@ -325,7 +347,7 @@ public final class LegacyImporter {
     }
 
     private Quest readQuest(String file, DataNode.Compound c) {
-        String id = Ids.normalize(file);
+        String id = nid(file);
         Quest q = new Quest(id);
         q.title = c.getString("title", "");
         q.subtitle = c.getString("description", "");
@@ -344,8 +366,8 @@ public final class LegacyImporter {
         q.size = c.getDouble("size", 1.0);
         q.icon = iconOf(c.get("icon"));
         for (DataNode d : c.getList("dependencies")) {
-            if (d instanceof DataNode.Str s && !Ids.normalize(s.value()).isEmpty()) {
-                q.dependencies.add(Ids.normalize(s.value()));
+            if (d instanceof DataNode.Str s && !nid(s.value()).isEmpty()) {
+                q.dependencies.add(nid(s.value()));
             }
         }
         q.dependencyMode = DependencyMode.parse(c.getString("dependency_requirement", "all_completed"));
@@ -385,9 +407,9 @@ public final class LegacyImporter {
     }
 
     private Task task(String questId, int index, DataNode.Compound tc) {
-        String id = tc.has("uid") ? Ids.normalize(tc.getString("uid", "")) : "";
+        String id = tc.has("uid") ? nid(tc.getString("uid", "")) : "";
         if (id.isEmpty()) {
-            id = questId + "_t" + index;
+            id = generated(questId, "t", index);
         }
         String type = Ids.stripNamespace(tc.getString("type", "checkmark"));
         DataNode.Compound p = DataNode.Compound.empty();
@@ -457,9 +479,9 @@ public final class LegacyImporter {
     }
 
     private Reward reward(String questId, int index, DataNode.Compound rc) {
-        String id = rc.has("uid") ? Ids.normalize(rc.getString("uid", "")) : "";
+        String id = rc.has("uid") ? nid(rc.getString("uid", "")) : "";
         if (id.isEmpty()) {
-            id = questId + "_r" + index;
+            id = generated(questId, "q", index);
         }
         String type = rc.has("type") ? Ids.stripNamespace(rc.getString("type", "")) : "item";
         DataNode.Compound p = DataNode.Compound.empty();
@@ -480,7 +502,7 @@ public final class LegacyImporter {
                 Matcher m = PROGRESS_COMMAND.matcher(command);
                 if (m.matches()) {
                     // the original mod's command for unlocking a quest, in this mod's form (and with the rights it needs)
-                    p = p.with("command", "/rquests " + m.group(1) + " " + Ids.normalize(m.group(3)) + " " + m.group(2))
+                    p = p.with("command", "/rquests " + m.group(1) + " " + nid(m.group(3)) + " " + m.group(2))
                             .with("permission_level", 2);
                 }
             }

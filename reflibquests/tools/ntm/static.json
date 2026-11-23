@@ -1,0 +1,49 @@
+{
+ "vanilla": {
+  "minecraft:grass@0": {"to": "minecraft:grass_block", "status": "renamed", "note": "flattening"},
+  "minecraft:reeds@0": {"to": "minecraft:sugar_cane", "status": "renamed", "note": "flattening"},
+  "minecraft:yellow_flower@0": {"to": "minecraft:dandelion", "status": "renamed", "note": "flattening"},
+  "minecraft:quartz_ore@0": {"to": "minecraft:nether_quartz_ore", "status": "renamed", "note": "flattening"},
+  "minecraft:log@0": {"to": "minecraft:oak_log", "status": "renamed", "note": "flattening"},
+  "minecraft:log@3": {"to": "minecraft:jungle_log", "status": "renamed", "note": "flattening"},
+  "minecraft:planks@0": {"to": "minecraft:oak_planks", "status": "renamed", "note": "flattening"},
+  "minecraft:coal@1": {"to": "minecraft:charcoal", "status": "renamed", "note": "flattening"},
+  "minecraft:dye@4": {"to": "minecraft:lapis_lazuli", "status": "renamed", "note": "flattening"},
+  "futuremc:grindstone@0": {"to": "minecraft:grindstone", "status": "renamed", "note": "Future MC block is vanilla in 26.1.2"},
+  "futuremc:smoker@0": {"to": "minecraft:smoker", "status": "renamed", "note": "Future MC block is vanilla in 26.1.2"}
+ },
+ "entities": {
+  "hbm:entity_nuclear_creeper": "hbm:entity_mob_nuclear_creeper",
+  "hbm:entity_ntm_radiation_blaze": "hbm:entity_radiation_blaze",
+  "hbm:entity_ntm_ufo": "hbm:entity_ufo",
+  "hbm:entity_ntm_test_dummy": "hbm:entity_test_dummy",
+  "hbm:entity_mask_man": "hbm:entity_mob_mask_man"
+ },
+ "images": {
+  "minecraft:textures/blocks/command_block_conditional.png": "minecraft:textures/block/command_block_conditional.png",
+  "minecraft:textures/items/barrier.png": "minecraft:textures/item/barrier.png",
+  "minecraft:textures/items/structure_void.png": "minecraft:textures/item/structure_void.png"
+ },
+ "keep_mods": ["refinedstorage"],
+ "oredict": {
+  "12 gauge": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  "10 gauge": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  "9mm": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  ".44": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  ".22 LR": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  ".357": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  ".50 BMG": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  "7.62mm": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  "5.56mm": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  "40mm grenade": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  "rocket": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  "flamer fuel": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  "capacitor (ammo)": {"tag": "hbm:ammo", "status": "substitute", "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"},
+  "ingotAnyHardPlastic": {"tag": "c:ingots/any_hardplastic", "status": "derived", "note": "tag name has no underscore in 26.1.2"},
+  "logWood": {"tag": "minecraft:logs", "status": "derived", "note": "vanilla log tag"},
+  "treeSapling": {"tag": "minecraft:saplings", "status": "derived", "note": "vanilla sapling tag"},
+  "stoneResource": {"tag": "c:cobblestones", "status": "substitute-weak", "note": "NTM's stoneResource has no tag in 26.1.2; cobblestones is the closest"},
+  "gemCoal": {"tag": "c:gems/coal", "status": "derived", "note": "if the tag does not exist the entry falls to unresolved at export"},
+  "miniNuke": {"tag": "hbm:bombs", "status": "substitute-weak", "note": "no mini nuke tag in 26.1.2; the bombs tag is broader"}
+ }
+}

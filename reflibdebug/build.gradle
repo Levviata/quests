@@ -1,0 +1,42 @@
+plugins {
+    id 'java'
+    id 'com.cleanroommc.cleanroomgradle'
+}
+
+group = 'com.levviata'
+version = '0.1.0'
+
+base {
+    archivesName = 'reflibdebug'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+// Java 8 bytecode: the helper must also load in a plain Forge 1.12.2 client running on Java 8
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs.addAll(['-source', '8', '-target', '8', '-Xlint:-options'])
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation cleanroom.userdev(cleanroom_version)
+}
+
+cleanroom {
+    runs {
+        client {
+            configure {
+                username = project.findProperty('mc_username') ?: 'Developer'
+                jvmArgs extra_jvm_args.tokenize()
+            }
+        }
+    }
+}
+

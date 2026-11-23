@@ -1,0 +1,12 @@
+[{
+	"modid": "reflibdebug",
+	"name": "Reflib Debug Control",
+	"version": "0.1.0",
+	"mcversion": "1.12.2",
+	"description": "Development tool: a local-only control port (127.0.0.1, token protected) that lets a developer script the client: screenshots, clicks, keys, open a world. Not for players.",
+	"authorList": ["Levviata"],
+	"credits": "",
+	"url": "",
+	"updateJSON": "",
+	"logoFile": ""
+}]
