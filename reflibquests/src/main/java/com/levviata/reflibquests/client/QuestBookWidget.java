@@ -283,6 +283,9 @@ final class QuestBookWidget extends Widget {
     }
 
     private Rect detailRect() {
+        if (Theme.number("full_screen_quest", 0) >= 1) {
+            return bounds;
+        }
         int h = Math.max(70, Math.min(bounds.height() - 40, detailContentHeight));
         int cx = bounds.x() + bounds.width() / 2;
         QuestBook rb = ClientQuests.book();
@@ -1227,13 +1230,21 @@ final class QuestBookWidget extends Widget {
                 int tint = 0xFF7A6B71;
                 int flow = 0;
                 if (q.id.equals(focus)) {
-                    tint = 0xFF00C4C4;
+                    tint = Theme.color("dependency_line_requires_color", 0xFF00C4C4);
                     flow = 1;
                 } else if (depId.equals(focus)) {
-                    tint = 0xFFC4C400;
+                    tint = Theme.color("dependency_line_required_for_color", 0xFFC4C400);
                     flow = 1;
+                } else if (Theme.has("dependency_line_completed_color")) {
+                    if (p.isCompleted(depId)) {
+                        tint = Theme.color("dependency_line_completed_color", tint);
+                    } else if (!QuestRules.dependenciesMet(book, p, dep)) {
+                        tint = Theme.color("dependency_line_unavailable_color", tint);
+                    } else {
+                        tint = Theme.color("dependency_line_uncompleted_color", tint);
+                    }
                 }
-                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(1.0, Math.min(9.0, zoom * NODE * DEP_LINE_PER_NODE)), tint, flow);
+                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(1.0, Math.min(9.0, zoom * NODE * Theme.number("dependency_line_thickness", DEP_LINE_PER_NODE))), tint, flow);
             }
         }
         if (movingQuest != null && chapter.quests.contains(movingQuest)) {
@@ -1258,6 +1269,11 @@ final class QuestBookWidget extends Widget {
             boolean lockedByDeps = state != State.DONE && !QuestRules.dependenciesMet(book, p, q);
             int body = lockedByDeps ? 0xFF4A4C52 : 0xFF9C9EA6;
             int edge = selected ? 0xFFFFFFFF : state == State.DONE ? 0xFF6BD36B : lockedByDeps ? 0xFF5E6066 : 0xFFC9CBD2;
+            if (!selected && Theme.has("quest_completed_color")) {
+                String themeKey = state == State.DONE ? "quest_completed_color" : lockedByDeps || state == State.LOCKED ? "quest_locked_color"
+                        : state == State.ACTIVE ? "quest_started_color" : "quest_not_started_color";
+                edge = Theme.color(themeKey, edge, q);
+            }
 
             boolean beingMoved = movingQuest != null && (movingQuest.id.equals(q.id) || moveGroup.contains(q));
             boolean picked = isEditing() && SELECTION.contains(q.id);
@@ -1473,7 +1489,7 @@ final class QuestBookWidget extends Widget {
         GlStateManager.disableCull();
         GlStateManager.enableTexture2D();
         GlStateManager.enableBlend();
-        GlStateManager.color((argb >> 16 & 255) / 255f, (argb >> 8 & 255) / 255f, (argb & 255) / 255f, 1f);
+        GlStateManager.color((argb >> 16 & 255) / 255f, (argb >> 8 & 255) / 255f, (argb & 255) / 255f, (argb >>> 24 & 255) / 255f);
         net.minecraft.client.renderer.Tessellator tess = net.minecraft.client.renderer.Tessellator.getInstance();
         net.minecraft.client.renderer.BufferBuilder bb = tess.getBuffer();
         bb.begin(GL11.GL_QUADS, net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_TEX);
@@ -2000,7 +2016,7 @@ final class QuestBookWidget extends Widget {
         GlStateManager.disableCull();
         GlStateManager.enableTexture2D();
         GlStateManager.enableBlend();
-        GlStateManager.color((argb >> 16 & 255) / 255f, (argb >> 8 & 255) / 255f, (argb & 255) / 255f, 1f);
+        GlStateManager.color((argb >> 16 & 255) / 255f, (argb >> 8 & 255) / 255f, (argb & 255) / 255f, (argb >>> 24 & 255) / 255f);
         net.minecraft.client.renderer.Tessellator tess = net.minecraft.client.renderer.Tessellator.getInstance();
         net.minecraft.client.renderer.BufferBuilder bb = tess.getBuffer();
         bb.begin(GL11.GL_QUADS, net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_TEX);

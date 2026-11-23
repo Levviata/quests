@@ -64,9 +64,38 @@ public final class QuestNet {
                         qs.handleEdit(c.sender(), m.op, m.args);
                     }
                 })
+                .register(ShowToast.class, Side.CLIENT, (m, c) -> com.levviata.reflibquests.client.ClientBootstrap.showToast(m.title, m.text))
                 .register(SyncPerms.class, Side.CLIENT, (m, c) -> ClientQuests.onPerms(m.canEdit))
                 .register(SyncHistory.class, Side.CLIENT, (m, c) -> ClientQuests.onHistory(m.undo, m.redo, m.undoLabel, m.redoLabel))
                 .register(SyncDelta.class, Side.CLIENT, (m, c) -> ClientQuests.onDelta(m.data));
+    }
+
+    public static void sendToast(EntityPlayerMP player, String title, String text) {
+        channel.sendTo(new ShowToast(title, text), player);
+    }
+
+    public static final class ShowToast implements ReflibMessage {
+        String title = "";
+        String text = "";
+
+        public ShowToast() {}
+
+        ShowToast(String title, String text) {
+            this.title = title;
+            this.text = text;
+        }
+
+        @Override
+        public void write(PacketBuffer buf) {
+            buf.writeString(title);
+            buf.writeString(text);
+        }
+
+        @Override
+        public void read(PacketBuffer buf) {
+            title = buf.readString(256);
+            text = buf.readString(1024);
+        }
     }
 
     public static void sendDelta(EntityPlayerMP player, byte[] packed) {

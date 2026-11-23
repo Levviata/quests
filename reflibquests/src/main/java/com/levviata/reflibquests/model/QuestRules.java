@@ -72,6 +72,27 @@ public final class QuestRules {
         return q.canRepeat.resolve(c != null && c.defaultRepeatable);
     }
 
+    public static boolean excluded(QuestBook book, TeamProgress p, Quest q) {
+        if (p.isCompleted(q.id)) {
+            return false;
+        }
+        for (String id : q.dependencies) {
+            Quest dep = book.quest(id);
+            if (dep != null && dep.maxCompletableDependents > 0) {
+                int done = 0;
+                for (Quest other : book.allQuests()) {
+                    if (other != q && other.dependencies.contains(dep.id) && p.isCompleted(other.id)) {
+                        done++;
+                    }
+                }
+                if (done >= dep.maxCompletableDependents) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public static boolean dependenciesMet(QuestBook book, TeamProgress p, Quest q) {
         List<Quest> required = new ArrayList<>();
         for (String id : q.dependencies) {
@@ -147,6 +168,9 @@ public final class QuestRules {
             return false;
         }
         if (q.invisibleUntilTasks > 0 && tasksDone(p, q) < q.invisibleUntilTasks) {
+            return false;
+        }
+        if (book.settings.getBool("hide_excluded_quests", false) && excluded(book, p, q)) {
             return false;
         }
 

@@ -54,6 +54,9 @@ public final class ClientBootstrap {
 
     public static void init() {
         ClientRegistry.registerKeyBinding(OPEN);
+        ((net.minecraft.client.resources.IReloadableResourceManager) Minecraft.getMinecraft().getResourceManager())
+                .registerReloadListener(manager -> Theme.invalidate());
+        com.levviata.reflibquests.LootCrates.clientBook = () -> ClientQuests.ready() ? ClientQuests.book() : null;
         MinecraftForge.EVENT_BUS.register(new ClientBootstrap());
         MinecraftForge.EVENT_BUS.register(new InventoryBookButton());
         ClientCommandHandler.instance.registerCommand(new CommandBase() {
@@ -85,12 +88,27 @@ public final class ClientBootstrap {
         });
     }
 
+    public static void showToast(String title, String text) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.player == null) {
+            return;
+        }
+        ClientPrefs.ensureLoaded();
+        notifyPlayer(mc, ClientPrefs.rewardNotification, new QuestToast(title, text, null), text);
+    }
+
     public static void requestOpen() {
         openNextTick = true;
     }
 
     @SubscribeEvent
     public void onModels(net.minecraftforge.client.event.ModelRegistryEvent event) {
+        net.minecraftforge.client.model.ModelLoader.setCustomModelResourceLocation(com.levviata.reflibquests.ReflibQuestsMod.LOOT_CRATE, 0,
+                new net.minecraft.client.renderer.block.model.ModelResourceLocation(com.levviata.reflibquests.ReflibQuestsMod.LOOT_CRATE.getRegistryName(), "inventory"));
+        net.minecraft.client.renderer.color.ItemColors colors = Minecraft.getMinecraft().getItemColors();
+        if (colors != null) {
+            colors.registerItemColorHandler((stack, layer) -> com.levviata.reflibquests.LootCrates.color(stack), com.levviata.reflibquests.ReflibQuestsMod.LOOT_CRATE);
+        }
         net.minecraftforge.client.model.ModelLoader.setCustomModelResourceLocation(com.levviata.reflibquests.ReflibQuestsMod.QUEST_BOOK, 0,
                 new net.minecraft.client.renderer.block.model.ModelResourceLocation(com.levviata.reflibquests.ReflibQuestsMod.QUEST_BOOK.getRegistryName(), "inventory"));
     }

@@ -67,7 +67,8 @@ public final class RewardGranter {
                 runCommand(player, p);
                 return Result.GRANTED;
             case "toast":
-                player.sendMessage(new TextComponentString("§6[Quests] " + p.getString("description", "")));
+                com.levviata.reflibquests.net.QuestNet.sendToast(player, p.getString("title", "").isEmpty() ? "Quest" : p.getString("title", ""),
+                        p.getString("description", ""));
                 return Result.GRANTED;
             case "advancement": {
                 MinecraftServer server = player.getServer();
@@ -111,6 +112,17 @@ public final class RewardGranter {
         }
     }
 
+    public Result openCrate(EntityPlayerMP player, RewardTable table) {
+        int rolls = Math.max(1, table.lootSize);
+        for (int i = 0; i < rolls; i++) {
+            WeightedReward w = Names.pick(table.entries, table.emptyWeight, RANDOM);
+            if (w != null) {
+                grant(player, w.reward(), -1);
+            }
+        }
+        return Result.GRANTED;
+    }
+
     private Result grantFromTable(EntityPlayerMP player, Reward reward, int choice) {
         RewardTable table = quests.book().tables().get(
                 com.levviata.reflibquests.io.Ids.tableId(reward.params()));
@@ -128,17 +140,8 @@ public final class RewardGranter {
                 }
                 return Result.GRANTED;
             }
-            case "loot": {
-
-                int rolls = Math.max(1, table.lootSize);
-                for (int i = 0; i < rolls; i++) {
-                    WeightedReward w = Names.pick(table.entries, table.emptyWeight, RANDOM);
-                    if (w != null) {
-                        grant(player, w.reward(), -1);
-                    }
-                }
-                return Result.GRANTED;
-            }
+            case "loot":
+                return openCrate(player, table);
             case "all_table":
                 for (WeightedReward w : table.entries) {
                     grant(player, w.reward(), -1);

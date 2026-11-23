@@ -74,11 +74,11 @@ final class BookSettingsScreen extends SettingsScreen {
                 .tip("Icon of the book.").defaults("None"), book.settings.getCompound("icon"));
         text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Tags for the book, separated by commas.");
         unusedBool("Disable GUI", "disable_gui", "Only players who can edit can open the book.");
-        unusedBool("Drop Book on Death", "drop_book_on_death", "Saved in the book, but Reflib Quests ignores it for now.");
+        unusedBool("Drop Book on Death", "drop_book_on_death", "Off: the Quest Book stays with the player on death and comes back on respawn. On: it drops like any item.");
         number("Emergency Items Cooldown", true, () -> values.get("emergency_items_cooldown"),
                 v -> values.put("emergency_items_cooldown", String.valueOf(Math.max(0L, Long.parseLong(v)))))
                 .tip("Time before emergency items come back. Saved in the book, but Reflib Quests ignores it for now.");
-        unusedBool("Mobs Drop Loot Crates", "drop_loot_crates", "Saved in the book, but Reflib Quests ignores it for now.");
+        unusedBool("Mobs Drop Loot Crates", "drop_loot_crates", "Mobs killed by a player can drop loot crates, using the weights below and on each reward table.");
         text("Fallback Locale", () -> values.get("fallback_locale"), v -> values.put("fallback_locale", v))
                 .tip("Locale to use when a translation is missing\n"
                         + "Players can change it in Preferences\nEmpty means 'en_us'");
@@ -86,7 +86,7 @@ final class BookSettingsScreen extends SettingsScreen {
                 v -> values.put("grid_scale", String.valueOf(Math.max(0.0625, Math.min(16.0, Double.parseDouble(v))))))
                 .tip("Saved in the book, but Reflib Quests ignores it for now.");
         unusedBool("Hide Excluded Quests", "hide_excluded_quests",
-                "Off: excluded quests stay visible but grayed out\nSaved in the book, but Reflib Quests ignores it for now.");
+                "Off: excluded quests stay visible but grayed out\nOn: they are hidden. A quest is excluded once the dependency it needs has no completions left (Max Completable Dependents).");
         number("Item Check Delay", true, () -> values.get("detection_delay"),
                 v -> values.put("detection_delay", String.valueOf(Math.max(1, Long.parseLong(v)))))
                 .tip("Minimum ticks between inventory checks after it changes\n"
@@ -127,9 +127,9 @@ final class BookSettingsScreen extends SettingsScreen {
         }
 
         section("Quest Book \u2192 Entity Loot Crate Drop Empty Weight");
-        number("Boss", true, () -> values.get("loot_boss"), v -> values.put("loot_boss", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Saved in the book, but Reflib Quests ignores it for now.");
-        number("Monster", true, () -> values.get("loot_monster"), v -> values.put("loot_monster", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Saved in the book, but Reflib Quests ignores it for now.");
-        number("Passive", true, () -> values.get("loot_passive"), v -> values.put("loot_passive", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Saved in the book, but Reflib Quests ignores it for now.");
+        number("Boss", true, () -> values.get("loot_boss"), v -> values.put("loot_boss", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Weight of no crate dropping from boss mobs, compared with the crate weights of the tables.");
+        number("Monster", true, () -> values.get("loot_monster"), v -> values.put("loot_monster", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Weight of no crate dropping from monsters, compared with the crate weights of the tables.");
+        number("Passive", true, () -> values.get("loot_passive"), v -> values.put("loot_passive", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Weight of no crate dropping from passive mobs, compared with the crate weights of the tables.");
     }
 
     private static final String[][] TEAM_TYPES = {
