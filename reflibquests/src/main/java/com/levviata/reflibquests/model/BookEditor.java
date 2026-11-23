@@ -101,8 +101,15 @@ public final class BookEditor {
         return t.length() > max || t.indexOf('\n') >= 0 ? null : t;
     }
 
-    private static double snap(double v) {
-        return Math.round(v * 2.0) / 2.0;
+    /** The book's Grid Scale: quests and images snap to a multiple of it (0.5 unless the book says otherwise). */
+    public static double gridStep(DataNode.Compound settings) {
+        double step = settings.getDouble("grid_scale", 0.5);
+        return step >= 0.0625 && step <= 16.0 ? step : 0.5;
+    }
+
+    private double snap(double v) {
+        double step = gridStep(book.settings);
+        return Math.round(v / step) * step;
     }
 
     private static boolean coordOk(double v) {

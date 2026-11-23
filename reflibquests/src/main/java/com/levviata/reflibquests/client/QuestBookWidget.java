@@ -290,6 +290,18 @@ final class QuestBookWidget extends Widget {
 
     private static final int TITLE_MARGIN = 25;
 
+    /** A position in grid units snapped to the book's Grid Scale (the editor places quests and images on it). */
+    private static double gridStep() {
+        QuestBook b = ClientQuests.book();
+        return b == null ? 0.5 : com.levviata.reflibquests.model.BookEditor.gridStep(b.settings);
+    }
+
+    private static double snapUnits(double units) {
+        QuestBook b = ClientQuests.book();
+        double step = b == null ? 0.5 : com.levviata.reflibquests.model.BookEditor.gridStep(b.settings);
+        return Math.round(units / step) * step;
+    }
+
     private Rect detailRect() {
         int h = Math.max(70, Math.min(bounds.height() - 40, detailContentHeight));
         int cx = bounds.x() + bounds.width() / 2;
@@ -1358,8 +1370,8 @@ final class QuestBookWidget extends Widget {
             drawBezierHandles(fr, book, v);
         }
         if (crosshairs && isEditing() && mouseOnMap) {
-            int cxl = (int) Math.round(v.screenX(Math.round(v.worldX(lastMouseX) / GRID * 2.0) / 2.0 * GRID));
-            int cyl = (int) Math.round(v.screenY(Math.round(v.worldY(lastMouseY) / GRID * 2.0) / 2.0 * GRID));
+            int cxl = (int) snapUnits(v.screenX(Math.round(v.worldX(lastMouseX) / GRID) * GRID));
+            int cyl = (int) snapUnits(v.screenY(Math.round(v.worldY(lastMouseY) / GRID) * GRID));
             rect(cxl, map.y(), 1, map.height(), 0x88FFFFFF);
             rect(map.x(), cyl, map.width(), 1, 0x88FFFFFF);
         }
@@ -1369,8 +1381,8 @@ final class QuestBookWidget extends Widget {
             String rimShape = QuestArt.shapeName(book, chapter, sample);
             double rsize = NODE * sample.size * zoom;
             int rs = Math.max(4, (int) Math.round(rsize));
-            int rx = (int) Math.round(v.screenX(Math.round(v.worldX(lastMouseX) / GRID * 2.0) / 2.0 * GRID) - rsize / 2);
-            int ry = (int) Math.round(v.screenY(Math.round(v.worldY(lastMouseY) / GRID * 2.0) / 2.0 * GRID) - rsize / 2);
+            int rx = (int) snapUnits(v.screenX(Math.round(v.worldX(lastMouseX) / GRID) * GRID) - rsize / 2);
+            int ry = (int) snapUnits(v.screenY(Math.round(v.worldY(lastMouseY) / GRID) * GRID) - rsize / 2);
             if (QuestArt.hasShape(rimShape)) {
                 QuestArt.quad(QuestArt.shapeTexture(rimShape, "outline"), rx, ry, rs, rs, 0x58FFFFFF);
             } else {
@@ -1391,11 +1403,20 @@ final class QuestBookWidget extends Widget {
         if ((u1 - u0) > 150 || (w1 - w0) > 150) {
             return; // zoomed so far out that the lines would only be a haze
         }
-        for (int k = (int) Math.ceil(u0 * 2); k <= (int) Math.floor(u1 * 2); k++) {
-            rect((int) Math.round(v.screenX(k / 2.0 * GRID)), map.y(), 1, map.height(), k % 2 == 0 ? 0x38FFFFFF : 0x18FFFFFF);
+        // a line at every step of the book's Grid Scale; the whole units a little stronger; none when they would be closer than 3 pixels
+        double step = gridStep();
+        if (step * GRID * v.zoom() < 3) {
+            return;
         }
-        for (int k = (int) Math.ceil(w0 * 2); k <= (int) Math.floor(w1 * 2); k++) {
-            rect(map.x(), (int) Math.round(v.screenY(k / 2.0 * GRID)), map.width(), 1, k % 2 == 0 ? 0x38FFFFFF : 0x18FFFFFF);
+        for (long k = (long) Math.ceil(u0 / step); k <= (long) Math.floor(u1 / step); k++) {
+            double at = k * step;
+            boolean whole = Math.abs(at - Math.rint(at)) < 1e-9;
+            rect((int) Math.round(v.screenX(at * GRID)), map.y(), 1, map.height(), whole ? 0x38FFFFFF : 0x18FFFFFF);
+        }
+        for (long k = (long) Math.ceil(w0 / step); k <= (long) Math.floor(w1 / step); k++) {
+            double at = k * step;
+            boolean whole = Math.abs(at - Math.rint(at)) < 1e-9;
+            rect(map.x(), (int) Math.round(v.screenY(at * GRID)), map.width(), 1, whole ? 0x38FFFFFF : 0x18FFFFFF);
         }
     }
 
@@ -3347,8 +3368,8 @@ final class QuestBookWidget extends Widget {
         Rect map = mapRect();
         double cx = v.worldX(map.x() + map.width() / 2.0) / GRID;
         double cy = v.worldY(map.y() + map.height() / 2.0) / GRID;
-        double mx = Math.round(v.worldX(mouseX) / GRID * 2.0) / 2.0;
-        double my = Math.round(v.worldY(mouseY) / GRID * 2.0) / 2.0;
+        double mx = snapUnits(v.worldX(mouseX) / GRID);
+        double my = snapUnits(v.worldY(mouseY) / GRID);
         int selected = SELECTION.isEmpty() ? (chapter.quests.stream().anyMatch(q -> q.id.equals(selectedQuest)) ? 1 : 0)
                 : (int) chapter.quests.stream().filter(q -> SELECTION.contains(q.id)).count();
         ClientPrefs.ensureLoaded();
@@ -4042,8 +4063,8 @@ final class QuestBookWidget extends Widget {
         double px = Mouse.getX() / factor;
         double py = (mc().displayHeight - Mouse.getY()) / factor;
         ViewTransform v = viewFor(chapter, mapRect());
-        ghostX = Math.round(v.worldX(px) / GRID * 2.0) / 2.0;
-        ghostY = Math.round(v.worldY(py) / GRID * 2.0) / 2.0;
+        ghostX = snapUnits(v.worldX(px) / GRID);
+        ghostY = snapUnits(v.worldY(py) / GRID);
     }
 
     /**
@@ -4643,8 +4664,19 @@ final class QuestBookWidget extends Widget {
         Chapter chapter = currentChapter(book);
         if (chapter != null && mapRect().contains(mouseX, mouseY)) {
             ViewTransform zv = viewFor(chapter, mapRect());
-            zv.zoomAt(mouseX, mouseY, delta > 0 ? 1.15 : 1 / 1.15);
-            sharedZoom = zv.zoom();
+            // FTB Quests: the wheel scrolls up and down, Shift scrolls left and right, Ctrl zooms; the old style (a preference) only zooms
+            if (ClientPrefs.oldScrollWheel || GuiScreen.isCtrlKeyDown()) {
+                zv.zoomAt(mouseX, mouseY, delta > 0 ? 1.15 : 1 / 1.15);
+                sharedZoom = zv.zoom();
+            } else {
+                double stepPx = GRID * zv.zoom(); // one grid unit per notch
+                double move = delta > 0 ? stepPx : -stepPx;
+                if (GuiScreen.isShiftKeyDown()) {
+                    zv.panBy(move, 0);
+                } else {
+                    zv.panBy(0, move);
+                }
+            }
             return true;
         }
         return false;
@@ -4749,6 +4781,24 @@ final class QuestBookWidget extends Widget {
         if (book == null) {
             return false;
         }
+        if (!detailOpen() && !searching && (keyCode == Keyboard.KEY_MINUS || keyCode == Keyboard.KEY_SUBTRACT || keyCode == Keyboard.KEY_EQUALS
+                || keyCode == Keyboard.KEY_ADD || keyCode == Keyboard.KEY_0 || keyCode == Keyboard.KEY_NUMPAD0)) {
+            // Zoom Out, Zoom In and Reset Zoom (the keys beside 0 on the number row, and the keypad)
+            Chapter zoomed = currentChapter(book);
+            if (zoomed != null) {
+                Rect zm = mapRect();
+                ViewTransform zv = viewFor(zoomed, zm);
+                double cx = zm.x() + zm.width() / 2.0;
+                double cy = zm.y() + zm.height() / 2.0;
+                if (keyCode == Keyboard.KEY_0 || keyCode == Keyboard.KEY_NUMPAD0) {
+                    zv.zoomAt(cx, cy, 1.0 / zv.zoom());
+                } else {
+                    zv.zoomAt(cx, cy, keyCode == Keyboard.KEY_MINUS || keyCode == Keyboard.KEY_SUBTRACT ? 1 / 1.15 : 1.15);
+                }
+                sharedZoom = zv.zoom();
+            }
+            return true;
+        }
         if (keyCode == Keyboard.KEY_TAB) {
             List<Chapter> chapters = visibleChapters(book);
             if (chapters.isEmpty()) {
@@ -4774,8 +4824,8 @@ final class QuestBookWidget extends Widget {
                 ViewTransform v = viewFor(chapter, map);
                 double mx = map.x() + map.width() / 2.0;
                 double my = map.y() + map.height() / 2.0;
-                double dx = keyCode == Keyboard.KEY_LEFT ? -0.5 : keyCode == Keyboard.KEY_RIGHT ? 0.5 : 0;
-                double dy = keyCode == Keyboard.KEY_UP ? -0.5 : keyCode == Keyboard.KEY_DOWN ? 0.5 : 0;
+                double dx = keyCode == Keyboard.KEY_LEFT ? -gridStep() : keyCode == Keyboard.KEY_RIGHT ? gridStep() : 0;
+                double dy = keyCode == Keyboard.KEY_UP ? -gridStep() : keyCode == Keyboard.KEY_DOWN ? gridStep() : 0;
                 v.centerOn(v.worldX(mx) + dx * GRID, v.worldY(my) + dy * GRID, mx, my);
             }
             return true;
@@ -4805,11 +4855,11 @@ final class QuestBookWidget extends Widget {
             SELECTION.clear();
             return true;
         }
-        if (ctrl && !SELECTION.isEmpty() && (keyCode == Keyboard.KEY_LEFT || keyCode == Keyboard.KEY_RIGHT
+        if (!SELECTION.isEmpty() && (keyCode == Keyboard.KEY_LEFT || keyCode == Keyboard.KEY_RIGHT
                 || keyCode == Keyboard.KEY_UP || keyCode == Keyboard.KEY_DOWN)) {
             // Ctrl + arrows: the picked quests move one grid step (half a unit, as when they snap)
-            double stepX = keyCode == Keyboard.KEY_LEFT ? -0.5 : keyCode == Keyboard.KEY_RIGHT ? 0.5 : 0;
-            double stepY = keyCode == Keyboard.KEY_UP ? -0.5 : keyCode == Keyboard.KEY_DOWN ? 0.5 : 0;
+            double stepX = keyCode == Keyboard.KEY_LEFT ? -gridStep() : keyCode == Keyboard.KEY_RIGHT ? gridStep() : 0;
+            double stepY = keyCode == Keyboard.KEY_UP ? -gridStep() : keyCode == Keyboard.KEY_DOWN ? gridStep() : 0;
             List<DataNode> moves = new ArrayList<>();
             for (Quest q : chapter.quests) {
                 if (SELECTION.contains(q.id)) {
@@ -4834,8 +4884,8 @@ final class QuestBookWidget extends Widget {
                 && (Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU))) {
             // + Alt: paste as quest links
             ViewTransform lv = viewFor(chapter, mapRect());
-            double lx = Math.round(lv.worldX(lastMouseX) / GRID * 2.0) / 2.0;
-            double ly = Math.round(lv.worldY(lastMouseY) / GRID * 2.0) / 2.0;
+            double lx = snapUnits(lv.worldX(lastMouseX) / GRID);
+            double ly = snapUnits(lv.worldY(lastMouseY) / GRID);
             double minX = Double.MAX_VALUE;
             double minY = Double.MAX_VALUE;
             for (String cid : COPIED) {
@@ -4855,8 +4905,8 @@ final class QuestBookWidget extends Widget {
         }
         if (ctrl && keyCode == Keyboard.KEY_V && !COPIED.isEmpty()) {
             ViewTransform v = viewFor(chapter, mapRect());
-            double px = Math.round(v.worldX(lastMouseX) / GRID * 2.0) / 2.0;
-            double py = Math.round(v.worldY(lastMouseY) / GRID * 2.0) / 2.0;
+            double px = snapUnits(v.worldX(lastMouseX) / GRID);
+            double py = snapUnits(v.worldY(lastMouseY) / GRID);
             List<DataNode> ids = new ArrayList<>();
             COPIED.forEach(id -> ids.add(new DataNode.Str(id)));
             // Shift: paste without the dependencies on quests that were not copied too
