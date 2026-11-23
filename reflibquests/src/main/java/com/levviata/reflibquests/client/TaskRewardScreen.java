@@ -268,6 +268,9 @@ final class TaskRewardScreen extends SettingsScreen {
             long famount = fnode instanceof DataNode.Compound fc2 ? fc2.getLong("amount", 1000) : 1000;
             extra.put("fluid", fname.contains(":") ? fname : "minecraft:" + fname);
             extra.put("fluid_amount", String.valueOf(famount));
+            extra.put("fluid_nbt", fnode instanceof DataNode.Compound fc3 && !fc3.getCompound("nbt").entries().isEmpty()
+                    ? com.levviata.reflib.api.data.Snbt.printCompact(fc3.getCompound("nbt")) : "");
+            initialExtra.put("fluid_nbt", extra.get("fluid_nbt"));
             initialExtra.put("fluid", extra.get("fluid"));
             initialExtra.put("fluid_amount", extra.get("fluid_amount"));
             // one row, as in FTB Quests: "1000mB Water Bucket"; clicking it opens the fluid selector, which has the amount box
@@ -278,8 +281,13 @@ final class TaskRewardScreen extends SettingsScreen {
             fluidRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
                     SelectorScreen.fluids(net.minecraft.client.Minecraft.getMinecraft().currentScreen, true, (name, amount, nbt) -> {
                         extra.put("fluid_amount", String.valueOf(Math.max(1L, Math.min(Integer.MAX_VALUE, amount))));
+                        extra.put("fluid_nbt", nbt == null ? "" : nbt);
                         done.accept("minecraft:" + name);
-                    }).preselectFluid(extra.get("fluid"), parseLong(extra.get("fluid_amount"), 1000)));
+                    }).preselectFluid(extra.get("fluid"), parseLong(extra.get("fluid_amount"), 1000), extra.get("fluid_nbt")));
+            // the same "Match Data Components" choice as an item task: Default and Fuzzy need the fluid to contain the data, Exact to equal it
+            String fluidMatch = p.getString("match_components", "default");
+            flag("Match Data Components", "match_components", List.of("Default", "Fuzzy", "Exact"),
+                    Character.toUpperCase(fluidMatch.charAt(0)) + fluidMatch.substring(1), "Default and Fuzzy need the fluid to contain the task's data; Exact needs it to match.");
         }
         if (task != null && task.type().equals("stat")) {
             // FTB Quests 26.1.2 picks the statistic from a list: "Mob Kills" is minecraft:mob_kills
