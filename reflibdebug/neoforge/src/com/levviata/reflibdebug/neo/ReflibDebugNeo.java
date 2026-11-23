@@ -45,16 +45,6 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
-/**
- * Development tool, not for players: the 26.1.2 / NeoForge counterpart of the 1.12.2 {@code reflibdebug}. It opens a
- * control port on 127.0.0.1 only, so a developer can script the client while its window stays in the background:
- * screenshots from the game's own framebuffer, mouse and key input fed through the game's real input handlers,
- * button presses, opening a world, chat and slash commands.
- *
- * <p>Port and a random token are written to {@code reflibdebug.port} in the game folder (line 1 port, line 2 token).
- * A request is one line {@code <token> <command> [arguments]}; the reply is text. Wrong tokens are dropped. There is no
- * command to quit the game or to run arbitrary code. Same protocol as the 1.12.2 helper.
- */
 @Mod("reflibdebug")
 public class ReflibDebugNeo {
 
@@ -73,7 +63,7 @@ public class ReflibDebugNeo {
 
     private final Queue<Job> startQueue = new ConcurrentLinkedQueue<>();
     private final Queue<Job> endQueue = new ConcurrentLinkedQueue<>();
-    private final Queue<Runnable> later = new ConcurrentLinkedQueue<>(); // run at the start of the next tick
+    private final Queue<Runnable> later = new ConcurrentLinkedQueue<>();
     private String token = "";
 
     public ReflibDebugNeo() {
@@ -111,8 +101,6 @@ public class ReflibDebugNeo {
         }
     }
 
-    // ------------------------------------------------------------------ socket thread
-
     private void serve(ServerSocket ss) {
         while (true) {
             try {
@@ -138,7 +126,7 @@ public class ReflibDebugNeo {
             }
             int sp = line.indexOf(' ');
             if (sp < 0 || !line.substring(0, sp).equals(token)) {
-                return; // not for us: say nothing
+                return;
             }
             String cmd = line.substring(sp + 1);
             String name = cmd.contains(" ") ? cmd.substring(0, cmd.indexOf(' ')) : cmd;
@@ -156,11 +144,9 @@ public class ReflibDebugNeo {
             out.write((reply + "\n").getBytes(StandardCharsets.UTF_8));
             out.flush();
         } catch (IOException ignored) {
-            // the client went away
+
         }
     }
-
-    // ------------------------------------------------------------------ client thread
 
     @SubscribeEvent
     public void onTickStart(ClientTickEvent.Pre event) {
@@ -189,7 +175,7 @@ public class ReflibDebugNeo {
     private void run(Job j) {
         try {
             String r = execute(j);
-            if (r != null) { // null: the command completes the result itself later
+            if (r != null) {
                 j.result.complete(r);
             }
         } catch (Throwable ex) {
@@ -254,7 +240,7 @@ public class ReflibDebugNeo {
                     mouseButton(mc, win, btn, 0);
                 } else {
                     mouseButton(mc, win, btn, 1);
-                    later.add(() -> mouseButton(mc, win, btn, 0)); // release on the next tick, as a real click would
+                    later.add(() -> mouseButton(mc, win, btn, 0));
                 }
                 return "ok";
             }
@@ -360,8 +346,6 @@ public class ReflibDebugNeo {
         }
     }
 
-    // ------------------------------------------------------------------ input through the game's own handlers
-
     private String mouseMove(Minecraft mc, long win, String rest) throws Exception {
         String[] p = rest.trim().split("\\s+");
         mouseMoveTo(win, Double.parseDouble(p[0]), Double.parseDouble(p[1]));
@@ -400,7 +384,7 @@ public class ReflibDebugNeo {
         if (n.length() == 1) {
             char c = n.charAt(0);
             if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
-                return c; // GLFW uses the ASCII value for letters and digits
+                return c;
             }
         }
         switch (n) {
@@ -429,8 +413,6 @@ public class ReflibDebugNeo {
                 return -1;
         }
     }
-
-    // ------------------------------------------------------------------ widgets
 
     private List<AbstractWidget> widgets(Minecraft mc) {
         List<AbstractWidget> out = new ArrayList<>();

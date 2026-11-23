@@ -22,7 +22,6 @@ import org.apache.logging.log4j.Logger;
 
 import com.levviata.reflib.api.assets.SuppliedAssets;
 
-/** Internal client half of {@link SuppliedAssets}: installs the resource packs and shows the missing-jar notice. */
 @SideOnly(Side.CLIENT)
 public final class AssetsClient {
 
@@ -31,7 +30,6 @@ public final class AssetsClient {
 
     private AssetsClient() {}
 
-    /** Call at mod construction, before the first resource load. */
     @SuppressWarnings("unchecked")
     public static void install() {
         List<IResourcePack> packs;

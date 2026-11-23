@@ -26,7 +26,6 @@ import com.levviata.reflibquests.model.Definitions.RewardTable;
 import com.levviata.reflibquests.model.QuestBook;
 import com.levviata.reflibquests.text.RichText;
 
-/** "Select Reward Table": a search box over a list of the book's reward tables; clicking one picks it. Opens when a table reward is added. */
 @SideOnly(Side.CLIENT)
 final class SelectRewardTableScreen extends GuiScreen {
 
@@ -36,7 +35,7 @@ final class SelectRewardTableScreen extends GuiScreen {
     private final Consumer<String> picked;
     private final TextEditor search = new TextEditor("", 60);
     private final RewardTablesScreen.Scroller scroller = new RewardTablesScreen.Scroller();
-    private final List<Object[]> hits = new ArrayList<>(); // {Rect, Runnable}
+    private final List<Object[]> hits = new ArrayList<>();
 
     SelectRewardTableScreen(GuiScreen parent, Consumer<String> picked) {
         this.parent = parent;
@@ -70,7 +69,7 @@ final class SelectRewardTableScreen extends GuiScreen {
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         hits.clear();
         if (parent != null) {
-            parent.drawScreen(-1000, -1000, partialTicks); // the screen underneath stays visible
+            parent.drawScreen(-1000, -1000, partialTicks);
         }
         drawDefaultBackground();
         Rect win = window();

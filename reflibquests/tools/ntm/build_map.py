@@ -1,13 +1,3 @@
-"""Builds the 1.12.2 -> 26.1.2 Nuclear Tech id table.
-
-Inputs (all from the user's own instances, data/assets only, nothing decompiled):
-  --old-csv   CraftDumper item_stacks CSV of the 1.12.2 game (id, metadata, display name, translation key, model name)
-  --old-lang  assets/hbm/lang/en_us.lang of NTM-CE 1.12.2
-  --new-dir   a folder holding assets/hbm/items, assets/hbm/lang/en_us.json and data/hbm/fluid_property of the 26.1.2 jar
-  --pack-ids  optional text file (output of ext.py) with the ids the quest pack uses, to mark them in the report
-Outputs: JSON table + markdown report.
-Run: python -I build_map.py --old-csv ... --old-lang ... --new-dir ... --out table.json --report report.md
-"""
 import argparse, csv, json, os, re, collections
 
 ap = argparse.ArgumentParser()
@@ -35,21 +25,19 @@ for l in open(a.old_lang, encoding='utf8'):
 def new_name(i):
     return new_lang.get('item.hbm.' + i) or new_lang.get('block.hbm.' + i)
 
-# name -> ids in the new mod (only plain names without %s)
 by_name = collections.defaultdict(list)
 for i in sorted(new_items):
     n = new_name(i)
     if n and '%s' not in n:
         by_name[n].append(i)
 
-# 1.12.2 fluid names: display name -> fluid key
 old_fluid_by_name = collections.defaultdict(list)
 for k, v in old_lang.items():
     if k.startswith('hbmfluid.'):
         old_fluid_by_name[v].append(k[len('hbmfluid.'):])
 
 rows = list(csv.DictReader(open(a.old_csv, encoding='utf8')))
-stacks = collections.OrderedDict()  # (id, meta) -> first row without nbt preferred
+stacks = collections.OrderedDict()
 for r in rows:
     if not r['ID'].startswith('hbm:'):
         continue
@@ -85,7 +73,6 @@ def fluid_for(display):
     return None
 
 def resolve(i, meta, r):
-    """returns (target dict or None, status, note)"""
     if r is None:
         old_name = old_lang.get('item.%s.name' % i) or old_lang.get('tile.%s.name' % i) or ''
         r_missing = True
@@ -101,13 +88,11 @@ def resolve(i, meta, r):
             return None, 'unresolved', 'fluid "%s" has no unique 26.1.2 fluid' % old_name
         fid = 'minecraft:' + f if f in ('water', 'lava') else 'hbm:' + f
         return {'id': FLUID_ITEMS[i], 'components': {'hbm:fluid': fid, 'hbm:fluid_amount': 1000}}, 'component', 'fluid %s' % fid
-    # same id, nothing multi-meta
     if i in new_items and meta == 0:
         nn = new_name(i)
         if nn is None or nn == old_name or not old_name:
             return {'id': 'hbm:' + i}, 'same', ''
         return {'id': 'hbm:' + i}, 'renamed', '"%s" is now "%s"' % (old_name, nn)
-    # enum-multi / autogen derived names: item.circuit.pcb -> circuit_pcb ; items/plate_cast-iron -> plate_cast_iron
     cands = []
     if model.startswith('hbm:items/'):
         cands.append(model[len('hbm:items/'):].replace('.', '_').replace('-', '_'))
@@ -119,7 +104,7 @@ def resolve(i, meta, r):
         if c not in new_items:
             continue
         if c == i and meta != 0:
-            continue  # the family's base item: not the same thing as this variant
+            continue
         nn = new_name(c)
         st = 'derived' if (nn is None or nn == old_name) else 'derived-renamed'
         return {'id': 'hbm:' + c}, st, ('"%s" is now "%s"' % (old_name, nn)) if st == 'derived-renamed' else ''
@@ -138,7 +123,6 @@ def resolve(i, meta, r):
         mat = re.sub(r'[^a-z0-9]+', '_', old_name[:-len(' Scraps')].lower()).strip('_')
         if mat in SCRAP_MATERIALS:
             return {'id': 'hbm:scraps', 'components': {'hbm:material': mat}}, 'component', 'hbm:material component, confirmed in game'
-    # material-keyed families ("Cast Aluminium Plate" -> plate_cast_aluminium)
     tpl = old_lang.get('item.%s.name' % i, '')
     if '%s' in tpl and old_name and meta != 0:
         pre, _, post = tpl.partition('%s')
@@ -148,7 +132,6 @@ def resolve(i, meta, r):
             slug = MATERIAL_SYNONYMS.get(slug, slug)
             if (i + '_' + slug) in new_items:
                 return {'id': 'hbm:%s_%s' % (i, slug)}, 'derived', 'material "%s"' % mat
-    # unique display-name match
     if old_name and len(by_name.get(old_name, [])) == 1:
         return {'id': 'hbm:' + by_name[old_name][0]}, 'by-name', 'matched on the name "%s"' % old_name
     if old_name and by_name.get(old_name):
@@ -165,7 +148,6 @@ for (i, meta), r in stacks.items():
         t, st, note = (ov['to'] if isinstance(ov['to'], dict) else {'id': ov['to']}), ov['status'], ov['note']
     table['hbm:%s@%d' % (i, meta)] = {'to': t, 'status': st, 'note': note, 'name': clean(r['Display Name']) if r else ''}
 
-# fluids (1.12.2 fluid key -> 26.1.2 fluid id)
 fluids = {}
 for k, v in old_lang.items():
     if k.startswith('hbmfluid.'):
@@ -212,7 +194,6 @@ if a.new_jar and a.pack_dir:
             if n not in oredict:
                 oredict[n] = {'tag': None, 'status': 'unresolved', 'note': 'no tag of that name in the 26.1.2 mod'}
 
-# bedrock ore processing: the 26.1.2 chain is named <stage>_<kind>; stage names read off the item ids against the 1.12.2 names
 KINDS = ['light', 'heavy', 'rare', 'actinide', 'nonmetal', 'crystal']
 BEDROCK = {
     'bedrockOreFullWashed': ('bedrock_ore_base_washed_', 'derived', 'items named "Washed <kind> Bedrock Ore" in the 1.12.2 dump'),
@@ -239,7 +220,6 @@ for n, (pre, st, why) in BEDROCK.items():
     if len(ids) == 6 and oredict.get(n, {}).get('tag') is None:
         oredict[n] = {'tag': None, 'items': ids, 'status': st, 'note': why}
 
-# families that the 26.1.2 mod keeps as separate items with a common prefix
 FAMILIES = {
     'bobblehead': (lambda i: i.startswith('bobblehead_'), 'derived', 'every bobblehead_* item'),
     'drillbit': (lambda i: i.startswith('drillbit_') and not i.endswith('_diamond'), 'inferred', 'drillbit_* items without the diamond tip'),
@@ -252,7 +232,6 @@ for n, (test, st, why) in FAMILIES.items():
 oredict['container1000estradiol'] = {'tag': None, 'items': ['hbm:fluid_tank'], 'status': 'substitute-weak',
                                      'note': 'the 1.12.2 filter meant a tank holding estradiol; the 26.1.2 filter here accepts any universal fluid tank (fluid cannot be tested with item())'}
 
-# names without a tag: the members the 1.12.2 dump lists under that ore dictionary name, translated through the item table
 members = collections.defaultdict(list)
 for r in rows:
     for od in (r['OreDict Names'] or '').split(','):

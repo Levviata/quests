@@ -94,7 +94,7 @@ class RichTextTest {
 
     @Test
     void hoverAndClickEventsInTheNewSpellingAreRead() {
-        // exactly what FTB Quests 26.1.2 saved in the reference book
+
         String entry = "[ { \"text\": \"Showcase description line\", \"hover_event\": {\"value\":{\"translate\":\"Hover text\"},\"action\":\"show_text\"} } ]";
         Span s = span(RichText.parseEntry(entry).get(0), 0);
         assertEquals("Showcase description line", s.text());
@@ -106,7 +106,7 @@ class RichTextTest {
 
     @Test
     void questLinkAndUrlLinkAsFtbSavedThem() {
-        // exactly what FTB Quests 26.1.2 saved (2026-11-22) for "Insert Quest Link" and "Insert URL/Docs Link"
+
         String quest = "[ { \"text\": \"quest link\", \"underlined\": true, \"click_event\": {\"id\":\"ftbquests:link\",\"payload\":{\"quest_id\":\"2C946717C6E02D33\",\"page\":1},\"action\":\"custom\"} } ]";
         Span q = span(RichText.parseEntry(quest).get(0), 0);
         assertEquals("quest link", q.text());
@@ -263,7 +263,7 @@ class RichTextTest {
 
     @Test
     void backslashAmpersandIsALiteralAmpersand() {
-        String raw = "Extended " + (char) 92 + "& Advanced AE"; // the text as the pack stores it: backslash, ampersand
+        String raw = "Extended " + (char) 92 + "& Advanced AE";
         assertEquals("Extended & Advanced AE", RichText.stripCodes(raw));
         assertEquals("Extended & Advanced AE", RichText.toSectionCodes(raw));
         assertEquals("Extended & Advanced AE", span(RichText.parseEntry(raw).get(0), 0).text());

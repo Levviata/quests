@@ -24,33 +24,12 @@ import org.apache.logging.log4j.Logger;
 
 import com.levviata.reflib.impl.assets.ZipAssetIndex;
 
-/**
- * Lets a project use assets (textures, language files, data) that live in jars the <em>player</em> supplies,
- * without shipping or copying them.
- *
- * <p>The player puts the jars into {@code <game folder>/reflib-supplied/}. Reflib scans that folder once at
- * startup. On the client every exposed asset domain of every jar is served as a resource pack, so ordinary
- * {@code ResourceLocation} lookups just work; language files written as JSON (newer versions) are converted to
- * the {@code .lang} format on the fly. The {@code minecraft} domain is never exposed, nothing is extracted or
- * copied, and nothing in the jars is ever loaded as code.
- *
- * <p>A project declares what it expects so that players are told when a jar is missing:
- *
- * <pre>{@code
- * SuppliedAssets.declare("myproject", "Original Mod 1.2.3", "https://example.org/get-it", "originalmod");
- * if (!SuppliedAssets.isPresent("myproject")) { // fall back to own placeholder art }
- * }</pre>
- *
- * <p>This is a distribution mechanism, not a licence: whether using a given mod's assets this way is allowed
- * is decided by that mod's licence, and is the responsibility of the project that declares the requirement.
- */
 public final class SuppliedAssets {
 
     public static final String FOLDER = "reflib-supplied";
 
     private static final Logger LOGGER = LogManager.getLogger("reflib/assets");
 
-    /** What a project expects from the player. {@code jar} is null when nothing matching was found. */
     public record Requirement(String projectId, String displayName, String whereToGet, List<String> domains,
                               @Nullable File jar, boolean optional) {
         public boolean isPresent() {
@@ -65,10 +44,6 @@ public final class SuppliedAssets {
 
     private SuppliedAssets() {}
 
-    /**
-     * Scan the supplied-assets folder under {@code gameDir}. Called by reflib itself at startup; calling it again
-     * re-scans. Unreadable archives are logged and skipped.
-     */
     public static synchronized void init(File gameDir) {
         closeAll();
         folder = new File(gameDir, FOLDER);
@@ -96,7 +71,7 @@ public final class SuppliedAssets {
                 }
             }
         }
-        // re-resolve requirements declared before a re-scan
+
         for (Requirement r : new ArrayList<>(REQUIREMENTS.values())) {
             REQUIREMENTS.put(r.projectId(), resolve(r.projectId(), r.displayName(), r.whereToGet(), r.domains(), r.optional()));
         }
@@ -107,24 +82,16 @@ public final class SuppliedAssets {
             try {
                 idx.close();
             } catch (IOException ignored) {
-                // nothing useful to do
+
             }
         }
         SOURCES.clear();
     }
 
-    /** @return the folder players should put jars into */
     public static synchronized File folder() {
         return folder;
     }
 
-    /**
-     * Declare that a project needs assets from the given domains.
-     *
-     * @param displayName  shown to the player when the jar is missing, e.g. "Some Mod 1.2.3"
-     * @param whereToGet   text or address telling the player where to obtain it
-     * @param domains      asset domains the project reads; a jar must provide all of them
-     */
     public static synchronized Requirement declare(String projectId, String displayName, String whereToGet,
                                                    String... domains) {
         if (domains.length == 0) {
@@ -133,10 +100,6 @@ public final class SuppliedAssets {
         return declare(projectId, displayName, whereToGet, false, domains);
     }
 
-    /**
-     * Like {@link #declare} for assets a project can do without (it falls back to its own art). Players are not
-     * shown the missing-jar notice for these; check {@link #isPresent} and {@link #missingOptional()}.
-     */
     public static synchronized Requirement declareOptional(String projectId, String displayName, String whereToGet,
                                                            String... domains) {
         if (domains.length == 0) {
@@ -167,7 +130,7 @@ public final class SuppliedAssets {
         File found = null;
         for (ZipAssetIndex idx : SOURCES) {
             if (idx.domains().containsAll(want)) {
-                found = idx.file(); // later files (by name) win, so a newer version name overrides an older one
+                found = idx.file();
             }
         }
         return new Requirement(projectId, displayName, whereToGet, List.copyOf(domains), found, optional);
@@ -178,12 +141,10 @@ public final class SuppliedAssets {
         return r != null && r.isPresent();
     }
 
-    /** @return the required (non-optional) requirements whose jar was not found; these trigger the player notice */
     public static List<Requirement> missing() {
         return missing(false);
     }
 
-    /** @return the optional requirements whose jar was not found */
     public static List<Requirement> missingOptional() {
         return missing(true);
     }
@@ -199,25 +160,15 @@ public final class SuppliedAssets {
         return out;
     }
 
-    /**
-     * Serve {@code domain:path} from another file of the supplied jars, for example when the new name differs
-     * from the old one. May be called at any time before the resources load.
-     */
     public static void alias(String domain, String path, String originalPath) {
         ALIASES.put(domain.toLowerCase(Locale.ROOT) + ":" + path.toLowerCase(Locale.ROOT), originalPath);
     }
 
-    /** @return the aliased path for a request, or the path itself */
     public static String resolveAlias(String domain, String path) {
         String a = ALIASES.get(domain.toLowerCase(Locale.ROOT) + ":" + path.toLowerCase(Locale.ROOT));
         return a == null ? path : a;
     }
 
-    /**
-     * Read a supplied file (any side, any time after startup).
-     *
-     * @return the bytes, or null if no supplied jar has it
-     */
     @Nullable
     public static synchronized byte[] read(String domain, String path) {
         String real = resolveAlias(domain, path);
@@ -234,12 +185,10 @@ public final class SuppliedAssets {
         return null;
     }
 
-    /** @return the open archives; used by the client resource pack */
     public static synchronized List<ZipAssetIndex> sources() {
         return Collections.unmodifiableList(new ArrayList<>(SOURCES));
     }
 
-    /** Test hook. */
     static synchronized void resetForTests() {
         closeAll();
         REQUIREMENTS.clear();

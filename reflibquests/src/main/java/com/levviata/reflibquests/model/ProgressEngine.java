@@ -15,11 +15,6 @@ import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.Definitions.Reward;
 import com.levviata.reflibquests.model.Definitions.Task;
 
-/**
- * The rules that change a team's progress. All operations return the events they caused, so the game layer can
- * post Forge events, notify players and queue sync deltas. Pure logic: no Minecraft, no clocks (the caller
- * passes the time), fully unit-tested.
- */
 public final class ProgressEngine {
 
     private final QuestBook book;
@@ -28,11 +23,6 @@ public final class ProgressEngine {
         this.book = book;
     }
 
-    /**
-     * Set a task's progress (clamped to 0..max). Ignored if the quest cannot currently progress, or (for
-     * sequential quests) if an earlier task is unfinished. Progress never decreases through this method; use
-     * {@link #resetQuest} to reset.
-     */
     public List<ProgressEvent> setTaskProgress(TeamProgress p, String taskId, long value, long now) {
         List<ProgressEvent> events = new ArrayList<>();
         Task task = book.task(taskId);
@@ -41,7 +31,7 @@ public final class ProgressEngine {
             return events;
         }
         if (p.isCompleted(quest.id)) {
-            return events; // repeatable quests are reset by tickRepeats before they progress again
+            return events;
         }
         if (!QuestRules.canProgress(book, p, quest)) {
             return events;
@@ -65,16 +55,10 @@ public final class ProgressEngine {
         return events;
     }
 
-    /** Add to a task's progress. */
     public List<ProgressEvent> addTaskProgress(TeamProgress p, String taskId, long delta, long now) {
         return setTaskProgress(p, taskId, p.taskProgress(taskId) + delta, now);
     }
 
-    /**
-     * Completes every quest whose required tasks are done and which may complete (dependencies met, or any
-     * mode for quests without dependencies). Repeats until nothing changes, because one completion can
-     * unblock a flexible quest that was waiting.
-     */
     private void settle(TeamProgress p, long now, List<ProgressEvent> events) {
         boolean changed = true;
         while (changed) {
@@ -84,7 +68,7 @@ public final class ProgressEngine {
                     continue;
                 }
                 if (!QuestRules.dependenciesMet(book, p, q)) {
-                    continue; // flexible quest waiting for its dependencies
+                    continue;
                 }
                 complete(p, q, now, events);
                 changed = true;
@@ -100,7 +84,7 @@ public final class ProgressEngine {
         p.completed.put(q.id, now);
         p.completionCount.merge(q.id, 1, Integer::sum);
         if (QuestRules.repeatable(book, q) && q.rewards.isEmpty()) {
-            p.repeatReadyAt.put(q.id, now + q.repeatCooldown * 1000L); // nothing to claim: the cooldown starts now
+            p.repeatReadyAt.put(q.id, now + q.repeatCooldown * 1000L);
         }
         events.add(new ProgressEvent.QuestCompleted(q.id));
         Chapter c = book.chapterOf(q.id);
@@ -109,15 +93,10 @@ public final class ProgressEngine {
         }
     }
 
-    /**
-     * Administrative: fill all tasks of a quest. As in FTB Quests the quest completes only once its dependencies are
-     * resolved: a locked quest stays open (with its tasks done) until they are.
-     */
     public List<ProgressEvent> forceComplete(TeamProgress p, String questId, long now) {
         return forceComplete(p, questId, now, false);
     }
 
-    /** As above; with {@code withDependencies} every quest it depends on, directly or not, is completed too. */
     public List<ProgressEvent> forceComplete(TeamProgress p, String questId, long now, boolean withDependencies) {
         List<ProgressEvent> events = new ArrayList<>();
         Quest q = book.quest(questId);
@@ -143,11 +122,10 @@ public final class ProgressEngine {
                 events.add(new ProgressEvent.QuestStarted(id));
             }
         }
-        settle(p, now, events); // completes what has its tasks done and its dependencies met, in dependency order
+        settle(p, now, events);
         return events;
     }
 
-    /** Administrative: finish one task. The quest completes if that was the last one and its dependencies are met. */
     public List<ProgressEvent> completeTask(TeamProgress p, String taskId, long now) {
         List<ProgressEvent> events = new ArrayList<>();
         Task t = book.task(taskId);
@@ -168,7 +146,6 @@ public final class ProgressEngine {
         return events;
     }
 
-    /** Administrative: clear one task's progress; a quest that was complete because of it is open again. */
     public List<ProgressEvent> resetTask(TeamProgress p, String taskId) {
         List<ProgressEvent> events = new ArrayList<>();
         Task t = book.task(taskId);
@@ -199,7 +176,6 @@ public final class ProgressEngine {
         }
     }
 
-    /** Administrative: clear a quest's progress and claims (completion count is kept for repeatables). */
     public List<ProgressEvent> resetQuest(TeamProgress p, String questId) {
         List<ProgressEvent> events = new ArrayList<>();
         Quest q = book.quest(questId);
@@ -220,7 +196,6 @@ public final class ProgressEngine {
         return events;
     }
 
-    /** Reset repeatable quests whose cooldown has passed. */
     public List<ProgressEvent> tickRepeats(TeamProgress p, long now) {
         List<ProgressEvent> events = new ArrayList<>();
         for (String id : new ArrayList<>(p.repeatReadyAt.keySet())) {
@@ -238,7 +213,6 @@ public final class ProgressEngine {
         return events;
     }
 
-    /** Whether the player can claim this reward now (quest completed, not claimed, not blocked). */
     public boolean canClaim(TeamProgress p, UUID player, Reward reward) {
         Quest q = questOf(reward);
         if (q == null || !p.isCompleted(q.id) || p.isClaimed(reward.id(), player)) {
@@ -247,11 +221,6 @@ public final class ProgressEngine {
         return !p.areRewardsBlocked() || q.ignoreRewardBlocking || reward.params().getBool("ignore_reward_blocking", false);
     }
 
-    /**
-     * Whether a reward is one reward for the whole team: its own "Per-Team Reward" if it says so, else the book's
-     * "Per-Team Reward by Type" for its type ({@code default_reward_team_by_type}, ids like {@code ftbquests:item}, as FTB
-     * 26.1.2 saves it), else the book's "Reward 'Team Reward'" default.
-     */
     public boolean isTeamReward(Reward reward) {
         if (reward.params().has("team_reward")) {
             return reward.params().getBool("team_reward", false);
@@ -264,16 +233,15 @@ public final class ProgressEngine {
         return book.settings.getBool("default_reward_team", false);
     }
 
-    /** Record a claim. The caller grants the reward only if this returns true. */
     public boolean claim(TeamProgress p, UUID player, Reward reward, long now) {
         if (!canClaim(p, player, reward)) {
             return false;
         }
-        // "Per-Team Reward": one claim for the whole team (FTB: only the submitting player receives it), stored under the team id
+
         p.claimed.put(TeamProgress.claimKey(reward.id(), isTeamReward(reward) ? p.teamId() : player), now);
         Quest owner = questOf(reward);
         if (owner != null && QuestRules.repeatable(book, owner) && owner.rewards.stream().allMatch(r -> p.isClaimed(r.id(), player))) {
-            // the quest is redone only after every reward is claimed; the cooldown (in seconds, as in FTB Quests) counts from then
+
             p.repeatReadyAt.put(owner.id, now + owner.repeatCooldown * 1000L);
         }
         return true;
@@ -298,7 +266,6 @@ public final class ProgressEngine {
         return null;
     }
 
-    /** Linear/flexible helper used by the UI: true if the quest is greyed out as locked. */
     public boolean isLocked(TeamProgress p, Quest q) {
         return book.effectiveMode(q) != ProgressionMode.FLEXIBLE && !QuestRules.dependenciesMet(book, p, q);
     }

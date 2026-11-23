@@ -46,14 +46,8 @@ import com.levviata.reflibquests.model.ProgressEvent;
 import com.levviata.reflibquests.model.QuestBook;
 import com.levviata.reflibquests.model.TeamProgress;
 
-/**
- * Server-side owner of the quest book and all teams' progress: loads definitions from
- * {@code <game>/config/reflibquests/quests}, keeps progress per team in the world's
- * {@code data/reflibquests} folder, applies progress changes, posts events, notifies players, auto-claims.
- */
 public final class QuestServer {
 
-    /** Task types the game layer can currently detect. Others are kept and shown but never progress. */
     public static final Set<String> SUPPORTED_TASKS = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom",
             "biome", "structure", "observation", "stat", "fluid", "gamestage", "interaction", "forge_energy");
 
@@ -73,13 +67,12 @@ public final class QuestServer {
     private boolean backedUp;
     private final Map<UUID, TeamProgress> teams = new LinkedHashMap<>();
     private final Set<UUID> dirty = new HashSet<>();
-    /** teams whose progress must be re-sent to their online members at the end of this tick */
+
     private final Set<UUID> syncDirty = new HashSet<>();
     private final RewardGranter rewards = new RewardGranter(this);
     private final TaskTracker tracker = new TaskTracker(this);
     private final List<String> inertTasks = new ArrayList<>();
 
-    /** When a player's team changes (party joined or left), show them their new team's progress. */
     private final Teams.ChangeListener teamListener;
 
     private QuestServer(MinecraftServer server) {
@@ -141,10 +134,6 @@ public final class QuestServer {
         return inertTasks;
     }
 
-    /**
-     * Where the quest files are: {@code config/reflibquests/quests/}, or the config folder itself when the files
-     * were dropped there (a data file plus a chapters folder) and the {@code quests/} subfolder has no chapters.
-     */
     public File questFolder() {
         File nested = new File(configDir, "quests");
         if (!hasChapters(nested) && hasChapters(configDir)) {
@@ -158,12 +147,11 @@ public final class QuestServer {
         return names != null && names.length > 0;
     }
 
-    /** (Re)read definitions and the id map; progress already in memory is kept. */
     public void reload() {
         waitForExport();
-        history.clear(); // the book is about to be read again; copies of the old one no longer fit
+        history.clear();
         if (bookDirty) {
-            exportBook(); // never throw away edits that were not saved yet
+            exportBook();
         }
         Path mapFile = configDir.toPath().resolve("id_map.snbt");
         idMapRaw = DataNode.Compound.empty();
@@ -200,9 +188,6 @@ public final class QuestServer {
         }
     }
 
-    // ------------------------------------------------------------ sync to clients
-
-    /** Send the whole book and the player's team progress (on join and after a reload). */
     public void syncPlayer(EntityPlayerMP player) {
         if (bookBytesStale) {
             bookBytes = Gz.pack(BookCodec.write(book, idMapRaw));
@@ -219,14 +204,13 @@ public final class QuestServer {
         return player.canUseCommand(2, "rquests");
     }
 
-    /** A client asked for an edit. Needs permission level 2; the edit is validated, saved and sent to everyone. */
     public void handleEdit(EntityPlayerMP player, String op, String argsText) {
         if (!canEdit(player)) {
             player.sendMessage(new TextComponentString("[Quests] You need permission level 2 to edit quests."));
             return;
         }
         if (exporter != null) {
-            deferredEdits.add(() -> handleEdit(player, op, argsText)); // a save is running: apply this right after it
+            deferredEdits.add(() -> handleEdit(player, op, argsText));
             return;
         }
         com.levviata.reflib.api.data.DataNode.Compound args;
@@ -242,7 +226,7 @@ public final class QuestServer {
             return;
         }
         if ((op.equals("reset_progress") || op.equals("complete_quest")) && args.getBool("all", false)) {
-            // the whole book, for the player's team
+
             TeamProgress team = progressOf(player);
             long now = System.currentTimeMillis();
             for (com.levviata.reflibquests.model.Definitions.Quest cq : new java.util.ArrayList<>(book.allQuests())) {
@@ -297,7 +281,7 @@ public final class QuestServer {
                 player.sendMessage(new TextComponentString("[Quests] That task has no item to copy."));
                 return;
             }
-            // the player chose one of the task's items by its place in the list; the item itself is checked as well
+
             int at = args.getInt("index", 0);
             String wantId = args.getString("item", "");
             ItemResolver.Resolved chosen = at >= 0 && at < found.size() ? found.get(at) : found.get(0);
@@ -318,7 +302,7 @@ public final class QuestServer {
                 }
                 chosen = match;
             }
-            net.minecraft.item.ItemStack copy = chosen.toStack(Math.max(1, chosen.count())); // a full copy, with its data
+            net.minecraft.item.ItemStack copy = chosen.toStack(Math.max(1, chosen.count()));
             if (!player.addItemStackToInventory(copy)) {
                 player.dropItem(copy, false);
             }
@@ -337,10 +321,10 @@ public final class QuestServer {
             pins.prune(book);
             bookDirty = true;
             if (history.lastNeedsFullSync) {
-                changed(true); // chapters moved or groups changed: the whole book is sent again
+                changed(true);
             } else {
                 bookBytesStale = true;
-                sendChangedParts(); // only what was put back goes to the players, at once
+                sendChangedParts();
             }
             return;
         }
@@ -360,7 +344,6 @@ public final class QuestServer {
     private final History history = new History();
     private boolean bookBytesStale;
 
-    /** Send the chapters and reward tables the last undo or redo changed, and nothing else. */
     private void sendChangedParts() {
         java.util.List<com.levviata.reflib.api.data.DataNode> chapters = new ArrayList<>();
         for (String id : history.lastChapterIds) {
@@ -385,19 +368,13 @@ public final class QuestServer {
         }
     }
 
-    /** Edits that add, remove or replace tasks (the tracker keeps its own list of them). */
     private static final java.util.Set<String> TASK_OPS = java.util.Set.of(
             "add_task", "remove_task", "task_value", "delete_quest", "delete_chapter", "create_quest");
 
-    /**
-     * The book changed. Only what the edit can have affected is rebuilt (the task list, the check for tasks that cannot
-     * progress, the pins), and the whole book is sent once the edits pause instead of after every single one.
-     */
     private void editApplied(String op) {
         changed(TASK_OPS.contains(op) || op.equals("delete_quest") || op.equals("delete_chapter"));
     }
 
-    /** The book changed: rebuild what the change may have affected (when {@code structural}) and schedule sending it. */
     private void changed(boolean structural) {
         book.reindex();
         if (structural) {
@@ -410,7 +387,7 @@ public final class QuestServer {
         if (resyncFirstAt == 0) {
             resyncFirstAt = now;
         }
-        // the first edit after a pause is sent on the next tick (adding a task shows at once); edits in quick succession wait for a pause
+
         resyncAt = now - lastChangeAt > 300 ? now : now + 250;
         lastChangeAt = now;
     }
@@ -423,14 +400,14 @@ public final class QuestServer {
         }
         long now = System.currentTimeMillis();
         if (now < resyncAt && now - resyncFirstAt < 1500) {
-            return; // still being edited
+            return;
         }
         resyncAt = 0;
         resyncFirstAt = 0;
         bookBytesStale = false;
         bookBytes = Gz.pack(BookCodec.write(book, idMapRaw));
         for (EntityPlayerMP p : server.getPlayerList().getPlayers()) {
-            QuestNet.sendBook(p, bookBytes); // only the book changed; progress, pins and rights are as they were
+            QuestNet.sendBook(p, bookBytes);
             QuestNet.sendPins(p, pins.pinsOf(p.getUniqueID()));
             sendHistory(p);
         }
@@ -443,10 +420,6 @@ public final class QuestServer {
     private volatile Thread exporter;
     private final java.util.ArrayDeque<Runnable> deferredEdits = new java.util.ArrayDeque<>();
 
-    /**
-     * Save the book on a background thread so the game does not stall. While it runs the book is only read, and edits that
-     * arrive are held back and applied right after (see {@link #tick}).
-     */
     private void exportBookInBackground() {
         if (exporter != null || !bookDirty) {
             return;
@@ -474,7 +447,6 @@ public final class QuestServer {
         }
     }
 
-    /** Write the book to the quest folder now (keeps a copy of the previous folder once per session). */
     public void exportBook() {
         waitForExport();
         bookDirty = false;
@@ -491,7 +463,7 @@ public final class QuestServer {
             UpstreamExporter.export(book, questFolder().toPath());
             ReflibQuestsMod.LOGGER.info("Saved the quest book to {} ({} ms)", questFolder(), System.currentTimeMillis() - started);
         } catch (IOException | RuntimeException ex) {
-            bookDirty = true; // try again next time
+            bookDirty = true;
             ReflibQuestsMod.LOGGER.error("Cannot save the quest book: {}", ex.getMessage(), ex);
         }
     }
@@ -502,7 +474,7 @@ public final class QuestServer {
         try (java.util.stream.Stream<Path> walk = Files.walk(source)) {
             for (Path p : (Iterable<Path>) walk::iterator) {
                 if (p.startsWith(configDir.toPath().resolve("backups"))) {
-                    continue; // when the quests live in the config folder itself, do not copy the backups into a backup
+                    continue;
                 }
                 Path dest = target.resolve(source.relativize(p).toString());
                 if (Files.isDirectory(p)) {
@@ -516,7 +488,6 @@ public final class QuestServer {
         ReflibQuestsMod.LOGGER.info("Backed up the quest folder to {}", target);
     }
 
-    /** A client asked to pin or unpin a quest. */
     public void handleTogglePin(EntityPlayerMP player, String questId) {
         if (book.quest(questId) == null) {
             return;
@@ -572,7 +543,6 @@ public final class QuestServer {
         return null;
     }
 
-    /** A client asked to claim a reward. The server re-checks everything. */
     public void handleClaim(EntityPlayerMP player, String rewardId, int choice) {
         Reward reward = findReward(rewardId);
         if (reward == null) {
@@ -593,13 +563,12 @@ public final class QuestServer {
         }
     }
 
-    /** Claim every reward the player can claim right now, except choices (those need a decision). @return how many */
     public int claimAll(EntityPlayerMP player) {
         TeamProgress team = progressOf(player);
         int claimed = 0;
         for (Quest q : book.allQuests()) {
             if (!team.isCompleted(q.id)) {
-                continue; // only completed quests have rewards to claim
+                continue;
             }
             for (Reward r : q.rewards) {
                 if (!r.type().equals("choice") && !r.params().getBool("exclude_from_claim_all", false)
@@ -644,7 +613,7 @@ public final class QuestServer {
                 } else if (t.type().equals("observation") && !t.params().getString("observation_type", "block").equals("block")) {
                     inertTasks.add(q.id + "/" + t.id() + ": only blocks can be observed so far");
                 } else if (t.type().equals("item") && ItemSet.isFilter(t.params().get("item"))) {
-                    // a "any of these items" filter works as long as at least one of its items exists in this game
+
                     if (ItemSet.resolveAll(t.params().get("item"), idMap).isEmpty()) {
                         inertTasks.add(q.id + "/" + t.id() + ": none of the filter's items exist in 1.12.2");
                     }
@@ -664,8 +633,6 @@ public final class QuestServer {
         }
         return n instanceof DataNode.Str s ? s.value() : "?";
     }
-
-    // ------------------------------------------------------------ teams and persistence
 
     public UUID teamIdOf(UUID player) {
         return Teams.get().teamOf(player);
@@ -713,7 +680,6 @@ public final class QuestServer {
         }
     }
 
-    /** Everything is written before this returns (used when the world closes), including a save that is still running. */
     public void saveAll() {
         waitForExport();
         if (bookDirty) {
@@ -736,8 +702,6 @@ public final class QuestServer {
         }
     }
 
-    // ------------------------------------------------------------ applying changes
-
     public List<EntityPlayerMP> onlineMembers(UUID teamId) {
         List<EntityPlayerMP> out = new ArrayList<>();
         for (UUID member : Teams.get().membersOf(teamId)) {
@@ -759,7 +723,6 @@ public final class QuestServer {
         apply(team, engine.addTaskProgress(team, task.id(), delta, System.currentTimeMillis()));
     }
 
-    /** Record the events of a progress operation: save later, post Forge events, tell the team, auto-claim. */
     public void apply(TeamProgress team, List<ProgressEvent> events) {
         if (events.isEmpty()) {
             return;
@@ -795,7 +758,7 @@ public final class QuestServer {
 
     private boolean autoClaims(Reward r) {
         if (book.settings.getBool("suppress_all_autoclaiming", false)) {
-            return false; // a setting for pack development: nothing is claimed by itself
+            return false;
         }
         String mode = r.autoClaim();
         if (mode.equals("default")) {
@@ -818,11 +781,6 @@ public final class QuestServer {
         }
     }
 
-    /**
-     * Claim a reward for a player: checks the rules, grants it, and only then records the claim.
-     *
-     * @return the grant result, or {@code FAILED} if the rules do not allow a claim now
-     */
     public RewardGranter.Result claim(EntityPlayerMP player, Reward reward, int choice, boolean quiet) {
         TeamProgress team = progressOf(player);
         if (!engine.canClaim(team, player.getUniqueID(), reward)) {
@@ -839,7 +797,6 @@ public final class QuestServer {
         return result;
     }
 
-    /** Called every server tick. */
     public void tick(int serverTick) {
         flushSync();
         while (exporter == null && !deferredEdits.isEmpty()) {

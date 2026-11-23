@@ -13,21 +13,11 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import org.lwjgl.input.Mouse;
 
-/**
- * A {@link GuiScreen} that hosts a {@link Widget} tree and routes input to it. Subclass, build the tree in
- * {@link #buildRoot(int, int)} and open with
- * {@code Minecraft.getMinecraft().displayGuiScreen(new MyScreen())}.
- *
- * <p>Important: the whole tree is rebuilt every time the window is resized (vanilla calls {@code initGui} again).
- * Keep state in fields of your screen and build widgets from it; widget-internal state (scroll offset, text) is
- * lost on resize.
- */
 @SideOnly(Side.CLIENT)
 public abstract class ReflibScreen extends GuiScreen {
 
     private Widget root;
 
-    /** Build the widget tree for the given screen size. */
     protected abstract Widget buildRoot(int screenWidth, int screenHeight);
 
     @Override
@@ -38,7 +28,6 @@ public abstract class ReflibScreen extends GuiScreen {
     private int lastDragX;
     private int lastDragY;
 
-    /** Override to draw a different backdrop; the default dims the world like vanilla screens. */
     protected void drawBackdrop() {
         drawDefaultBackground();
     }

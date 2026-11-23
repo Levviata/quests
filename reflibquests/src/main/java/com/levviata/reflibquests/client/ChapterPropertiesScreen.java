@@ -18,7 +18,6 @@ import com.levviata.reflibquests.model.Definitions.Chapter;
 import com.levviata.reflibquests.model.Definitions.Tristate;
 import com.levviata.reflibquests.text.RichText;
 
-/** "Chapter Properties", in FTB Quests' own order and wording. Accept sends only what changed. */
 @SideOnly(Side.CLIENT)
 final class ChapterPropertiesScreen extends SettingsScreen {
 
@@ -143,6 +142,6 @@ final class ChapterPropertiesScreen extends SettingsScreen {
 
     @Override
     protected void cancelled() {
-        // nothing was sent
+
     }
 }

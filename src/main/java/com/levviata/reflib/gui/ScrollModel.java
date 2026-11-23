@@ -5,7 +5,6 @@
 
 package com.levviata.reflib.gui;
 
-/** Clamped vertical scroll state for content taller than its viewport. Pure logic, no game classes. */
 public final class ScrollModel {
 
     private int contentHeight;
@@ -38,7 +37,6 @@ public final class ScrollModel {
         offset = clamp(offset + delta);
     }
 
-    /** @return the share of the content that is visible, in (0, 1]; 1 when nothing needs scrolling */
     public double visibleFraction() {
         return contentHeight <= viewportHeight || contentHeight == 0 ? 1.0 : (double) viewportHeight / contentHeight;
     }

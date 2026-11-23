@@ -77,9 +77,9 @@ class SearchAndPinTest {
     @Test
     void titleMatchesRankFirst() {
         setUp();
-        // "wheat": B1 has it in the title (starts with), B2 only in the description
+
         assertEquals("B1", QuestSearch.search(book, p, "wheat", 10).get(0).questId());
-        // "iron": only A2
+
         QuestSearch.Result r = QuestSearch.search(book, p, "iron", 10).get(0);
         assertEquals("Mining", r.chapterTitle());
         assertEquals("Iron tools", r.title());
@@ -110,8 +110,6 @@ class SearchAndPinTest {
     private static List<String> ids(List<QuestSearch.Result> r) {
         return r.stream().map(QuestSearch.Result::questId).toList();
     }
-
-    // ------------------------------------------------------------------ pins
 
     @Test
     void pinToggleAndOrder() {

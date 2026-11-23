@@ -38,14 +38,9 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import com.levviata.reflib.api.assets.SuppliedAssets;
 import com.levviata.reflib.impl.assets.ZipAssetIndex;
 
-/**
- * Every picture this game can draw: the PNG files under {@code textures/} of the game jar, of each mod, of each active
- * resource pack and of the supplied jars, plus the painting names the book already understands. Found once, on first use.
- */
 @SideOnly(Side.CLIENT)
 final class ImageCatalog {
 
-    /** One picture: its resource id ({@code domain:textures/path.png}, or {@code minecraft:backyard} for a painting). */
     record Entry(String id, String domain, ResourceLocation location, EntityPainting.EnumArt art) {
         String modName() {
             if (domain.equals("minecraft")) {
@@ -72,7 +67,6 @@ final class ImageCatalog {
         return all;
     }
 
-    /** Forget the list, e.g. after the resource packs changed. */
     static synchronized void reset() {
         all = null;
     }
@@ -88,7 +82,7 @@ final class ImageCatalog {
                 addSource(sources, new File(cs.getLocation().toURI()));
             }
         } catch (java.net.URISyntaxException | RuntimeException ignored) {
-            // the game jar is then found through the mod list only
+
         }
         ResourcePackRepository repo = Minecraft.getMinecraft().getResourcePackRepository();
         for (ResourcePackRepository.Entry e : repo.getRepositoryEntries()) {
@@ -107,7 +101,7 @@ final class ImageCatalog {
                     scanZip(source, ids, out);
                 }
             } catch (IOException | RuntimeException ex) {
-                // an unreadable source just contributes nothing
+
             }
         }
         for (ZipAssetIndex idx : SuppliedAssets.sources()) {
@@ -117,7 +111,7 @@ final class ImageCatalog {
         }
         out.sort(Comparator.comparing((Entry e) -> !e.domain().equals("minecraft")).thenComparing(Entry::domain).thenComparing(Entry::id));
         List<Entry> result = new ArrayList<>();
-        // the painting names first: FTB Quests lists them as ordinary pictures, and the book draws them from the painting sheet
+
         for (EntityPainting.EnumArt art : EntityPainting.EnumArt.values()) {
             String name = art.title.toLowerCase(Locale.ROOT);
             result.add(new Entry("minecraft:" + name, "minecraft", null, art));
@@ -126,7 +120,6 @@ final class ImageCatalog {
         return result;
     }
 
-    /** The folder or zip of a resource pack; its field is protected, and has an obfuscated name outside development. */
     private static File packFile(AbstractResourcePack pack) {
         for (Class<?> c = pack.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
             for (java.lang.reflect.Field f : c.getDeclaredFields()) {
@@ -174,7 +167,6 @@ final class ImageCatalog {
         }
     }
 
-    /** Adds {@code assets/domain/textures/....png} as an entry; anything else is ignored. */
     private static void add(String prefix, String name, String original, Set<String> ids, List<Entry> out) {
         String lower = name.toLowerCase(Locale.ROOT);
         if (!lower.startsWith(prefix) || !lower.endsWith(".png")) {
@@ -194,12 +186,11 @@ final class ImageCatalog {
             try {
                 out.add(new Entry(id, domain, new ResourceLocation(domain, path), null));
             } catch (RuntimeException ex) {
-                ids.remove(id); // not a valid resource name
+                ids.remove(id);
             }
         }
     }
 
-    /** A painting this game knows by a name such as {@code minecraft:backyard}, or null. */
     static EntityPainting.EnumArt paintingOf(String id) {
         int colon = id.indexOf(':');
         String name = colon < 0 ? id : id.substring(colon + 1);
@@ -214,7 +205,6 @@ final class ImageCatalog {
         return null;
     }
 
-    /** Draws a picture inside a square, keeping its proportions; a strip of animation frames shows its first frame. */
     static void draw(Minecraft mc, String id, double x, double y, double size) {
         EntityPainting.EnumArt art = paintingOf(id);
         ResourceLocation tex;

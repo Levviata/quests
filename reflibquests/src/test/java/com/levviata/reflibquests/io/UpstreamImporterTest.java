@@ -20,10 +20,6 @@ import com.levviata.reflibquests.model.Definitions.ProgressionMode;
 import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.Definitions.Tristate;
 
-/**
- * The sample folders below are written by hand from the field list in docs/upstream-quest-format.md; they are
- * NOT copies of any real quest pack.
- */
 class UpstreamImporterTest {
 
     @TempDir

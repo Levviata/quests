@@ -25,9 +25,6 @@ import com.levviata.reflib.api.project.ReflibProjects;
 import com.levviata.reflibquests.game.QuestCommand;
 import com.levviata.reflibquests.game.QuestServer;
 
-/**
- * Reflibquests: an independent quest mod for 1.12.2 built on reflib. Not affiliated with any other quest mod.
- */
 @Mod(modid = ReflibQuestsMod.ID, name = "Reflib Quests", version = ReflibQuestsMod.VERSION,
         dependencies = "required-after:reflib")
 public class ReflibQuestsMod {

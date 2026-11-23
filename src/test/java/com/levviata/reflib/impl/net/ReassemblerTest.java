@@ -74,7 +74,7 @@ class ReassemblerTest {
         for (int t = 0; t < Reassembler.MAX_PENDING_PER_SENDER; t++) {
             r.accept("a", t, 0, 2, new byte[1], 0);
         }
-        // after the timeout the old ones are discarded, freeing capacity
+
         assertNull(r.accept("a", 50, 0, 2, new byte[1], Reassembler.TIMEOUT_MILLIS + 1));
         r.clear("a");
         assertNull(r.accept("a", 60, 0, 2, new byte[1], 0));

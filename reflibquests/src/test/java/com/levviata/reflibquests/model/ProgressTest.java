@@ -167,7 +167,7 @@ class ProgressTest {
         Quest c = quest("C", check("TC"));
         c.dependencies.addAll(List.of("A", "B"));
         ready();
-        // all completed
+
         engine.setTaskProgress(team, "TA", 1, 1);
         assertFalse(QuestRules.dependenciesMet(book, team, c));
         engine.setTaskProgress(team, "TB", 1, 2);
@@ -181,7 +181,7 @@ class ProgressTest {
 
         TeamProgress t3 = new TeamProgress(UUID.randomUUID());
         c.dependencyMode = DependencyMode.ALL_STARTED;
-        quest("D", item("TD", 2)); // unrelated
+        quest("D", item("TD", 2));
         book.reindex();
         engine.setTaskProgress(t3, "TA", 1, 1);
         assertFalse(QuestRules.dependenciesMet(book, t3, c), "B has not started");
@@ -354,7 +354,7 @@ class ProgressTest {
         q.rewards.add(item);
         q.rewards.add(cmd);
         q.rewards.add(own);
-        // as FTB 26.1.2 saved it: item true, command false
+
         book.settings = DataNode.Compound.empty().with("default_reward_team", true).with("default_reward_team_by_type",
                 DataNode.Compound.empty().with("ftbquests:item", true).with("ftbquests:command", false));
         ready();
@@ -401,7 +401,7 @@ class ProgressTest {
     void repeatableQuestResetsAfterCooldownAndKeepsCount() {
         Quest q = quest("Q1", check("T1"));
         q.canRepeat = Tristate.TRUE;
-        q.repeatCooldown = 1; // seconds (FTB Quests: "the delay in seconds"), = 1000 ms
+        q.repeatCooldown = 1;
         Reward r = new Reward("R1", "xp", DataNode.Compound.empty().with("xp", 1));
         q.rewards.add(r);
         ready();

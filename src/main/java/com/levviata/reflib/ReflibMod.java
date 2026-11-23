@@ -21,19 +21,11 @@ import com.levviata.reflib.api.ReflibApi;
 import com.levviata.reflib.api.assets.SuppliedAssets;
 import com.levviata.reflib.impl.assets.AssetsClient;
 
-/**
- * The reflib mod entry point. The library has no gameplay content; this class only announces itself so
- * that referencing projects can declare {@code required-after:reflib}.
- */
 @Mod(modid = "@{MOD_ID}", name = "@{MOD_NAME}", version = "@{MOD_VERSION}")
 public class ReflibMod {
 
     public static final Logger LOGGER = LogManager.getLogger("@{MOD_NAME}");
 
-    /**
-     * Scan the supplied-assets folder and, on the client, install its resource packs. This must happen at
-     * construction: the first resource load comes before any mod's later events.
-     */
     @Mod.EventHandler
     public void construct(FMLConstructionEvent event) {
         File configDir = Loader.instance().getConfigDir();

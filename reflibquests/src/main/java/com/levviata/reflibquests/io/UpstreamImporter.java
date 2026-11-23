@@ -30,15 +30,8 @@ import com.levviata.reflibquests.model.Definitions.Tristate;
 import com.levviata.reflibquests.model.Definitions.WeightedReward;
 import com.levviata.reflibquests.model.QuestBook;
 
-/**
- * Reads a quest folder written by the upstream quest mod (latest {@code .json5} generation or the older
- * {@code .snbt} generation) into a {@link QuestBook}. The layout and field names are documented in
- * {@code docs/upstream-quest-format.md}. Problems (unreadable files, missing required fields) are collected
- * and the rest of the book still loads; nothing here throws for bad data.
- */
 public final class UpstreamImporter {
 
-    /** Result of an import. */
     public record Result(QuestBook book, List<String> problems, int quests, int tasks, int rewards) {}
 
     private final List<String> problems = new ArrayList<>();
@@ -55,7 +48,7 @@ public final class UpstreamImporter {
 
     private Result run(Path folder) {
         if (LegacyImporter.applies(folder)) {
-            return LegacyImporter.load(folder); // the older layout: one file per quest
+            return LegacyImporter.load(folder);
         }
         QuestBook book = new QuestBook();
         if (Files.exists(folder.resolve("data.json5"))) {
@@ -95,7 +88,7 @@ public final class UpstreamImporter {
         book.settings = data;
         book.progressionMode = ProgressionMode.parse(data.getString("progression_mode", "linear"), ProgressionMode.LINEAR);
         String fallback = data.getString("fallback_locale", "en_us");
-        book.fallbackLocale = fallback.isBlank() ? "en_us" : fallback; // an empty setting means the default language
+        book.fallbackLocale = fallback.isBlank() ? "en_us" : fallback;
     }
 
     private void readGroups(Path folder, QuestBook book) {
@@ -306,7 +299,7 @@ public final class UpstreamImporter {
                 if (rn instanceof DataNode.Compound rc) {
                     Reward r = readReward(rc, "reward table " + id);
                     if (r != null) {
-                        // the weight belongs to the table entry, not to the reward itself
+
                         Reward clean = new Reward(r.id(), r.type(), r.params().without("weight"));
                         t.entries.add(new WeightedReward((float) rc.getDouble("weight", 1.0), clean));
                     }

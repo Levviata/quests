@@ -78,7 +78,7 @@ class LegacyImporterTest {
     @Test
     void aChapterGroupIsTheChapterItIsListedUnder(@TempDir Path root) throws IOException {
         folder(root);
-        // the group number is the id of the parent chapter ("bbbb2222"), written as a signed number
+
         write(root.resolve("chapters/aaaa1111/chapter.snbt"), "{ title: \"First\", group: " + (-1145363934) + " }");
         write(root.resolve("chapters/index.snbt"), "{ index: [\"bbbb2222\", \"aaaa1111\", \"cccc3333\"] }");
         write(root.resolve("chapters/cccc3333/chapter.snbt"), "{ title: \"Third\", group: 123 }");
@@ -203,7 +203,7 @@ class LegacyImporterTest {
     void aQuestWithOrTasksCompletesWithAnyTask(@TempDir Path root) throws IOException {
         QuestBook book = UpstreamImporter.load(folder(root)).book();
         Quest b = book.quest("0F29A16E");
-        b.dependencies.clear(); // so that nothing but the tasks decides
+        b.dependencies.clear();
         book.reindex();
         TeamProgress p = new TeamProgress(UUID.randomUUID());
         assertFalse(QuestRules.allRequiredTasksDone(p, b));

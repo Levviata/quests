@@ -31,13 +31,6 @@ import com.levviata.reflibquests.model.Definitions.Tristate;
 import com.levviata.reflibquests.model.Definitions.WeightedReward;
 import com.levviata.reflibquests.model.QuestBook;
 
-/**
- * Reads the older quest folder layout (a {@code file.snbt}, {@code chapters/<id>/chapter.snbt} with one file per quest,
- * and {@code reward_tables/<id>.snbt}) into the same {@link QuestBook} the newer layout produces. Quest ids are the file
- * names, reward tables are referred to by their position in {@code reward_tables/index.snbt}, items are written as
- * {@code "mod:item [count] [damage]"} and the quest text is split into a short {@code description} (the subtitle) and
- * the long {@code text}. Nothing is thrown for bad data; problems are collected and the rest of the book still loads.
- */
 public final class LegacyImporter {
 
     private static final Pattern PROGRESS_COMMAND = Pattern.compile("^/?ftbquests\\s+change_progress\\s+(complete|reset)\\s+(\\S+)\\s+(\\S+)\\s*$");
@@ -49,7 +42,6 @@ public final class LegacyImporter {
     private final List<String> tableIds = new ArrayList<>();
     private final Map<Chapter, Long> chapterGroupNumbers = new LinkedHashMap<>();
 
-    /** When true ids are written the way FTB Quests 26.1.2 keeps them: 16 upper-case hex digits (its language keys need that form). */
     private boolean wide;
 
     private LegacyImporter() {}
@@ -66,7 +58,6 @@ public final class LegacyImporter {
         return wide ? String.format("%08X%08X", base.hashCode(), tag.hashCode() * 31 + index) : base + "_" + tag + index;
     }
 
-    /** True for a folder in the older layout that has not been converted yet. */
     public static boolean applies(Path folder) {
         return Files.exists(folder.resolve("file.snbt"))
                 && !Files.exists(folder.resolve("data.json5")) && !Files.exists(folder.resolve("data.snbt"))
@@ -77,7 +68,6 @@ public final class LegacyImporter {
         return new LegacyImporter().run(folder);
     }
 
-    /** Like {@link #load} but with ids in the 16-digit form FTB Quests 26.1.2 uses (needed to write a book for it). */
     public static UpstreamImporter.Result loadWide(Path folder) {
         LegacyImporter i = new LegacyImporter();
         i.wide = true;
@@ -94,7 +84,7 @@ public final class LegacyImporter {
         book.fallbackLocale = "en_us";
         readTables(folder.resolve("reward_tables"), book);
         readChapters(folder.resolve("chapters"), book);
-        book.reindex(); // chapters are found by id from here on
+        book.reindex();
         makeGroups(book);
         book.reindex();
         return new UpstreamImporter.Result(book, problems, quests, tasks, rewards);
@@ -109,10 +99,6 @@ public final class LegacyImporter {
         }
     }
 
-    /**
-     * Names from an {@code index.snbt}, then any others (sorted) that it does not list. Chapter folders are the exception:
-     * FTB Quests only loads the chapters its index lists, so an unlisted chapter folder is left out and reported.
-     */
     private List<String> ordered(Path dir, boolean directories) {
         List<String> names = new ArrayList<>();
         DataNode.Compound index = Files.exists(dir.resolve("index.snbt")) ? read(dir.resolve("index.snbt")) : null;
@@ -151,9 +137,6 @@ public final class LegacyImporter {
         return names;
     }
 
-    // ------------------------------------------------------------------ items
-
-    /** {@code "mod:item"}, {@code "mod:item 1 6"} (count, damage) or an item compound, as an item spec; null if it is not an item. */
     private static DataNode.Compound itemSpec(DataNode n, boolean ignoreDamage, boolean ignoreNbt) {
         String id;
         int damage = -1;
@@ -169,7 +152,7 @@ public final class LegacyImporter {
             }
         } else if (n instanceof DataNode.Compound c) {
             if (!c.has("id") && c.get("item") instanceof DataNode.Str inner) {
-                return itemSpec(inner, ignoreDamage, ignoreNbt); // {item: "mod:item 1 6"}: the text form inside a compound
+                return itemSpec(inner, ignoreDamage, ignoreNbt);
             }
             id = c.getString("id", "");
             damage = c.has("Damage") ? c.getInt("Damage", -1) : c.getInt("damage", -1);
@@ -184,12 +167,11 @@ public final class LegacyImporter {
             out = out.with("damage", damage);
         }
         if (n instanceof DataNode.Compound c && !ignoreNbt && !c.getCompound("tag").entries().isEmpty()) {
-            out = out.with("nbt", c.getCompound("tag")); // e.g. which creature a spawn egg holds
+            out = out.with("nbt", c.getCompound("tag"));
         }
         return out;
     }
 
-    /** For an ItemFilters filter item that matches an ore dictionary name, that name; otherwise null. */
     private static String oreOf(DataNode n) {
         if (!(n instanceof DataNode.Compound c) || !c.getString("id", "").equals("itemfilters:filter")) {
             return null;
@@ -211,8 +193,6 @@ public final class LegacyImporter {
     private static String shortId(String id) {
         return id;
     }
-
-    // ------------------------------------------------------------------ reward tables
 
     private void readTables(Path dir, QuestBook book) {
         if (!Files.isDirectory(dir)) {
@@ -249,8 +229,6 @@ public final class LegacyImporter {
             tableIds.add(id);
         }
     }
-
-    // ------------------------------------------------------------------ chapters and quests
 
     private void readChapters(Path dir, QuestBook book) {
         int order = 0;
@@ -291,11 +269,6 @@ public final class LegacyImporter {
         }
     }
 
-    /**
-     * In the older files a chapter's group is the id of another chapter (read as a signed number): the chapter is listed
-     * under that one. Each such parent becomes a group that is shown as the parent chapter's own row, with the others nested
-     * below it. A number that names no chapter becomes a plain group called "Group 1", "Group 2" and so on.
-     */
     private void makeGroups(QuestBook book) {
         Map<Long, String> idOfNumber = new LinkedHashMap<>();
         int plain = 0;
@@ -307,7 +280,7 @@ public final class LegacyImporter {
                 Chapter parent = book.chapter(hex);
                 com.levviata.reflibquests.model.Definitions.ChapterGroup g;
                 if (parent != null) {
-                    g = new com.levviata.reflibquests.model.Definitions.ChapterGroup(wide ? String.format("%08X%08X", hex.hashCode(), 0x67) : hex); // a group must not share its id with the chapter
+                    g = new com.levviata.reflibquests.model.Definitions.ChapterGroup(wide ? String.format("%08X%08X", hex.hashCode(), 0x67) : hex);
                     g.title = parent.title;
                     g.raw = DataNode.Compound.empty().with("chapter", parent.id);
                 } else {
@@ -327,7 +300,7 @@ public final class LegacyImporter {
         List<DataNode> hover = new ArrayList<>();
         for (DataNode h : ic.getList("hover")) {
             if (h instanceof DataNode.Str) {
-                hover.add(h); // every line of the hover text is kept
+                hover.add(h);
             }
         }
         DataNode.Compound raw = DataNode.Compound.empty().with("image", ic.getString("image", ""))
@@ -356,7 +329,7 @@ public final class LegacyImporter {
                 q.description.add(s.value());
             }
         }
-        // a description that is a single empty line is only a placeholder
+
         if (q.description.size() == 1 && q.description.get(0).isEmpty()) {
             q.description.clear();
         }
@@ -376,7 +349,7 @@ public final class LegacyImporter {
         q.orTasks = c.getBool("or_tasks", false);
         q.disableToast = c.getBool("disable_toast", false);
         if (c.getBool("hide", false)) {
-            q.hideUntilDepsComplete = Tristate.TRUE; // hidden until the quests it needs are completed
+            q.hideUntilDepsComplete = Tristate.TRUE;
         }
         if (c.has("hide_dependency_lines")) {
             q.hideDependencyLines = c.getBool("hide_dependency_lines", false) ? Tristate.TRUE : Tristate.FALSE;
@@ -422,7 +395,7 @@ public final class LegacyImporter {
                 for (DataNode e : tc.getList("items")) {
                     String ore = oreOf(e);
                     if (ore != null) {
-                        // an "any item with this ore dictionary name" filter
+
                         pieces.add("ore(" + ore + ")");
                         if (filterName.isEmpty()) {
                             filterName = displayNameOf(e);
@@ -467,7 +440,7 @@ public final class LegacyImporter {
         if (!tc.getString("title", "").isEmpty()) {
             p = p.with("title", tc.getString("title", ""));
         } else if (!filterName.isEmpty()) {
-            p = p.with("title", filterName); // the name the filter item was given ("Any stoneResource")
+            p = p.with("title", filterName);
         }
         if (tc.has("icon")) {
             DataNode.Compound icon = iconOf(tc.get("icon"));
@@ -501,7 +474,7 @@ public final class LegacyImporter {
                 p = p.with("command", command);
                 Matcher m = PROGRESS_COMMAND.matcher(command);
                 if (m.matches()) {
-                    // the original mod's command for unlocking a quest, in this mod's form (and with the rights it needs)
+
                     p = p.with("command", "/rquests " + m.group(1) + " " + nid(m.group(3)) + " " + m.group(2))
                             .with("permission_level", 2);
                 }

@@ -9,15 +9,10 @@ import java.util.UUID;
 
 import net.minecraftforge.fml.common.eventhandler.Event;
 
-/**
- * Forge events other mods can listen to (on {@code MinecraftForge.EVENT_BUS}). All are posted on the server
- * thread after the progress change has been applied; none can be cancelled.
- */
 public final class QuestEvents {
 
     private QuestEvents() {}
 
-    /** Base class: which team's progress changed. */
     public abstract static class Base extends Event {
         private final UUID teamId;
 

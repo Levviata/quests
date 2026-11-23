@@ -37,16 +37,9 @@ import org.lwjgl.opengl.GL11;
 
 import com.levviata.reflib.gui.Rect;
 
-/**
- * FTB Quests 26.1.2's selection window, used for "Select Item" and for choosing a picture: a title with the current
- * choice, (for items) a preview with a count box, a list-mode button beside a search box, a grid with a scroll bar, and
- * Accept / Cancel. A click only selects; Accept hands the choice back. Layout and colours were measured on screenshots of
- * the real window at GUI scale 3 (one GUI pixel there is three screen pixels).
- */
 @SideOnly(Side.CLIENT)
 final class SelectorScreen extends GuiScreen {
 
-    // measured layout, in GUI pixels from the window's top-left corner
     private static final int W = 185;
     private static final int H = 202;
     private static final int BASE_COLS = 9;
@@ -58,7 +51,6 @@ final class SelectorScreen extends GuiScreen {
     private static final Rect NBT0 = new Rect(110, 25, 20, 20);
     private static final Rect NBT_NO_COUNT = new Rect(44, 25, 20, 20);
 
-    /** Beside the amount box, or, when the window has none (an item that is being edited), right after the preview. */
     private Rect nbtR() {
         return askCount ? NBT0 : NBT_NO_COUNT;
     }
@@ -69,7 +61,6 @@ final class SelectorScreen extends GuiScreen {
     private static final Rect ACCEPT0 = new Rect(50, 177, 62, 20);
     private static final Rect CANCEL0 = new Rect(117, 177, 62, 20);
 
-    /** The text of the title: the selection's name, or what stands for none. */
     private String titleText() {
         if (images) {
             return selectedImage == null ? "\u00a77None" : idTitle(selectedImage.id());
@@ -77,7 +68,6 @@ final class SelectorScreen extends GuiScreen {
         return selectedItem.isEmpty() ? "\u00a7oNothing Selected" : selectedItem.getDisplayName();
     }
 
-    /** A long title widens the window, a whole column of cells at a time (FTB Quests grows the panel to fit it). */
     private int extra() {
         int need = fontRenderer.getStringWidth(titleText()) + 14 - W;
         return need <= 0 ? 0 : (need + CELL - 1) / CELL * CELL;
@@ -112,7 +102,6 @@ final class SelectorScreen extends GuiScreen {
     private static final int MAX_ITEMS = 12000;
     private static List<ItemStack> allItems;
 
-    /** One grid cell: an item, a picture, or (both null) the empty first cell that clears the choice. */
     private record Cell(ItemStack stack, ImageCatalog.Entry image, String fluid) {}
 
     private final GuiScreen parent;
@@ -120,7 +109,7 @@ final class SelectorScreen extends GuiScreen {
     private final boolean askCount;
     private final BiConsumer<ItemStack, Integer> itemPicked;
     private final Consumer<String> imagePicked;
-    /** What a fluid choice hands back: the fluid's name, the amount in millibuckets, and its NBT as SNBT text ("" for none). */
+
     interface FluidChoice {
         void accept(String name, long amount, String nbt);
     }
@@ -132,7 +121,7 @@ final class SelectorScreen extends GuiScreen {
     private String selectedFluid;
 
     private boolean allowEmpty;
-    private int mode; // items: 0 all items, 1 inventory
+    private int mode;
     private final TextEditor search = new TextEditor("", 60);
     private final TextEditor countText = new TextEditor("1", 10);
     private boolean searchFocused = true;
@@ -154,7 +143,6 @@ final class SelectorScreen extends GuiScreen {
         this.imagePicked = imagePicked;
     }
 
-    /** "Select Item": {@code askCount} adds the count box (FTB shows it when an item task is made). */
     static SelectorScreen items(GuiScreen parent, Consumer<ItemStack> picked) {
         return new SelectorScreen(parent, false, false, (stack, n) -> picked.accept(stack), null);
     }
@@ -163,7 +151,6 @@ final class SelectorScreen extends GuiScreen {
         return new SelectorScreen(parent, false, askCount, picked, null);
     }
 
-    /** "Select Fluid": FTB Quests' window for fluids, with the amount in millibuckets (1000 to start) and a single list mode. */
     static SelectorScreen fluids(GuiScreen parent, boolean askCount, FluidChoice picked) {
         SelectorScreen screen = new SelectorScreen(parent, false, askCount, null, null);
         screen.fluidMode = true;
@@ -173,7 +160,6 @@ final class SelectorScreen extends GuiScreen {
         return screen;
     }
 
-    /** Opens with an item already selected (the Item row of an item that is being edited), so the player can change it or its NBT. */
     SelectorScreen preselectItem(ItemStack stack) {
         if (stack != null && !stack.isEmpty()) {
             selectedItem = stack.copy();
@@ -182,7 +168,6 @@ final class SelectorScreen extends GuiScreen {
         return this;
     }
 
-    /** Opens with a fluid and its amount already chosen (the Fluid row of a fluid task). */
     SelectorScreen preselectFluid(String fluidName, long amount, String nbt) {
         selectedNbt = nbt == null ? "" : nbt;
         return preselectFluid(fluidName, amount);
@@ -200,14 +185,12 @@ final class SelectorScreen extends GuiScreen {
         return this;
     }
 
-    /** "1000mB Water Bucket", as FTB Quests writes a fluid in its Fluid row. */
     static String fluidLabel(String fluidName, long amount) {
         String bare = fluidName.startsWith("minecraft:") ? fluidName.substring("minecraft:".length()) : fluidName;
         ItemStack bucket = bucketOf(bare);
         return amount + "mB " + (bucket.isEmpty() ? bare : bucket.getDisplayName());
     }
 
-    /** The bucket FTB Quests names a fluid after ("Water Bucket"); a bucket stand-in carries the name when the fluid has none. */
     private static ItemStack bucketOf(String fluidName) {
         net.minecraftforge.fluids.Fluid f = net.minecraftforge.fluids.FluidRegistry.getFluid(fluidName);
         if (f == null) {
@@ -240,7 +223,7 @@ final class SelectorScreen extends GuiScreen {
     private static List<String> allFluids() {
         List<String> names = new ArrayList<>(net.minecraftforge.fluids.FluidRegistry.getRegisteredFluids().keySet());
         java.util.Collections.sort(names);
-        // water and lava first, as FTB Quests lists them
+
         for (String first : new String[] {"lava", "water"}) {
             if (names.remove(first)) {
                 names.add(0, first);
@@ -249,18 +232,15 @@ final class SelectorScreen extends GuiScreen {
         return names;
     }
 
-    /** The picture chooser; gives back the resource id of the chosen picture. */
     static SelectorScreen images(GuiScreen parent, Consumer<String> picked) {
         return new SelectorScreen(parent, true, false, null, picked);
     }
 
-    /** Accept with nothing selected hands back an empty choice instead of doing nothing (an icon is cleared that way). */
     SelectorScreen allowEmpty() {
         this.allowEmpty = true;
         return this;
     }
 
-    /** Every item and its variants, once. */
     private static synchronized List<ItemStack> everything() {
         if (allItems == null) {
             List<ItemStack> out = new ArrayList<>();
@@ -269,7 +249,7 @@ final class SelectorScreen extends GuiScreen {
                 try {
                     item.getSubItems(CreativeTabs.SEARCH, subs);
                 } catch (RuntimeException ex) {
-                    subs.clear(); // an item that cannot list its variants is offered as itself below
+                    subs.clear();
                 }
                 if (subs.isEmpty() && item.getCreativeTab() != null) {
                     subs.add(new ItemStack(item));
@@ -309,8 +289,6 @@ final class SelectorScreen extends GuiScreen {
     private static Rect at(Rect win, Rect r) {
         return new Rect(win.x() + r.x(), win.y() + r.y(), r.width(), r.height());
     }
-
-    // ---- the list shown in the grid
 
     private List<Cell> cells() {
         String key = mode + "|" + search.text();
@@ -386,8 +364,6 @@ final class SelectorScreen extends GuiScreen {
         return fluidMode ? "All Fluids" : images ? "All Images" : mode == 0 ? "All Items" : "Inventory";
     }
 
-    // ---- drawing helpers
-
     private static void box(int x, int y, int w, int h, int fill, int topLeft, int bottomRight) {
         Gui.drawRect(x, y, x + w, y + h, fill);
         Gui.drawRect(x, y, x + w, y + 1, topLeft);
@@ -396,7 +372,6 @@ final class SelectorScreen extends GuiScreen {
         Gui.drawRect(x + w - 1, y, x + w, y + h, bottomRight);
     }
 
-    /** A button: black outline, light top/left, dark bottom/right; a hovered one gets a white outline. */
     private static void button(Rect r, boolean hover) {
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF000000);
         box(r.x() + 1, r.y() + 1, r.width() - 2, r.height() - 2, BG, 0xFF4F5666, 0xFF2F3645);
@@ -476,16 +451,13 @@ final class SelectorScreen extends GuiScreen {
         List<Cell> list = cells();
         scroll = Math.max(0, Math.min(maxScroll(list), scroll));
 
-        // window: black outline, light inner top/left, dark inner bottom/right
         final int ww = W + extra();
         Gui.drawRect(wx, wy, wx + ww, wy + H, 0xFF101010);
         box(wx + 1, wy + 1, ww - 2, H - 2, BG, LIGHT, DARK);
 
-        // title
         String title = titleText();
         fontRenderer.drawString(fontRenderer.trimStringToWidth(title, ww - 14), wx + 7, wy + 6, TEXT);
 
-        // preview, and the count box of an item choice
         boolean showPreview = images || !selectedItem.isEmpty();
         if (showPreview) {
             Rect p = at(win, PREVIEW);
@@ -522,7 +494,6 @@ final class SelectorScreen extends GuiScreen {
             }
         }
 
-        // the name tag button: the quick string editor of the item's (or fluid's) NBT
         if (!images && !selectedItem.isEmpty()) {
             Rect nb = at(win, nbtR());
             hoverNbt = nb.contains(mouseX, mouseY);
@@ -530,7 +501,6 @@ final class SelectorScreen extends GuiScreen {
             renderItem(new ItemStack(Items.NAME_TAG), nb.x() + 2, nb.y() + 2);
         }
 
-        // list-mode button and search box
         Rect mb = at(win, MODE);
         hoverMode = mb.contains(mouseX, mouseY);
         button(mb, hoverMode);
@@ -543,7 +513,6 @@ final class SelectorScreen extends GuiScreen {
         }
         field(at(win, SEARCH), search, searchFocused, "Search...");
 
-        // the list panel: a darker band with the framed grid and the scroll bar
         Gui.drawRect(wx + 2, wy + 79, wx + 183 + extra(), wy + 80, 0xFF282D38);
         Gui.drawRect(wx + 2, wy + 80, wx + 183 + extra(), wy + 175, PANEL);
         Gui.drawRect(wx + 2, wy + 175, wx + 183 + extra(), wy + 176, 0xFF535864);
@@ -587,7 +556,6 @@ final class SelectorScreen extends GuiScreen {
         RewardTablesScreen.unscissor();
         drawScrollBar(win, list);
 
-        // footer
         for (Rect r : new Rect[] {acceptR(), cancelR()}) {
             Rect b = at(win, r);
             boolean accept = r.x() == acceptR().x();
@@ -596,10 +564,9 @@ final class SelectorScreen extends GuiScreen {
             if (!Ui.icon(Ui.LIBRARY, icon, b.x() + 4, b.y() + 2, 16, 16, 0xFFFFFFFF)) {
                 fontRenderer.drawStringWithShadow(accept ? "✔" : "✘", b.x() + 8, b.y() + 8, accept ? 0xFF98C600 : 0xFFFF3F27);
             }
-            fontRenderer.drawStringWithShadow(accept ? "Accept" : "Cancel", b.x() + 22, b.y() + 8, b.contains(mouseX, mouseY) ? 0xFFEBCB8B : TEXT); // the label turns gold when hovered
+            fontRenderer.drawStringWithShadow(accept ? "Accept" : "Cancel", b.x() + 22, b.y() + 8, b.contains(mouseX, mouseY) ? 0xFFEBCB8B : TEXT);
         }
 
-        // tooltips
         if (at(win, acceptR()).contains(mouseX, mouseY)) {
             drawHoveringText("§7[⇧ + Enter]", mouseX, mouseY);
         } else if (at(win, cancelR()).contains(mouseX, mouseY)) {
@@ -652,8 +619,6 @@ final class SelectorScreen extends GuiScreen {
         scroll = (int) Math.round(Math.max(0, Math.min(1, f)) * maxScroll(list));
     }
 
-    // ---- input
-
     private void accept() {
         if (images) {
             if (selectedImage != null) {
@@ -685,12 +650,10 @@ final class SelectorScreen extends GuiScreen {
         }
     }
 
-    /** Counts and amounts go up to the largest int. */
     private long countCap() {
         return Integer.MAX_VALUE;
     }
 
-    /** Left click on the name tag: the quick string editor, a line of SNBT; Accept puts it on the selected item or fluid. */
     private void openNbtEditor() {
         String initial = fluidMode ? (selectedNbt.isEmpty() ? "{}" : selectedNbt)
                 : selectedItem.hasTagCompound() ? selectedItem.getTagCompound().toString() : "{}";
@@ -744,7 +707,7 @@ final class SelectorScreen extends GuiScreen {
         } else if (hovered != null) {
             if (images) {
                 selectedImage = hovered.image();
-                searchFocused = false; // FTB leaves the search box after a picture is chosen
+                searchFocused = false;
             } else {
                 selectedFluid = hovered.fluid();
                 selectedNbt = "";

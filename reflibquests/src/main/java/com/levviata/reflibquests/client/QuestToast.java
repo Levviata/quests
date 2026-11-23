@@ -16,7 +16,6 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-/** A corner pop-up ("Quest completed!", "Reward Collected!") using the game's own toast system. */
 @SideOnly(Side.CLIENT)
 final class QuestToast implements IToast {
 
@@ -24,7 +23,7 @@ final class QuestToast implements IToast {
     private static final long SHOW_MS = 5000L;
     private static final long TITLE_MS = 2000L;
     private static final long FADE_MS = 300L;
-    /** Toasts of ours on screen or waiting: the sound plays once for a batch, not once per toast. */
+
     static int live;
 
     private final String title;
@@ -32,11 +31,10 @@ final class QuestToast implements IToast {
     @Nullable
     private final ItemStack icon;
 
-    /** A dark notice with the blue "i" instead of an item: yellow title, white text (like FTB's "Copied object:"). */
     private final boolean info;
-    /** The colour of the first line (yellow; pink for a finished chapter). */
+
     int titleColor = 0xFFFF55;
-    /** A refusal: a dark box with a red "no" sign and one yellow line. */
+
     private boolean blocked;
 
     static QuestToast blocked(String text) {
@@ -81,7 +79,7 @@ final class QuestToast implements IToast {
             return delta >= SHOW_MS ? Visibility.HIDE : Visibility.SHOW;
         }
         net.minecraft.client.gui.FontRenderer fr = gui.getMinecraft().fontRenderer;
-        // a name that fits shows under the title at once; a long one (it wraps) comes after the title, fading across
+
         java.util.List<String> nameLines = fr.listFormattedStringToWidth(subtitle, 118);
         boolean sequential = nameLines.size() > 1;
         boolean namePhase = sequential && delta >= TITLE_MS;
@@ -125,7 +123,6 @@ final class QuestToast implements IToast {
         return Visibility.SHOW;
     }
 
-    /** A red circle with a bar across it, centred on (cx, cy). */
     private static void drawNoSign(double cx, double cy, double r) {
         GlStateManager.disableTexture2D();
         GlStateManager.enableBlend();

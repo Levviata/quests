@@ -1,6 +1,3 @@
-"""Builds reflibdebug-neoforge-<version>.jar with plain javac, against the libraries PolyMC already holds for the
-26.1.2 NeoForge instance (no network). Usage:  python -I build.py [--polymc <PolyMC folder>] [--neoforge 26.1.2.126]
-Output: build/reflibdebug-neoforge-0.2.0.jar next to this file. Needs a JDK 25 on PATH (javac, jar)."""
 import argparse, json, os, shutil, subprocess, sys
 
 ap = argparse.ArgumentParser()

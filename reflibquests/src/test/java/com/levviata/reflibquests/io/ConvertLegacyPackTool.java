@@ -17,11 +17,6 @@ import java.util.TreeMap;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
-/**
- * Developer tool, not a normal test: converts a 1.12.2 quest pack (the old {@code .snbt} layout) into the 26.1.2 file
- * format and writes a review report. Run with
- * {@code -Ppack=<old pack> -Pout=<empty folder for the new book> -Preport=<markdown file>}; does nothing without them.
- */
 class ConvertLegacyPackTool {
 
     @Test

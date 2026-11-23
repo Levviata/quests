@@ -20,11 +20,6 @@ import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.Definitions.Reward;
 import com.levviata.reflibquests.model.Definitions.Task;
 
-/**
- * Developer tool, not a normal test: run with {@code -Ppack=<path to a quest folder>} to print how the importer
- * copes with a real pack (counts, problems, missing texts, id namespaces). It asserts nothing and does nothing
- * when no pack is given. It only reads the folder; it never prints quest content beyond ids and counts.
- */
 class RealPackReportTest {
 
     @Test
@@ -88,7 +83,7 @@ class RealPackReportTest {
         System.out.println("shapes: " + shapes);
         System.out.println("item namespaces (tasks+rewards): " + itemNamespaces);
         System.out.println("settings keys: " + book.settings.entries().keySet());
-        // round trip: export the whole pack to a temporary folder, import it again and compare
+
         try {
             Path tmp = Files.createTempDirectory("rq-pack-roundtrip");
             long e0 = System.nanoTime();

@@ -19,7 +19,6 @@ import com.levviata.reflib.api.data.DataFiles;
 import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflibquests.model.QuestBook;
 
-/** Loads {@code lang/<locale>/*.<ext>} translation maps into the book. */
 final class Translations {
 
     private Translations() {}
@@ -28,7 +27,7 @@ final class Translations {
         if (!Files.isDirectory(langDir)) {
             return;
         }
-        // one file per language: lang/<locale>.snbt (what the "lang splitter" tool leaves merged next to its split files)
+
         try (Stream<Path> single = Files.list(langDir)) {
             for (Path file : (Iterable<Path>) single.filter(Files::isRegularFile).sorted()::iterator) {
                 String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
@@ -55,7 +54,7 @@ final class Translations {
                     continue;
                 }
                 Map<String, DataNode> table = book.translations().computeIfAbsent(locale, l -> new LinkedHashMap<>());
-                // text files may sit directly in the locale folder or in subfolders such as chapters/
+
                 try (Stream<Path> files = Files.walk(localeDir)) {
                     List<Path> list = new ArrayList<>();
                     files.filter(p -> Files.isRegularFile(p) && p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(ext)).sorted().forEach(list::add);

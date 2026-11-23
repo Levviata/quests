@@ -10,10 +10,6 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-/**
- * Internal wire frame. Header: message id (1 byte), channel signature (int), transfer id, fragment index and
- * fragment count (varints); the rest is this fragment's payload. Public only for the network layer.
- */
 public final class Envelope implements IMessage {
 
     public int id;

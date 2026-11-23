@@ -1,9 +1,3 @@
-# Window driver for the Minecraft windows (FTB Quests 26.1.2 = process javaw, ours = process java, title "Cleanroom").
-# Usage: powershell -File drive.ps1 -Target ftb|ours -Steps "shot a; rclick 600 400; wait 400; shot b"
-# Steps (separated by ';'): shot <name> | click x y | rclick x y | dblclick x y | drag x1 y1 x2 y2 | move x y
-#   | wheel x y notches (negative = down) | key <SendKeys text, e.g. {ESC} ^a ^z> | type <text> | wait ms | focus | info
-# Coordinates are window-client pixels as in the shot images (image pixel = window pixel, the title bar included).
-# Shots go to -Out (default: .\shots). Never close the game; this script only captures, moves the mouse and sends input.
 param(
     [ValidateSet('ftb', 'ours')][string]$Target = 'ftb',
     [string]$Steps = 'info',
@@ -60,11 +54,11 @@ function Get-Rect { $r = New-Object W+RECT; [void][W]::GetWindowRect($h, [ref]$r
 function Set-Front {
     for ($i = 0; $i -lt 5; $i++) {
         if ([W]::GetForegroundWindow() -eq $h) { return $true }
-        [void][W]::ShowWindow($h, 3)   # 3 = maximize; 9 would un-maximize and break coordinates
+        [void][W]::ShowWindow($h, 3)
         $fg = [W]::GetForegroundWindow(); $p = 0
         $a = [W]::GetWindowThreadProcessId($fg, [ref]$p); $me = [W]::GetCurrentThreadId()
         [void][W]::AttachThreadInput($me, $a, $true)
-        [W]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero); [W]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)  # ALT trick
+        [W]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero); [W]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
         [void][W]::SetForegroundWindow($h)
         [void][W]::AttachThreadInput($me, $a, $false)
         Start-Sleep -Milliseconds 250
@@ -82,7 +76,6 @@ function Save-Shot($name) {
 }
 
 function Move-To($x, $y) { $r = Get-Rect; [void][W]::SetCursorPos($r.L + [int]$x, $r.T + [int]$y); Start-Sleep -Milliseconds 60 }
-# mouse_event flags: 2/4 left down/up, 8/16 right down/up, 0x800 wheel
 function Click-At($x, $y, $right = $false) {
     if (-not (Set-Front)) { Write-Output "FOCUS FAILED"; return }
     Move-To $x $y

@@ -21,10 +21,6 @@ import org.lwjgl.opengl.GL11;
 
 import com.levviata.reflib.gui.Rect;
 
-/**
- * "Key Reference", laid out and worded as in FTB Quests 26.1.2: headings in underlined yellow, the keys right-aligned in white
- * and what they do beside them in grey, long actions wrapping, a draggable scroll bar and a boxed close button beside the window.
- */
 @SideOnly(Side.CLIENT)
 final class KeyReferenceScreen extends GuiScreen {
 
@@ -41,7 +37,6 @@ final class KeyReferenceScreen extends GuiScreen {
         this.parent = parent;
     }
 
-    /** {heading}, {key, action} or {} for an empty line. The wording and the order are the original's. */
     private static String[][] lines() {
         return new String[][] {
             {"General Controls"},
@@ -116,7 +111,6 @@ final class KeyReferenceScreen extends GuiScreen {
         return w;
     }
 
-    /** Wide enough for the widest key and action side by side; tall, like the original's. */
     private Rect window() {
         int w = Math.min(width - 50, keyWidest() + actionWidest() + 52);
         int h = Math.min(height - 40, 330);
@@ -162,8 +156,8 @@ final class KeyReferenceScreen extends GuiScreen {
         int textRight = list.x() + list.width() - 14;
         int keyEnd = list.x() + (int) ((textRight - list.x()) * 0.40) + 6;
         int actionCol = keyEnd + 8;
-        // lay the rows out first: a long action wraps onto more lines
-        List<Object[]> laid = new ArrayList<>(); // {type, key/heading, action lines}
+
+        List<Object[]> laid = new ArrayList<>();
         int total = 0;
         for (String[] row : rows) {
             if (row.length == 2) {
@@ -204,7 +198,6 @@ final class KeyReferenceScreen extends GuiScreen {
         }
         unscissor();
 
-        // the scroll bar, like the other windows': a dark framed track and a bevelled thumb
         Rect t = track(list);
         int max = Math.max(0, contentHeight - list.height());
         Gui.drawRect(t.x(), t.y(), t.x() + t.width(), t.y() + t.height(), 0xFF0F1016);

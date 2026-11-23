@@ -19,23 +19,14 @@ import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-/**
- * Internal: a case-insensitive index of the {@code assets/<domain>/...} entries of a zip or jar. Case-insensitive
- * because assets written for older or newer game versions do not always use the lower-case names 1.12.2 asks for.
- * Only the listed domains are exposed; the {@code minecraft} domain is never exposed. Nothing is extracted or
- * copied to disk, and nothing in the archive is ever loaded as code.
- */
 public final class ZipAssetIndex implements AutoCloseable {
 
     private final File file;
     private final ZipFile zip;
     private final Set<String> domains = new HashSet<>();
-    /** lower-case "assets/domain/path" to the real entry name */
+
     private final Map<String, String> index = new HashMap<>();
 
-    /**
-     * @param wanted domains to expose, or {@code null} for every domain except {@code minecraft}
-     */
     public ZipAssetIndex(File file, Collection<String> wanted) throws IOException {
         this.file = file;
         this.zip = new ZipFile(file);
@@ -81,7 +72,6 @@ public final class ZipAssetIndex implements AutoCloseable {
         return index.containsKey(key(domain, path));
     }
 
-    /** @return the bytes of the entry, or null if it does not exist */
     public byte[] read(String domain, String path) throws IOException {
         String real = index.get(key(domain, path));
         if (real == null) {
@@ -92,12 +82,10 @@ public final class ZipAssetIndex implements AutoCloseable {
         }
     }
 
-    /** @return every exposed entry as a lower-case {@code assets/domain/path} name */
     public java.util.List<String> keys() {
         return new java.util.ArrayList<>(index.keySet());
     }
 
-    /** @return the number of exposed files */
     public int size() {
         return index.size();
     }

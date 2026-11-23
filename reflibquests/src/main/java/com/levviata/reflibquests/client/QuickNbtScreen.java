@@ -20,10 +20,6 @@ import org.lwjgl.input.Keyboard;
 
 import com.levviata.reflib.gui.Rect;
 
-/**
- * FTB Quests' "quick string editor" for NBT: a wide box with the data as one line of SNBT, a check mark to accept and a cross to
- * cancel. Enter accepts, Escape cancels; text that is not valid NBT is refused with a message and the box stays open.
- */
 @SideOnly(Side.CLIENT)
 final class QuickNbtScreen extends GuiScreen {
 

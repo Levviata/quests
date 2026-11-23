@@ -30,10 +30,6 @@ import com.levviata.reflibquests.model.QuestBook;
 import com.levviata.reflibquests.net.QuestNet;
 import com.levviata.reflibquests.text.RichText;
 
-/**
- * "Quest Description Editor": the description as raw text (one entry per line), with a toolbar for formatting, links,
- * page breaks and images, plus undo and redo. Accept saves, the red cross asks before throwing changes away.
- */
 @SideOnly(Side.CLIENT)
 final class DescriptionEditorScreen extends GuiScreen {
 
@@ -55,8 +51,8 @@ final class DescriptionEditorScreen extends GuiScreen {
     private final TextEditor questQuery = new TextEditor("", 40);
     private List<Quest> questRows = List.of();
     private int questScroll;
-    private final List<Object[]> hits = new ArrayList<>(); // {Rect, Runnable}
-    private final List<Object[]> toolTips = new ArrayList<>(); // {Rect, String}
+    private final List<Object[]> hits = new ArrayList<>();
+    private final List<Object[]> toolTips = new ArrayList<>();
     private List<TextEditor.Row> rows = List.of();
     private Rect area = new Rect(0, 0, 0, 0);
     private boolean dragging;
@@ -90,8 +86,6 @@ final class DescriptionEditorScreen extends GuiScreen {
         return new Rect((width - w) / 2, (height - h) / 2, w, h);
     }
 
-    // ---- actions -------------------------------------------------------------------------------------------------------
-
     private void accept() {
         List<DataNode> lines = new ArrayList<>();
         String[] parts = editor.text().split("\n", -1);
@@ -120,7 +114,6 @@ final class DescriptionEditorScreen extends GuiScreen {
         ensureVisible();
     }
 
-    /** Puts a whole line into the text at the caret, on a line of its own. */
     private void insertLine(String line) {
         String t = editor.text();
         int c = editor.caret();
@@ -167,10 +160,6 @@ final class DescriptionEditorScreen extends GuiScreen {
         mc.displayGuiScreen(new InsertDialogs.LinkDialog(this, json -> insertLine(json)));
     }
 
-    /**
-     * The "H" button: asks for the "Hovered tooltip" and makes the selected text (or the line the caret is on) a JSON entry
-     * that shows it. An entry that already is JSON is left alone.
-     */
     private void openHoverPrompt() {
         mc.displayGuiScreen(new NamePrompt(this, width / 2 - 100, height / 3, "Hovered tooltip", "", 300, tip -> {
             if (tip.isBlank()) {
@@ -229,8 +218,6 @@ final class DescriptionEditorScreen extends GuiScreen {
         }
     }
 
-    // ---- drawing -------------------------------------------------------------------------------------------------------
-
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         hits.clear();
@@ -240,7 +227,7 @@ final class DescriptionEditorScreen extends GuiScreen {
         Rect win = window();
         Ui.box(win, 0xFF2B2F3A);
         fr.drawStringWithShadow("Quest Description Editor", win.x() + win.width() / 2 - fr.getStringWidth("Quest Description Editor") / 2, win.y() + 4, 0xFFFFFF);
-        // toolbar
+
         Rect bar = new Rect(win.x() + 3, win.y() + 16, win.width() - 6, 22);
         Gui.drawRect(bar.x(), bar.y(), bar.x() + bar.width(), bar.y() + bar.height(), 0xFF1F222B);
         List<Object> items = toolbar(fr);
@@ -271,7 +258,7 @@ final class DescriptionEditorScreen extends GuiScreen {
         }
         hits.add(new Object[] {cancel, (Runnable) this::close});
         toolTips.add(new Object[] {cancel, "Cancel"});
-        // text area
+
         area = new Rect(win.x() + 4, bar.y() + bar.height() + 4, win.width() - 8, win.height() - (bar.y() - win.y()) - bar.height() - 8);
         Gui.drawRect(area.x(), area.y(), area.x() + area.width(), area.y() + area.height(), 0xFF3B4150);
         rows = editor.layout(fr, area.width() - 8);
@@ -305,7 +292,7 @@ final class DescriptionEditorScreen extends GuiScreen {
             Gui.drawRect(area.x() + area.width() - 3, ky, area.x() + area.width() - 1, ky + knob, 0xFF8A8F9C);
         }
         drawOverlay(fr, mouseX, mouseY);
-        // tooltips of the toolbar
+
         if (overlay == Overlay.NONE) {
             for (Object[] t : toolTips) {
                 if (((Rect) t[0]).contains(mouseX, mouseY)) {
@@ -329,7 +316,7 @@ final class DescriptionEditorScreen extends GuiScreen {
         list.add(new Tool("Underline\n§7[Alt + U]", b -> glyph(b, "§nU"), () -> style("n"), true));
         list.add(new Tool("Strikethrough\n§7[Alt + S]", b -> glyph(b, "§mS"), () -> style("m"), true));
         list.add(new Tool("Palette\n§7Pick a colour", b -> {
-            // FTB Library's own palette picture (color_rgb); the four coloured squares are only the fallback
+
             if (Ui.icon(Ui.LIBRARY, "textures/icons/color_rgb.png", b.x() + 1, b.y() + 1, 16, 16, 0xFFFFFFFF)) {
                 return;
             }
@@ -431,8 +418,6 @@ final class DescriptionEditorScreen extends GuiScreen {
             }
         }
     }
-
-    // ---- input ------------------------------------------------------------------------------------------------------------
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {

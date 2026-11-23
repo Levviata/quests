@@ -47,7 +47,7 @@ class MessageRegistryTest {
         }
 
         @Override
-        public void read(PacketBuffer buf) {} // does not consume what write() produced
+        public void read(PacketBuffer buf) {}
     }
 
     public static class Huge implements ReflibMessage {

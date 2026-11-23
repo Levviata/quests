@@ -22,14 +22,6 @@ import net.minecraft.nbt.NBTTagLong;
 import net.minecraft.nbt.NBTTagString;
 import net.minecraftforge.common.util.Constants;
 
-/**
- * Conversion between {@link DataNode} trees and NBT.
- *
- * <p>Mapping: {@code Bool} is written as a byte (1/0); a byte reads back as {@code Bool} when it is 0 or 1,
- * otherwise as {@code Int}. Shorts and bytes read as {@code Int}, floats as {@code Dbl}, int/byte arrays as
- * lists of {@code Int}. NBT lists must hold one tag type, so a {@code Lst} mixing node types cannot be
- * converted ({@link IllegalArgumentException}).
- */
 public final class NbtBridge {
 
     private NbtBridge() {}

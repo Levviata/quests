@@ -13,7 +13,6 @@ import com.levviata.reflib.gui.Rect;
 import com.levviata.reflib.gui.Widget;
 import com.levviata.reflib.gui.Widgets;
 
-/** Demo screen: a panel, a title, a scrolling list of 40 lines (mouse wheel), a clickable counter and Close. */
 @SideOnly(Side.CLIENT)
 final class ExampleScreen extends ReflibScreen {
 

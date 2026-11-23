@@ -195,7 +195,6 @@ class BookEditorTest {
         assertEquals("Better loot", t.title);
         assertEquals(INVALID, ed.renameTable(t.id, ""));
 
-        // a table that a reward uses cannot be deleted
         Quest q = ed.createQuest(chapter.id, 0, 0);
         assertNotNull(ed.addReward(q.id, "xp", DataNode.Compound.empty().with("table_id", t.id).with("xp", 5)));
         assertEquals(INVALID, ed.deleteTable(t.id));
@@ -262,7 +261,6 @@ class BookEditorTest {
         assertEquals(INVALID, ed.setChapterGroup(chapter.id, "nope"));
         assertEquals(NOT_FOUND, ed.setChapterGroup("ffff", g.id));
 
-        // chapters move only among the chapters of their own group
         assertEquals(OK, ed.moveChapter(third.id, -1));
         assertEquals(java.util.List.of(chapter.id, third.id, second.id), book.chapters().stream().map(c -> c.id).toList());
         assertEquals(OK, ed.moveChapter(third.id, -1), "already first in its group: nothing changes");
@@ -501,7 +499,7 @@ class BookEditorTest {
         Quest q = ed.createQuest(chapter.id, 1.26, -2.74);
         assertEquals(1.5, q.x);
         assertEquals(-2.5, q.y);
-        assertEquals("", q.title); // named after its first task by the client, as FTB Quests does
+        assertEquals("", q.title);
         assertEquals(1, q.tasks.size());
         assertEquals("checkmark", q.tasks.get(0).type());
         assertSame(q, book.quest(q.id));

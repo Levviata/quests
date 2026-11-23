@@ -5,7 +5,6 @@
 
 package com.levviata.reflib.gui;
 
-/** Integer rectangle in screen pixels. */
 public record Rect(int x, int y, int width, int height) {
 
     public boolean contains(int px, int py) {

@@ -15,10 +15,8 @@ import java.util.zip.GZIPOutputStream;
 import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflib.api.data.Snbt;
 
-/** Compressed text form of a data tree, for the network. Decompression is size-limited. */
 public final class Gz {
 
-    /** Upper bound for decompressed data, protects against decompression bombs. */
     public static final int MAX_UNPACKED_BYTES = 64 * 1024 * 1024;
 
     private Gz() {}
@@ -29,14 +27,11 @@ public final class Gz {
         try (GZIPOutputStream gz = new GZIPOutputStream(out)) {
             gz.write(text);
         } catch (IOException ex) {
-            throw new IllegalStateException(ex); // cannot happen for a memory stream
+            throw new IllegalStateException(ex);
         }
         return out.toByteArray();
     }
 
-    /**
-     * @throws IllegalArgumentException if the data is not valid gzip text data or is too large
-     */
     public static DataNode.Compound unpack(byte[] packed) {
         try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(packed))) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();

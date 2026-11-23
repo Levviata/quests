@@ -5,7 +5,6 @@
 
 package com.levviata.reflib.api.data;
 
-/** Thrown when text cannot be parsed by {@link Snbt}. Carries the 1-based line and column. */
 public class SnbtException extends RuntimeException {
 
     private final int line;

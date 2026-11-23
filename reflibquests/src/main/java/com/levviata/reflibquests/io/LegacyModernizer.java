@@ -29,17 +29,8 @@ import com.levviata.reflibquests.model.Definitions.Task;
 import com.levviata.reflibquests.model.Definitions.WeightedReward;
 import com.levviata.reflibquests.model.QuestBook;
 
-/**
- * Rewrites a book that {@link LegacyImporter} read from a 1.12.2 pack into the form FTB Quests 26.1.2 saves: item ids
- * and metadata become 26.1.2 ids (with data components where the metadata used to pick a fluid), ore dictionary filters
- * become tags, dimensions, entities and images get their modern names, and settings that the old pack kept in its own
- * dialect are dropped. The id table is data ({@code /ntm/legacy_1_12_2_to_26_1_2.json}, written by
- * {@code tools/ntm/build_map.py}); every substitution and every entry without an equivalent is recorded in
- * {@link #notes()} so the result can be reviewed.
- */
 public final class LegacyModernizer {
 
-    /** One decision worth reviewing. {@code kind} is the table status ("substitute", "inferred", "unresolved"...). */
     public record Note(String kind, String from, String to, String note, String where) {}
 
     private static final String TABLE_RESOURCE = "/ntm/legacy_1_12_2_to_26_1_2.json";
@@ -72,7 +63,6 @@ public final class LegacyModernizer {
         }
     }
 
-    /** The table shipped with the mod. */
     public static LegacyModernizer builtin() throws IOException {
         try (InputStream in = LegacyModernizer.class.getResourceAsStream(TABLE_RESOURCE)) {
             if (in == null) {
@@ -88,7 +78,6 @@ public final class LegacyModernizer {
         return notes;
     }
 
-    /** How many times each kind of decision was taken ("same", "mapped", "substitute"...). */
     public Map<String, Integer> counts() {
         return counts;
     }
@@ -102,11 +91,9 @@ public final class LegacyModernizer {
         count(kind);
     }
 
-    // ------------------------------------------------------------------ whole book
-
     public void modernize(QuestBook book) {
         book.settings = settings(book.settings);
-        // groups: the old parent chapter becomes a plain group that also holds the parent chapter itself
+
         for (ChapterGroup g : book.groups()) {
             String parent = g.raw.getString("chapter", "");
             g.raw = DataNode.Compound.empty();
@@ -151,7 +138,7 @@ public final class LegacyModernizer {
             }
         }
         DataNode cooldown = old.get("emergency_items_cooldown");
-        if (cooldown instanceof DataNode.Str t) { // "5m" in the old file, seconds in the new one
+        if (cooldown instanceof DataNode.Str t) {
             Matcher m = Pattern.compile("(\\d+)([smh]?)").matcher(t.value());
             if (m.matches()) {
                 int n = Integer.parseInt(m.group(1));
@@ -160,8 +147,6 @@ public final class LegacyModernizer {
         }
         return s;
     }
-
-    // ------------------------------------------------------------------ quests, tasks, rewards
 
     private void quest(Chapter chapter, Quest q) {
         where = "quest " + chapter.title + " / " + (q.title.isEmpty() ? q.id : q.title);
@@ -188,7 +173,7 @@ public final class LegacyModernizer {
                 DataNode.Compound item = p.getCompound("item");
                 DataNode.Compound spec = item.getString("id", "").equals("ftbfiltersystem:smart_filter") ? filterItem(item) : item(item);
                 if (spec == null) {
-                    // nothing in 26.1.2 to ask for: a manual check-off keeps the quest usable, and the title says what was meant
+
                     String was = item.getString("id", "?").equals("ftbfiltersystem:smart_filter")
                             ? item.getCompound("components").getString("ftbfiltersystem:filter", "?")
                             : item.getString("id", "?") + (item.has("damage") ? "@" + item.getInt("damage", 0) : "");
@@ -247,7 +232,6 @@ public final class LegacyModernizer {
         }
     }
 
-    /** Carries over the settings that mean the same in both dialects (title, optional_task, icon). */
     private DataNode.Compound carry(DataNode.Compound out, DataNode.Compound p) {
         if (p.has("title")) {
             out = out.with("title", p.getString("title", ""));
@@ -289,7 +273,7 @@ public final class LegacyModernizer {
                 if (DIGITS.matcher(id).matches()) {
                     out = out.with("table_id", Long.parseLong(id));
                 } else if (!id.isEmpty()) {
-                    out = out.with("table_id", Long.parseUnsignedLong(id, 16)); // FTB Quests 26.1.2 writes the table id in decimal
+                    out = out.with("table_id", Long.parseUnsignedLong(id, 16));
                 }
             }
             default -> out = p;
@@ -302,8 +286,6 @@ public final class LegacyModernizer {
         }
         return new Reward(r.id(), r.type(), out);
     }
-
-    // ------------------------------------------------------------------ chapter images and icons
 
     private ChapterImage image(ChapterImage img) {
         DataNode.Compound raw = img.raw();
@@ -349,15 +331,12 @@ public final class LegacyModernizer {
         return spec.with("count", 1);
     }
 
-    // ------------------------------------------------------------------ item translation
-
-    /** One item stack of the old pack ({id, damage?, nbt?}) as {id, components?}; null when it cannot be given a place. */
     private DataNode.Compound item(DataNode.Compound old) {
         String id = old.getString("id", "");
         if (id.isEmpty()) {
             return null;
         }
-        // a plain texture path used as a picture
+
         if (id.contains("textures/")) {
             return null;
         }
@@ -409,7 +388,6 @@ public final class LegacyModernizer {
         return DataNode.Compound.empty().with("id", id);
     }
 
-    /** An FTB Filter System smart filter written by LegacyImporter: its ore() and item() pieces are translated. */
     private DataNode.Compound filterItem(DataNode.Compound spec) {
         String f = spec.getCompound("components").getString("ftbfiltersystem:filter", "");
         List<String> pieces = new ArrayList<>();
@@ -448,7 +426,6 @@ public final class LegacyModernizer {
                 .with("components", DataNode.Compound.empty().with("ftbfiltersystem:filter", filter));
     }
 
-    /** The {@code ore(...)} and {@code item(...)} pieces of a filter string, with nested brackets in names kept whole. */
     private static List<String[]> parts(String f) {
         List<String[]> out = new ArrayList<>();
         int i = 0;
@@ -494,8 +471,6 @@ public final class LegacyModernizer {
         return old;
     }
 
-    // ------------------------------------------------------------------ names
-
     static String slug(String s) {
         String t = s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
         return t.isEmpty() ? "chapter" : t;
@@ -510,7 +485,6 @@ public final class LegacyModernizer {
         return n;
     }
 
-    /** All notes as a map from kind to how many, for the summary. */
     public Map<String, Integer> noteKinds() {
         Map<String, Integer> m = new LinkedHashMap<>();
         for (Note n : notes) {

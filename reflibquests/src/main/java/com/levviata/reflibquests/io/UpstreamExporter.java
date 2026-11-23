@@ -31,15 +31,6 @@ import com.levviata.reflibquests.model.Definitions.Tristate;
 import com.levviata.reflibquests.model.Definitions.WeightedReward;
 import com.levviata.reflibquests.model.QuestBook;
 
-/**
- * Writes a {@link QuestBook} as a quest folder in the layout described in {@code docs/upstream-quest-format.md}
- * ({@code .json5} files, one per chapter, titles and descriptions in {@code lang/<locale>/}). Values the model
- * does not interpret are kept from what was imported, so a book read by {@link UpstreamImporter} and written
- * back loses nothing it understood. Files for objects that no longer exist are renamed to {@code *.removed}
- * instead of being deleted, so a mistaken edit can be recovered by hand.
- *
- * <p>Items that the editor creates use 1.12.2 names; a modern FTB Quests would not understand those.
- */
 public final class UpstreamExporter {
 
     public static final int FORMAT_VERSION = 13;
@@ -58,15 +49,13 @@ public final class UpstreamExporter {
         writeLang(book, folder);
     }
 
-    // ------------------------------------------------------------------ data and groups
-
     private static DataNode.Compound ensure(DataNode.Compound c, String key, DataNode value) {
         return c.has(key) ? c : c.with(key, value);
     }
 
     private static void writeData(QuestBook book, Path folder) throws IOException {
         DataNode.Compound d = book.settings;
-        // "tags" is not known in FTB Quests' file yet, so it is not written; the book's icon is {id, count} there
+
         d = d.without("tags");
         if (d.get("icon") instanceof DataNode.Compound ic && !ic.has("count")) {
             d = d.with("icon", ic.with("count", 1));
@@ -90,8 +79,6 @@ public final class UpstreamExporter {
         }
         DataFiles.writeJson5(folder.resolve("chapter_groups" + EXT), DataNode.Compound.empty().with("chapter_groups", new DataNode.Lst(list)));
     }
-
-    // ------------------------------------------------------------------ chapters
 
     private static Set<String> writeChapters(QuestBook book, Path folder) throws IOException {
         Set<String> used = new HashSet<>();
@@ -136,7 +123,7 @@ public final class UpstreamExporter {
         }
         List<DataNode> images = new ArrayList<>();
         for (var i : c.images) {
-            images.add(i.raw().without("title").with("id", i.id())); // the title goes to the language file
+            images.add(i.raw().without("title").with("id", i.id()));
         }
         return o.with("quests", new DataNode.Lst(quests)).with("quest_links", new DataNode.Lst(links)).with("images", new DataNode.Lst(images));
     }
@@ -182,7 +169,7 @@ public final class UpstreamExporter {
         o = flag(o, "or_tasks", q.orTasks);
         List<DataNode> tasks = new ArrayList<>();
         for (Task t : q.tasks) {
-            tasks.add(DataNode.Compound.empty().with("id", t.id()).with("type", t.type()).with("__params", withoutOurs(t.params()).without("title"))); // the title goes to the language file
+            tasks.add(DataNode.Compound.empty().with("id", t.id()).with("type", t.type()).with("__params", withoutOurs(t.params()).without("title")));
         }
         List<DataNode> rewards = new ArrayList<>();
         for (Reward r : q.rewards) {
@@ -191,10 +178,6 @@ public final class UpstreamExporter {
         return o.with("tasks", flatten(tasks)).with("rewards", flatten(rewards));
     }
 
-    /**
-     * Settings of a task or reward that Reflib Quests keeps but whose names in FTB Quests' files are not known: they are left
-     * out of the exported files, because a file with a field FTB Quests does not know can stop quests from working.
-     */
     private static final java.util.Set<String> OURS_ONLY = java.util.Set.of();
 
     private static DataNode.Compound withoutOurs(DataNode.Compound params) {
@@ -205,7 +188,6 @@ public final class UpstreamExporter {
         return out;
     }
 
-    /** Moves each element's "__params" entries up into the element itself (so id and type come first). */
     private static DataNode.Lst flatten(List<DataNode> items) {
         List<DataNode> out = new ArrayList<>();
         for (DataNode n : items) {
@@ -232,8 +214,6 @@ public final class UpstreamExporter {
     private static DataNode.Compound setOrRemove(DataNode.Compound o, String key, DataNode value) {
         return value == null ? o.without(key) : o.with(key, value);
     }
-
-    // ------------------------------------------------------------------ reward tables
 
     private static Set<String> writeTables(QuestBook book, Path folder) throws IOException {
         Set<String> used = new HashSet<>();
@@ -262,15 +242,13 @@ public final class UpstreamExporter {
         return used;
     }
 
-    // ------------------------------------------------------------------ language files
-
     private static void writeLang(QuestBook book, Path folder) throws IOException {
         Map<String, Map<String, DataNode>> tables = new LinkedHashMap<>();
         for (var e : book.translations().entrySet()) {
             tables.put(e.getKey(), new LinkedHashMap<>(e.getValue()));
         }
         Map<String, DataNode> main = tables.computeIfAbsent(book.fallbackLocale, l -> new LinkedHashMap<>());
-        // drop entries of objects that no longer exist, then write the current texts
+
         Set<String> live = new HashSet<>();
         for (ChapterGroup g : book.groups()) {
             live.add("chapter_group." + g.id + ".");
@@ -332,7 +310,6 @@ public final class UpstreamExporter {
         }
     }
 
-    /** "quest.ABC.title" becomes "quest.ABC." (the form used in the set of live objects). */
     private static String objectPrefix(String key) {
         int first = key.indexOf('.');
         int second = first < 0 ? -1 : key.indexOf('.', first + 1);
@@ -363,9 +340,6 @@ public final class UpstreamExporter {
         }
     }
 
-    // ------------------------------------------------------------------ files
-
-    /** A file stem that is safe on every platform and not used yet (case-insensitively). */
     private static String uniqueFile(String wanted, Set<String> used) {
         String base = wanted.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_\\-]", "_");
         if (base.isEmpty()) {
@@ -379,7 +353,6 @@ public final class UpstreamExporter {
         return name;
     }
 
-    /** Renames {@code *.json5} files in a folder that are not in {@code keep} to {@code *.removed}. */
     private static void retire(Path dir, Set<String> keep) throws IOException {
         if (!Files.isDirectory(dir)) {
             return;

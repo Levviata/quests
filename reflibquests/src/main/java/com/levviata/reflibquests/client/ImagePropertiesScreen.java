@@ -16,18 +16,13 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflibquests.model.Definitions.ChapterImage;
 
-/**
- * "Image" properties, laid out as in FTB Quests: the same rows in the same order, the same names, tooltips and option lists.
- * Accept sends the changed ones as one edit. The click actions other than "Open a URI" and the text shadow are not here yet:
- * their names in the quest files are not known.
- */
 @SideOnly(Side.CLIENT)
 final class ImagePropertiesScreen extends SettingsScreen {
 
     private static final List<String> ALIGN = List.of("Start", "Middle", "End");
     private static final List<String> ACTIONS = List.of("No Action", "Open a URI", "Jump to a Quest", "Run a Command",
             "Post Custom Event", "Show Recipes for Item", "Show a Docs Page");
-    /** FTB Quests 26.1.2 click action type ids, in the order of {@link #ACTIONS} (id of "run_command" read from FTB's saved file, the others from its lang file). */
+
     private static final List<String> ACTION_IDS = List.of("", "open_uri", "open_quest", "run_command", "custom_event", "show_recipe", "show_docs");
     private static final String CLICK_DATA_TIP = "▪ Open URI: a http://, https:// or file:/// URL\n"
             + "▪ Jump to a Quest: a quest ID - use 'Copy Quest ID' context menu entry\n"
@@ -80,7 +75,7 @@ final class ImagePropertiesScreen extends SettingsScreen {
                 }).plainText().tip("Tags separated by commas.").defaults("[ 0 items ]");
         List<String> actions = new java.util.ArrayList<>(ACTIONS);
         if (!ACTION_IDS.contains(values.get("click_type"))) {
-            actions.add(values.get("click_type")); // a type from a newer version: kept as it is
+            actions.add(values.get("click_type"));
         }
         choice("Click Action", actions,
                 () -> ACTION_IDS.contains(values.get("click_type")) ? ACTIONS.get(ACTION_IDS.indexOf(values.get("click_type"))) : values.get("click_type"),
@@ -116,7 +111,6 @@ final class ImagePropertiesScreen extends SettingsScreen {
                 .defaults("Middle").listing().enabledIf(() -> Boolean.parseBoolean(values.get("text_on_image")));
     }
 
-    /** "title [Image]" with the title underlined, as FTB Quests writes it. */
     private static String titleOf(ChapterImage img) {
         String t = img.raw().getString("title", "");
         return (t.isEmpty() ? "" : t + "§r ") + "§b[Image]";
@@ -145,6 +139,6 @@ final class ImagePropertiesScreen extends SettingsScreen {
 
     @Override
     protected void cancelled() {
-        // nothing was sent
+
     }
 }

@@ -12,7 +12,6 @@ import com.levviata.reflib.gui.ReflibScreen;
 import com.levviata.reflib.gui.Rect;
 import com.levviata.reflib.gui.Widget;
 
-/** The quest book screen: hosts {@link QuestBookWidget} and keeps the world paused-looking backdrop. */
 @SideOnly(Side.CLIENT)
 final class QuestScreen extends ReflibScreen {
 

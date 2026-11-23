@@ -33,32 +33,12 @@ import com.levviata.reflib.impl.net.Envelope;
 import com.levviata.reflib.impl.net.MessageRegistry;
 import com.levviata.reflib.impl.net.Reassembler;
 
-/**
- * A typed message channel for one referencing project.
- *
- * <p>Register message types (in the same order on client and server; the registration index is the wire
- * id), then send them. Handlers always run on the main game thread. Messages that arrive on the wrong side,
- * with an unknown id, oversize, malformed, or from a build with a different message set are dropped and
- * logged; they never throw into the network thread.
- *
- * <p>Messages larger than one network frame are split and reassembled transparently, up to
- * {@value MessageRegistry#MAX_MESSAGE_BYTES} bytes per message. Registration is closed once the channel is
- * first used. Each channel also carries a signature of its protocol version and message list; peers whose
- * signatures differ ignore each other's messages (and log why).
- *
- * <pre>{@code
- * ReflibChannel channel = ReflibChannel.create("myproject");
- * channel.register(PingMessage.class, Side.SERVER, (msg, ctx) -> log(ctx.sender(), msg));
- * channel.sendToServer(new PingMessage(5));
- * }</pre>
- */
 public final class ReflibChannel {
 
     private static final Logger LOGGER = LogManager.getLogger("reflib/net");
     private static final Set<String> USED_NAMES = new HashSet<>();
     private static final String CLIENT_SENDER = "server";
 
-    /** Context passed to handlers. {@code sender} is null when the message arrives on the client. */
     public record Context(Side side, @Nullable EntityPlayerMP sender) {}
 
     @FunctionalInterface
@@ -83,17 +63,10 @@ public final class ReflibChannel {
         MinecraftForge.EVENT_BUS.register(this);
     }
 
-    /** Create the channel for a project with protocol version {@code "1"}. See {@link #create(String, String)}. */
     public static ReflibChannel create(String modId) {
         return create(modId, "1");
     }
 
-    /**
-     * Create the channel for a project. The name is the project's mod id (at most 20 characters, a Forge limit).
-     *
-     * @param protocolVersion bump this when the meaning of existing messages changes without the class list changing
-     * @throws IllegalStateException if a channel with this name already exists
-     */
     public static ReflibChannel create(String modId, String protocolVersion) {
         if (modId == null || modId.isEmpty() || modId.length() > 20) {
             throw new IllegalArgumentException("Channel name must be 1-20 characters, got '" + modId + "'");
@@ -106,12 +79,6 @@ public final class ReflibChannel {
         return new ReflibChannel(modId, protocolVersion);
     }
 
-    /**
-     * Register a message type.
-     *
-     * @param receiver the side that handles it ({@link Side#SERVER} for client-to-server messages)
-     * @throws IllegalStateException if the channel was already used
-     */
     public <M extends ReflibMessage> ReflibChannel register(Class<M> type, Side receiver, Handler<M> handler) {
         registry.register(type, receiver, handler);
         return this;

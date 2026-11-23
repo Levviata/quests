@@ -15,7 +15,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.levviata.reflib.api.assets.SuppliedAssets;
 
-/** One-time notice at the main menu listing the supplied jars that were not found. Informational only. */
 @SideOnly(Side.CLIENT)
 final class GuiMissingAssets extends GuiScreen {
 

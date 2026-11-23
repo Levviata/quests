@@ -12,11 +12,6 @@ import java.util.Locale;
 import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflib.api.data.Snbt;
 
-/**
- * Pure-Java model of quest description text (see docs/spec-description-editor.md). No game classes, so it is
- * unit-testable. A description is a list of entries; {@link #parse(List)} turns it into pages of visual lines made
- * of styled spans and images. Parsing never throws: anything it does not understand is kept as literal text.
- */
 public final class RichText {
 
     public static final String PAGE_BREAK = "{@pagebreak}";
@@ -27,7 +22,6 @@ public final class RichText {
 
     public enum Align { LEFT, CENTER, RIGHT }
 
-    /** A click action attached to a span; {@code action} is e.g. {@code open_url} or {@code change_page}. */
     public record Click(String action, String value) {}
 
     public sealed interface Element permits Span, Image {}
@@ -37,7 +31,6 @@ public final class RichText {
 
     public record Image(String texture, int width, int height, Align align, boolean fit) implements Element {}
 
-    /** One visual row: spans and images laid out together (an image row holds a single {@link Image}). */
     public record Line(List<Element> elements) {
         public boolean blank() {
             return elements.isEmpty();
@@ -46,14 +39,13 @@ public final class RichText {
 
     public record Page(List<Line> lines) {}
 
-    /** Marker put into display strings where a rainbow-coloured stretch starts (see {@link #toRainbowAware}). */
     public static final char RAINBOW_MARK = '\uE000';
 
     private record Style(int rgb, boolean bold, boolean italic, boolean underline, boolean strike, boolean obf, Click click, boolean rainbow, String hover) {
         static final Style PLAIN = new Style(NO_COLOR, false, false, false, false, false, null, false, "");
 
         Style withColor(int c) {
-            return new Style(c, false, false, false, false, false, click, false, hover); // a colour code resets formatting
+            return new Style(c, false, false, false, false, false, click, false, hover);
         }
         Style withBold(boolean v) { return new Style(rgb, v, italic, underline, strike, obf, click, rainbow, hover); }
         Style withItalic(boolean v) { return new Style(rgb, bold, v, underline, strike, obf, click, rainbow, hover); }
@@ -74,13 +66,10 @@ public final class RichText {
         "black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple", "gold", "gray",
         "dark_gray", "blue", "green", "aqua", "red", "light_purple", "yellow", "white" };
 
-    // ---- pages ----------------------------------------------------------------------------------------------
-
     public static boolean isPageBreak(String entry) {
         return entry != null && entry.trim().equals(PAGE_BREAK);
     }
 
-    /** Parses all entries into pages (a page break starts a new page; there is always at least one page). */
     public static List<Page> parse(List<String> entries) {
         List<Page> pages = new ArrayList<>();
         List<Line> current = new ArrayList<>();
@@ -98,9 +87,6 @@ public final class RichText {
         return List.copyOf(pages);
     }
 
-    // ---- one entry -------------------------------------------------------------------------------------------
-
-    /** Parses one entry into one or more visual lines. A page-break entry yields no lines. */
     public static List<Line> parseEntry(String entry) {
         if (entry == null || isPageBreak(entry)) {
             return List.of();
@@ -127,7 +113,6 @@ public final class RichText {
         return rows;
     }
 
-    /** Splits on the two-character sequence backslash + n (the pack's paragraph marker). */
     private static List<String> splitNewlines(String s) {
         List<String> out = new ArrayList<>();
         int from = 0;
@@ -148,11 +133,11 @@ public final class RichText {
         for (int i = 0; i < row.length(); i++) {
             char c = row.charAt(i);
             if (c == '\\' && i + 1 < row.length() && row.charAt(i + 1) == '&') {
-                text.append('&'); // "\&" is a literal ampersand
+                text.append('&');
                 i++;
                 continue;
             }
-            if ((c == '&' || c == '§') && i + 1 < row.length()) { // legacy files write the section sign, as the game does
+            if ((c == '&' || c == '§') && i + 1 < row.length()) {
                 char n = Character.toLowerCase(row.charAt(i + 1));
                 if (n == '&') {
                     text.append('&');
@@ -197,9 +182,6 @@ public final class RichText {
         }
     }
 
-    // ---- images ----------------------------------------------------------------------------------------------
-
-    /** Parses {@code {image:<texture> width:n height:n align:x fit:b}}; returns null when malformed. */
     static Image parseImage(String tag) {
         String body = tag.substring("{image:".length(), tag.length() - 1).trim();
         if (body.isEmpty()) {
@@ -232,7 +214,7 @@ public final class RichText {
                         }
                         fit = Boolean.parseBoolean(value);
                     }
-                    default -> { /* unknown attributes are ignored */ }
+                    default -> {  }
                 }
             } catch (IllegalArgumentException ex) {
                 return null;
@@ -245,15 +227,11 @@ public final class RichText {
         return Math.max(1, Math.min(MAX_IMAGE, v));
     }
 
-    /** Builds an image tag (used by the editor's Image dialog). */
     public static String imageTag(String texture, int width, int height, Align align, boolean fit) {
         return "{image:" + texture + " width:" + clampSize(width) + " height:" + clampSize(height)
                 + " align:" + align.name().toLowerCase(Locale.ROOT) + " fit:" + fit + "}";
     }
 
-    // ---- JSON components -------------------------------------------------------------------------------------
-
-    /** Only treat text as JSON when it opens like JSON, so notes such as "[Page Up]" stay literal. */
     private static boolean looksLikeJson(String t) {
         if (t.length() < 2 || (t.charAt(0) != '{' && t.charAt(0) != '[')) {
             return false;
@@ -265,7 +243,6 @@ public final class RichText {
         return i < t.length() && "\"{[".indexOf(t.charAt(i)) >= 0;
     }
 
-    /** Returns the visual lines for a JSON text component (or list), or null if the text is not valid JSON. */
     private static List<Line> parseJson(String text) {
         DataNode root;
         try {
@@ -311,13 +288,13 @@ public final class RichText {
             if (c.has("underlined")) style = style.withUnderline(c.getBool("underlined", false));
             if (c.has("strikethrough")) style = style.withStrike(c.getBool("strikethrough", false));
             if (c.has("obfuscated")) style = style.withObf(c.getBool("obfuscated", false));
-            // the 1.21.5 spelling (click_event / hover_event, as FTB Quests 26.1.2 writes it) and the older one
+
             DataNode.Compound ce = c.has("click_event") ? c.getCompound("click_event") : c.getCompound("clickEvent");
             String action = ce.getString("action", "");
             if (!action.isEmpty()) {
                 String value = ce.getString("value", ce.getString("url", ce.getString("command", ce.getString("page", ""))));
                 if (action.equals("custom") && ce.getString("id", "").equals("ftbquests:link")) {
-                    // FTB 26.1.2 "Insert Quest Link": {"id":"ftbquests:link","payload":{"quest_id":"...","page":1},"action":"custom"}
+
                     style = style.withClick(new Click("change_page", ce.getCompound("payload").getString("quest_id", "")));
                 } else {
                     style = style.withClick(new Click(action, value));
@@ -346,7 +323,6 @@ public final class RichText {
         return false;
     }
 
-    /** The plain text of a text component, for a hover tooltip: literal text, a translate key shown as written, extras. */
     private static void plain(DataNode node, StringBuilder out, int depth) {
         if (node == null || depth > 16) {
             return;
@@ -376,13 +352,11 @@ public final class RichText {
             try {
                 return Integer.parseInt(name.substring(1), 16);
             } catch (NumberFormatException ignored) {
-                // fall through
+
             }
         }
         return NO_COLOR;
     }
-
-    // ---- JSON text lines (the editor's "convert line to JSON" and link buttons) --------------------------------------------------
 
     private static String jsonString(String s) {
         StringBuilder sb = new StringBuilder("\"");
@@ -399,11 +373,10 @@ public final class RichText {
         return sb.append('"').toString();
     }
 
-    /** A one-link JSON line, for example an {@code open_url} or {@code change_page} link. */
     public static String linkJson(String text, String action, String value) {
         String event;
         if (action.equals("change_page")) {
-            // FTB 26.1.2 "Insert Quest Link"
+
             event = "{\"id\":\"ftbquests:link\",\"payload\":{\"quest_id\":" + jsonString(value) + ",\"page\":1},\"action\":\"custom\"}";
         } else if (action.equals("open_url")) {
             event = "{\"url\":" + jsonString(value) + ",\"action\":\"open_url\"}";
@@ -413,13 +386,11 @@ public final class RichText {
         return "[ { \"text\": " + jsonString(text) + ", \"underlined\": true, \"click_event\": " + event + " } ]";
     }
 
-    /** A one-line JSON entry whose text shows {@code tip} when hovered, as FTB 26.1.2 saves it ("Hovered tooltip"). */
     public static String hoverJson(String text, String tip) {
         return "[ { \"text\": " + jsonString(text) + ", \"hover_event\": {\"value\":{\"translate\":" + jsonString(tip)
                 + "},\"action\":\"show_text\"} } ]";
     }
 
-    /** The same text as a JSON component list, so styles can be edited as data; null if the entry is not plain formatted text. */
     public static String toJsonLine(String entry) {
         List<Line> rows = parseEntry(entry);
         if (rows.size() != 1 || isPageBreak(entry)) {
@@ -444,24 +415,18 @@ public final class RichText {
         return parts.isEmpty() ? null : "[" + String.join(",", parts) + "]";
     }
 
-    // ---- string helpers (titles, tooltips, editor) ------------------------------------------------------------
-
-    /** Removes {@code &x} formatting codes ({@code &&} becomes a literal {@code &}). Used for searching. */
     public static String stripCodes(String s) {
         return convert(s, false, false);
     }
 
-    /** Converts {@code &x} codes to the game's section-sign codes for direct drawing; {@code &&} becomes {@code &}. */
     public static String toSectionCodes(String s) {
         return convert(s, true, false);
     }
 
-    /** Like {@link #toSectionCodes}, but {@code &z} becomes {@link #RAINBOW_MARK} instead of being dropped. */
     public static String toRainbowAware(String s) {
         return convert(s, true, true);
     }
 
-    /** Alias of {@link #stripCodes}: what the editor's Clear Formatting action does to a selection. */
     public static String clearFormatting(String s) {
         return stripCodes(s);
     }

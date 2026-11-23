@@ -44,7 +44,7 @@ class HistoryTest {
         two = ed.createChapter("Two");
         a = ed.createQuest(one.id, 1, 1);
         b = ed.createQuest(two.id, 4, 4);
-        ed.toggleDependency(b.id, a.id); // b needs a, from another chapter
+        ed.toggleDependency(b.id, a.id);
     }
 
     private DataNode.Compound args(Object... pairs) {
@@ -58,7 +58,7 @@ class HistoryTest {
 
     private String undo() {
         String what = history.undo(book);
-        book.reindex(); // the server does this after every undo
+        book.reindex();
         return what;
     }
 
@@ -68,7 +68,6 @@ class HistoryTest {
         return what;
     }
 
-    /** What the server does for one edit: copy, edit, keep. */
     private void edit(String op, DataNode.Compound a, Runnable change) {
         History.Open open = History.begin(book, op, a);
         change.run();
@@ -160,7 +159,7 @@ class HistoryTest {
         assertEquals(g.id, book.chapter(first).groupId);
 
         edit("move_chapter", args("id", first), () -> ed.moveChapter(first, 1));
-        // the first chapter now belongs to a group, so it only swaps with chapters of that group: nothing moved. Use two loose ones:
+
         edit("move_chapter", args("id", second), () -> ed.moveChapter(second, -1));
         java.util.List<String> moved = book.chapters().stream().map(c -> c.id).toList();
         undo();

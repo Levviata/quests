@@ -24,12 +24,6 @@ import com.levviata.reflib.api.assets.SuppliedAssets;
 import com.levviata.reflibquests.ReflibQuestsMod;
 import com.levviata.reflibquests.model.Definitions.Quest;
 
-/**
- * Optional art for the quest map taken from a jar the player supplies (see reflib's {@code SuppliedAssets}):
- * quest shapes ({@code ftbquests:textures/shapes/<name>/background.png} and {@code outline.png}) and the
- * "locked" icon. Nothing is bundled with this mod; when the jar is absent, or lacks a texture, the caller draws
- * its plain coloured squares instead. Shape and icon files are used as they are, tinted by quest state.
- */
 @SideOnly(Side.CLIENT)
 final class QuestArt {
 
@@ -43,18 +37,16 @@ final class QuestArt {
         return SuppliedAssets.isPresent(ReflibQuestsMod.ID);
     }
 
-    /** True if the supplied jar has this file (looked up once per path, then remembered). */
     static boolean has(String path) {
         return EXISTS.computeIfAbsent(path, p -> SuppliedAssets.read(DOMAIN, p) != null);
     }
 
-    /** The shape a quest is drawn with: its own, else its chapter's default, else the book's default, else a circle. */
     static String shapeName(com.levviata.reflibquests.model.QuestBook book,
                             com.levviata.reflibquests.model.Definitions.Chapter chapter, Quest q) {
         String s = q.shape == null ? "" : q.shape.toLowerCase(Locale.ROOT);
         String preset = com.levviata.reflibquests.model.Presets.shape(book, q).toLowerCase(Locale.ROOT);
         if (!preset.isEmpty()) {
-            s = preset; // a preset wins over the quest's own shape (measured in FTB 26.1.2)
+            s = preset;
         }
         if (s.isEmpty() || s.equals("default")) {
             s = chapter == null || chapter.defaultQuestShape == null ? "" : chapter.defaultQuestShape.toLowerCase(Locale.ROOT);
@@ -65,13 +57,11 @@ final class QuestArt {
         return s.isEmpty() || s.equals("default") ? "circle" : s;
     }
 
-    /** The shape folder name for a quest: its own, else the default shape (a circle). */
     static String shapeName(Quest q) {
         String s = q.shape == null ? "" : q.shape.toLowerCase(Locale.ROOT);
         return s.isEmpty() || s.equals("default") ? "circle" : s;
     }
 
-    /** @return true if background and outline of this shape are available */
     static boolean hasShape(String name) {
         return available() && has("textures/shapes/" + name + "/background.png") && has("textures/shapes/" + name + "/outline.png");
     }
@@ -80,7 +70,6 @@ final class QuestArt {
         return new ResourceLocation(DOMAIN, "textures/shapes/" + name + "/" + layer + ".png");
     }
 
-    /** @return true if the player's quests jar carries this picture of its gui folder */
     static boolean hasGui(String name) {
         return available() && has("textures/gui/" + name + ".png");
     }
@@ -96,19 +85,14 @@ final class QuestArt {
     static final ResourceLocation DIRT_BLOCK = new ResourceLocation("textures/blocks/dirt.png");
     private static Boolean tilesAvailable;
 
-    /**
-     * The questbook backdrop: the upstream tiled squares texture when the player's jars provide it (the library
-     * jar, or any jar that carries it), else a flat dark colour.
-     */
     static void background(com.levviata.reflib.gui.Rect r) {
         if (tilesAvailable == null) {
             tilesAvailable = available() && SuppliedAssets.read("ftblibrary", "textures/gui/background_squares.png") != null;
         }
-        // stone, darkened, behind the map
+
         tile(STONE, r.x(), r.y(), r.width(), r.height(), 32, 0xFF57616E);
     }
 
-    /** Repeats a texture over a rectangle; {@code tileSize} is the on-screen size of one repeat. */
     static void tile(ResourceLocation texture, double x, double y, double w, double h, int tileSize, int argb) {
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         GlStateManager.enableTexture2D();
@@ -129,12 +113,10 @@ final class QuestArt {
         GlStateManager.color(1f, 1f, 1f, 1f);
     }
 
-    /** Draw a whole texture stretched over the rectangle, multiplied by an ARGB colour. */
     static void quad(ResourceLocation texture, double x, double y, double w, double h, int argb) {
         quad(texture, x, y, w, h, argb, false);
     }
 
-    /** As {@link #quad(ResourceLocation, double, double, double, double, int)}; {@code smooth} filters the texture linearly (upstream icons are drawn "blurred", not pixelated). */
     static void quad(ResourceLocation texture, double x, double y, double w, double h, int argb, boolean smooth) {
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         if (smooth) {

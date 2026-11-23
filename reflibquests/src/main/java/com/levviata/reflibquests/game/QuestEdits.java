@@ -18,18 +18,10 @@ import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflibquests.model.BookEditor;
 import com.levviata.reflibquests.model.BookEditor.Result;
 
-/**
- * Turns an edit request from a client (an operation name plus arguments) into a call on {@link BookEditor}.
- * Everything the client sent is untrusted: arguments are read defensively and every operation is validated
- * by the editor. Permission is checked by the caller.
- */
 final class QuestEdits {
 
     private QuestEdits() {}
 
-    /**
-     * @return null if the edit was applied, otherwise a short reason for the player
-     */
     @Nullable
     static String apply(QuestServer qs, EntityPlayerMP player, String op, DataNode.Compound a) {
         BookEditor ed = new BookEditor(qs.book(), new Random());
@@ -40,7 +32,7 @@ final class QuestEdits {
                     return "That chapter name is not valid.";
                 }
                 if (!a.getString("group", "").isEmpty()) {
-                    ed.setChapterGroup(made.id, a.getString("group", "")); // made from the + of a group
+                    ed.setChapterGroup(made.id, a.getString("group", ""));
                 }
                 return null;
             }
@@ -75,7 +67,7 @@ final class QuestEdits {
                 }
                 DataNode.Compound first = a.getCompound("task");
                 if (!first.entries().isEmpty()) {
-                    // the map menu lists task types: the new quest starts with that task instead of the checkmark
+
                     String placeholder = made.tasks.get(0).id();
                     String error = addTask(ed, player, first.with("id", made.id));
                     if (error != null) {
@@ -83,7 +75,7 @@ final class QuestEdits {
                         return error;
                     }
                     ed.removeTask(placeholder);
-                    // the edits made in the options window before Accept, aimed at the task that now exists
+
                     String realTask = made.tasks.isEmpty() ? "" : made.tasks.get(0).id();
                     int applied = 0;
                     for (DataNode e : a.getList("edits")) {
@@ -230,13 +222,13 @@ final class QuestEdits {
             }
             params = held;
         } else if (type.equals("location")) {
-            // a one block box where the player stands, in the player's dimension
+
             params = DataNode.Compound.empty().with("dimension", String.valueOf(player.dimension))
                     .with("position", new DataNode.Lst(java.util.List.of(new DataNode.Int((int) Math.floor(player.posX)),
                             new DataNode.Int((int) Math.floor(player.posY)), new DataNode.Int((int) Math.floor(player.posZ)))))
                     .with("size", new DataNode.Lst(java.util.List.of(new DataNode.Int(1), new DataNode.Int(1), new DataNode.Int(1))));
         } else {
-            params = params.without("item"); // only the held-item path may set an item
+            params = params.without("item");
         }
         return ed.addTask(a.getString("id", ""), type, params) != null ? null : "Could not add that task.";
     }
@@ -261,7 +253,7 @@ final class QuestEdits {
         String type = a.getString("type", "");
         DataNode.Compound params = a.getCompound("params");
         if (type.equals("item")) {
-            // the editor picked the item; check that it exists in this game and keep only its id, damage and a sane count
+
             DataNode.Compound item = params.getCompound("item");
             String itemId = item.getString("id", "");
             net.minecraft.util.ResourceLocation rl = itemId.contains(":") ? new net.minecraft.util.ResourceLocation(itemId) : null;
@@ -281,7 +273,6 @@ final class QuestEdits {
                 ? null : "Could not add that entry.";
     }
 
-    /** The item's NBT, when it has some that the game can read. */
     private static DataNode.Compound withNbt(DataNode.Compound clean, DataNode.Compound item) {
         DataNode.Compound nbt = item.getCompound("nbt");
         if (nbt.entries().isEmpty()) {
@@ -291,7 +282,6 @@ final class QuestEdits {
         return checked == null ? clean : clean.with("nbt", checked);
     }
 
-    /** An item picked in the item picker: only its registry name and damage are kept, and the item has to exist in this game. Null when none was given. */
     @Nullable
     private static DataNode.Compound pickedItem(DataNode.Compound item) {
         String id = item.getString("id", "");
@@ -311,14 +301,12 @@ final class QuestEdits {
         return DataNode.Compound.empty().with("item", clean).with("count", 1);
     }
 
-    /** The picked item with the count the picker asked for (1 to a million). */
     @Nullable
     private static DataNode.Compound pickedItem(DataNode.Compound item, long count) {
         DataNode.Compound base = pickedItem(item);
         return base == null ? null : base.with("count", (int) Math.max(1, Math.min(Integer.MAX_VALUE, count)));
     }
 
-    /** The stack in the player's main hand as quest-file parameters: an item with its damage value, and a count. */
     @Nullable
     private static DataNode.Compound heldItem(EntityPlayerMP player) {
         ItemStack held = player.getHeldItemMainhand();

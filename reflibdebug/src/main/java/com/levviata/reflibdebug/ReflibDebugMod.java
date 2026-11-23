@@ -53,15 +53,6 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
-/**
- * Development tool, not for players. Opens a control port on 127.0.0.1 (never any other address) so a developer can
- * script the client from outside while its window stays in the background: screenshots straight from the game's own
- * framebuffer, mouse and key input delivered to the current screen, button presses, opening a world, chat commands.
- *
- * <p>The port and a random token are written to {@code reflibdebug.port} in the game folder (line 1 = port, line 2 =
- * token). Every request is one line "token command arguments"; the reply is text. Requests from anything that does not
- * know the token are dropped. There is deliberately no command to quit the game or to run arbitrary code.
- */
 @Mod(modid = ReflibDebugMod.ID, name = "Reflib Debug Control", version = ReflibDebugMod.VERSION,
         clientSideOnly = true, acceptableRemoteVersions = "*")
 public class ReflibDebugMod {
@@ -70,7 +61,6 @@ public class ReflibDebugMod {
     public static final String VERSION = "0.1.0";
     private static final Logger LOGGER = LogManager.getLogger(ID);
 
-    /** A request waiting for the client thread. {@code atEnd}: run after the frame is drawn (screenshots). */
     private static final class Task {
         final String line;
         final boolean atEnd;
@@ -86,11 +76,10 @@ public class ReflibDebugMod {
     private final Queue<Task> endQueue = new ConcurrentLinkedQueue<>();
     private String token = "";
 
-    // client-thread state
-    private boolean fake;          // pretend the mouse is at (fakeX, fakeY) in framebuffer pixels, top-left origin
+    private boolean fake;
     private int fakeX;
     private int fakeY;
-    private int heldButton = -1;   // mouse button currently held by the script
+    private int heldButton = -1;
     private int wheelPending;
     private final Set<Integer> heldKeys = new HashSet<>();
 
@@ -131,8 +120,6 @@ public class ReflibDebugMod {
         }
     }
 
-    // ------------------------------------------------------------------------------ socket thread
-
     private void serve(ServerSocket ss) {
         while (true) {
             try {
@@ -154,7 +141,7 @@ public class ReflibDebugMod {
             OutputStream out = sock.getOutputStream();
             String reply;
             if (line == null || !line.startsWith(token + " ")) {
-                return; // not our client: say nothing
+                return;
             }
             String cmd = line.substring(token.length() + 1).trim();
             String verb = cmd.split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
@@ -168,17 +155,15 @@ public class ReflibDebugMod {
             out.write((reply + "\n").getBytes(StandardCharsets.UTF_8));
             out.flush();
         } catch (IOException ignored) {
-            // client went away
+
         }
     }
-
-    // ------------------------------------------------------------------------------ client thread
 
     @SubscribeEvent
     public void onRender(TickEvent.RenderTickEvent e) {
         Minecraft mc = Minecraft.getMinecraft();
         if (e.phase == TickEvent.Phase.START) {
-            mc.gameSettings.pauseOnLostFocus = false; // a background window must not pop the pause menu
+            mc.gameSettings.pauseOnLostFocus = false;
             applyFakeInput(mc);
             Task t;
             while ((t = startQueue.poll()) != null) {
@@ -200,7 +185,6 @@ public class ReflibDebugMod {
         }
     }
 
-    /** Keeps the scripted mouse position, wheel and held keys in place for this frame. */
     private void applyFakeInput(Minecraft mc) {
         if (fake) {
             int y = mc.displayHeight - fakeY - 1;
@@ -226,11 +210,11 @@ public class ReflibDebugMod {
             setStatic(Mouse.class, "eventButton", -1);
             GuiScreen screen = mc.currentScreen;
             if (screen != null) {
-                // no real event exists, so hand the wheel event to the screen the way the game loop would
+
                 try {
                     invoke(screen, new String[] {"handleMouseInput", "func_146274_d"}, new Class<?>[0]);
                 } catch (RuntimeException ignored) {
-                    // the screen did not take it
+
                 }
             }
             setStatic(Mouse.class, "event_dwheel", 0);
@@ -250,7 +234,7 @@ public class ReflibDebugMod {
                 return status(mc);
             case "shot":
                 return shot(mc, cmd.substring(4).trim());
-            case "move": // pixels of the screenshot, top-left origin
+            case "move":
                 fake = true;
                 fakeX = Integer.parseInt(a[1]);
                 fakeY = Integer.parseInt(a[2]);
@@ -279,7 +263,7 @@ public class ReflibDebugMod {
                     heldButton = btn;
                 }
                 if (!verb.equals("down")) {
-                    GuiScreen again = mc.currentScreen; // the click may have opened another screen
+                    GuiScreen again = mc.currentScreen;
                     if (again != null) {
                         invoke(again, new String[] {"mouseReleased", "func_146286_b"}, new Class<?>[] {int.class, int.class, int.class}, gx, gy, btn);
                     }
@@ -290,7 +274,7 @@ public class ReflibDebugMod {
             case "wheel":
                 wheelPending = Integer.parseInt(a[1]) * 120;
                 return "ok";
-            case "key": // key <name or lwjgl code> [char]  e.g. key ESCAPE, key F, key 1
+            case "key":
                 return key(mc, a, false);
             case "keyctrl":
                 return key(mc, a, true);
@@ -318,11 +302,11 @@ public class ReflibDebugMod {
                 }
                 return "ok";
             }
-            case "press": { // a key binding while no screen is open (e.g. the book key)
+            case "press": {
                 int c = code(a[1]);
                 KeyBinding.setKeyBindState(c, true);
                 KeyBinding.onTick(c);
-                MinecraftForge.EVENT_BUS.post(new InputEvent.KeyInputEvent()); // mods that listen for key events
+                MinecraftForge.EVENT_BUS.post(new InputEvent.KeyInputEvent());
                 KeyBinding.setKeyBindState(c, false);
                 return "ok";
             }
@@ -335,7 +319,7 @@ public class ReflibDebugMod {
                     return "no world";
                 }
                 String text = cmd.substring(5);
-                // client-side commands (such as /rqbook) are normally intercepted by the chat screen, not by the player
+
                 if (text.startsWith("/") && ClientCommandHandler.instance.executeCommand(mc.player, text) != 0) {
                     return "ok client command";
                 }
@@ -358,14 +342,14 @@ public class ReflibDebugMod {
                 mc.launchIntegratedServer(folder, folder, null);
                 return "ok launching " + folder;
             }
-            case "resize": { // resize w h: change the window size (pixels)
+            case "resize": {
                 int w = Integer.parseInt(a[1]);
                 int h = Integer.parseInt(a[2]);
                 org.lwjgl.opengl.Display.setDisplayMode(new org.lwjgl.opengl.DisplayMode(w, h));
                 mc.resize(w, h);
                 return "ok " + w + "x" + h;
             }
-            case "gui": { // close the current screen: back to the world
+            case "gui": {
                 mc.displayGuiScreen(null);
                 return "ok";
             }
@@ -409,8 +393,6 @@ public class ReflibDebugMod {
             return c;
         }
     }
-
-    // ------------------------------------------------------------------------------ queries
 
     private String status(Minecraft mc) {
         StringBuilder sb = new StringBuilder();
@@ -476,8 +458,6 @@ public class ReflibDebugMod {
         return "ok " + w + "x" + h + " " + f.getAbsolutePath();
     }
 
-    // ------------------------------------------------------------------------------ helpers
-
     private static int guiX(Minecraft mc, int px) {
         ScaledResolution sr = new ScaledResolution(mc);
         return px * sr.getScaledWidth() / mc.displayWidth;
@@ -497,7 +477,7 @@ public class ReflibDebugMod {
                 buf.put(code, (byte) (down ? 1 : 0));
             }
         } catch (Throwable ignored) {
-            // the key just will not look held
+
         }
     }
 
@@ -507,7 +487,7 @@ public class ReflibDebugMod {
             f.setAccessible(true);
             f.setInt(null, value);
         } catch (Throwable ignored) {
-            // field absent in this LWJGL build
+
         }
     }
 
@@ -519,7 +499,7 @@ public class ReflibDebugMod {
                     f.setAccessible(true);
                     return f.get(o);
                 } catch (Throwable ignored) {
-                    // try next
+
                 }
             }
         }
@@ -535,7 +515,7 @@ public class ReflibDebugMod {
                     m.invoke(o, args);
                     return;
                 } catch (NoSuchMethodException ignored) {
-                    // try next name or class
+
                 } catch (Throwable ex) {
                     throw new RuntimeException(ex.getCause() != null ? ex.getCause() : ex);
                 }

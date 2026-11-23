@@ -23,30 +23,21 @@ import com.levviata.reflibquests.model.Definitions.RewardTable;
 import com.levviata.reflibquests.model.DeepCopy;
 import com.levviata.reflibquests.model.QuestBook;
 
-/**
- * The edit history: one entry per edit, each holding copies of what that edit could change (the chapters involved, or a
- * reward table) as they were before it. Undoing swaps those copies back in; redoing swaps the copies taken at undo time.
- * Server side only, and only for the quest book (player progress is not part of it).
- */
 final class History {
 
     static final int MAX = 300;
 
-    /** Edits after which the order of the chapters or the list of groups must be put back as well. */
     private static final Set<String> LAYOUT_OPS = Set.of("create_chapter", "delete_chapter", "create_group", "rename_group", "delete_group",
             "set_chapter_group", "move_chapter", "move_group", "set_group_chapter");
 
-    /** A chapter as it was (null copy: it did not exist), and where in the book's list it stood. */
     record ChapterSnap(String id, int index, @Nullable Chapter copy) {}
 
     record TableSnap(String id, @Nullable RewardTable copy) {}
 
-    /** The order of the chapters and the list of chapter groups, for edits that change those (null: untouched). */
     record Layout(List<String> chapterOrder, List<ChapterGroup> groups) {}
 
     record Entry(String label, long time, List<ChapterSnap> chapters, List<TableSnap> tables, @Nullable Layout layout) {}
 
-    /** What was copied before an edit, until the edit is known to have worked. */
     static final class Open {
         final String op;
         final Set<String> chapterIds = new LinkedHashSet<>();
@@ -87,9 +78,6 @@ final class History {
         redo.clear();
     }
 
-    // ------------------------------------------------------------------ before an edit
-
-    /** Copy what the edit may change. Ops that do not change the book return null. */
     @Nullable
     static Open begin(QuestBook book, String op, DataNode.Compound a) {
         if (op.equals("save_now") || op.equals("reset_progress") || op.equals("complete_quest") || op.equals("undo") || op.equals("redo") || op.equals("set_book_prop")
@@ -190,7 +178,7 @@ final class History {
             }
             case "rename_table", "delete_table", "set_table_prop", "add_table_entry", "set_entry_weight", "remove_table_entry" -> o.tableIds.add(id);
             default -> {
-                Chapter c = book.chapterOf(id); // every other edit names a quest
+                Chapter c = book.chapterOf(id);
                 if (c != null) {
                     o.chapterIds.add(c.id);
                 }
@@ -244,7 +232,6 @@ final class History {
         }
     }
 
-    /** The edit worked: keep what was copied, plus a "did not exist" note for anything it created. */
     void commit(QuestBook book, Open o) {
         for (int i = 0; i < book.chapters().size(); i++) {
             Chapter c = book.chapters().get(i);
@@ -267,9 +254,6 @@ final class History {
         redo.clear();
     }
 
-    // ------------------------------------------------------------------ undo and redo
-
-    /** @return the label of what was undone, or null if there is nothing to undo */
     @Nullable
     String undo(QuestBook book) {
         return step(book, undo, redo);
@@ -280,10 +264,9 @@ final class History {
         return step(book, redo, undo);
     }
 
-    /** The chapters and tables that the last undo or redo put back, so only those need to be sent on. */
     final Set<String> lastChapterIds = new LinkedHashSet<>();
     final Set<String> lastTableIds = new LinkedHashSet<>();
-    /** True when the last undo or redo also moved chapters or changed groups, so the whole book has to be sent again. */
+
     boolean lastNeedsFullSync;
 
     @Nullable
@@ -297,7 +280,7 @@ final class History {
         lastNeedsFullSync = e.layout() != null;
         e.chapters().forEach(s -> lastChapterIds.add(s.id()));
         e.tables().forEach(s -> lastTableIds.add(s.id()));
-        // what is there now is what the opposite step has to put back
+
         List<ChapterSnap> now = new ArrayList<>();
         for (ChapterSnap s : e.chapters()) {
             Chapter c = book.chapter(s.id());
@@ -335,7 +318,7 @@ final class History {
             List<ChapterGroup> groups = new ArrayList<>();
             book.groups().forEach(g -> groups.add(DeepCopy.group(g)));
             nowLayout = new Layout(order, groups);
-            // put the saved groups back, and the chapters in the saved order (chapters it does not know stay at the end)
+
             book.groups().clear();
             book.groups().addAll(e.layout().groups());
             List<String> saved = e.layout().chapterOrder();
@@ -350,8 +333,6 @@ final class History {
         to.addLast(new Entry(e.label(), System.currentTimeMillis(), now, nowTables, nowLayout));
         return e.label();
     }
-
-    // ------------------------------------------------------------------ wording
 
     private static String quoted(QuestBook book, String questId) {
         Quest q = book.quest(questId);

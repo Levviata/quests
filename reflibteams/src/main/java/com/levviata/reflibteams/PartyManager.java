@@ -18,15 +18,6 @@ import java.util.UUID;
 
 import com.levviata.reflib.api.data.DataNode;
 
-/**
- * The rules of party teams, without any Minecraft types so they can be unit-tested directly. A player is in at
- * most one party; a player in no party is on their own solo team whose id is the player's id.
- *
- * <p>Rules: any player can create a party; only the owner invites, kicks or disbands; an invite is valid for a
- * limited time and only for the party that sent it; when the owner leaves, ownership passes to the longest
- * standing member, and the party disappears with its last member. Every successful change records the players
- * whose team changed, so the game layer can tell other mods ({@link #drainAffected()}).
- */
 public final class PartyManager {
 
     public static final int MIN_NAME = 3;
@@ -38,7 +29,6 @@ public final class PartyManager {
         FULL, NO_INVITE, UNKNOWN_PARTY, SELF
     }
 
-    /** A party. {@code members} keeps the order of joining. */
     public static final class Party {
         public final UUID id;
         public String name;
@@ -55,7 +45,7 @@ public final class PartyManager {
 
     private final Map<UUID, Party> parties = new LinkedHashMap<>();
     private final Map<UUID, UUID> partyOfPlayer = new HashMap<>();
-    /** target player to (party id to expiry time) */
+
     private final Map<UUID, Map<UUID, Long>> invites = new HashMap<>();
     private final Map<UUID, String> names = new HashMap<>();
     private final List<UUID> affected = new ArrayList<>();
@@ -70,20 +60,16 @@ public final class PartyManager {
         this.maxMembers = Math.max(2, max);
     }
 
-    // ------------------------------------------------------------------ queries
-
     public Optional<Party> partyOf(UUID player) {
         UUID id = partyOfPlayer.get(player);
         return id == null ? Optional.empty() : Optional.ofNullable(parties.get(id));
     }
 
-    /** The team id for a player: their party's id, or their own id when they are in no party. */
     public UUID teamOf(UUID player) {
         UUID id = partyOfPlayer.get(player);
         return id == null ? player : id;
     }
 
-    /** Members of a team id. A id that is no party is a solo team and has itself as its only member. */
     public Set<UUID> membersOf(UUID team) {
         Party p = parties.get(team);
         return p == null ? Set.of(team) : Set.copyOf(p.members);
@@ -102,7 +88,6 @@ public final class PartyManager {
         return Optional.empty();
     }
 
-    /** Pending, unexpired invites for a player, as the parties that sent them. */
     public List<Party> invitesFor(UUID player, long now) {
         List<Party> out = new ArrayList<>();
         Map<UUID, Long> m = invites.get(player);
@@ -125,7 +110,6 @@ public final class PartyManager {
         return names.getOrDefault(player, player.toString().substring(0, 8));
     }
 
-    /** Find a remembered player by name (case-insensitive). */
     public Optional<UUID> playerByName(String name) {
         for (Map.Entry<UUID, String> e : names.entrySet()) {
             if (e.getValue().equalsIgnoreCase(name)) {
@@ -143,14 +127,11 @@ public final class PartyManager {
         dirty = false;
     }
 
-    /** @return the players whose team changed since the last call, without duplicates; clears the list */
     public List<UUID> drainAffected() {
         List<UUID> out = new ArrayList<>(new LinkedHashSet<>(affected));
         affected.clear();
         return out;
     }
-
-    // ------------------------------------------------------------------ changes
 
     private static boolean validName(String name) {
         return name != null && name.length() >= MIN_NAME && name.length() <= MAX_NAME && name.matches("[\\p{L}\\p{N} _'-]+")
@@ -285,8 +266,6 @@ public final class PartyManager {
         }
     }
 
-    // ------------------------------------------------------------------ persistence
-
     public DataNode.Compound toData() {
         List<DataNode> list = new ArrayList<>();
         for (Party p : parties.values()) {
@@ -304,9 +283,6 @@ public final class PartyManager {
         return DataNode.Compound.empty().with("dataVersion", 1).with("parties", new DataNode.Lst(list)).with("names", nameMap);
     }
 
-    /**
-     * @throws IllegalArgumentException if the data is from a newer version or malformed in a way that cannot be skipped
-     */
     public static PartyManager fromData(DataNode.Compound c) {
         if (c.getInt("dataVersion", 1) > 1) {
             throw new IllegalArgumentException("party data version " + c.getInt("dataVersion", 1) + " is newer than supported 1");
@@ -329,14 +305,14 @@ public final class PartyManager {
                     }
                 }
                 if (m.partyOfPlayer.containsKey(owner)) {
-                    continue; // a player can only be in one party; keep the first
+                    continue;
                 }
                 for (UUID member : p.members) {
                     m.partyOfPlayer.put(member, id);
                 }
                 m.parties.put(id, p);
             } catch (IllegalArgumentException ex) {
-                // skip a damaged entry instead of losing every party
+
             }
         }
         for (var e : c.getCompound("names").entries().entrySet()) {
@@ -344,14 +320,13 @@ public final class PartyManager {
                 try {
                     m.names.put(UUID.fromString(e.getKey()), s.value());
                 } catch (IllegalArgumentException ex) {
-                    // skip
+
                 }
             }
         }
         return m;
     }
 
-    /** Normalizes a name for display lookups. */
     static String key(String name) {
         return name.toLowerCase(Locale.ROOT);
     }

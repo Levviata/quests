@@ -22,7 +22,6 @@ import com.levviata.reflib.api.team.Teams;
 import com.levviata.reflibteams.PartyManager.Party;
 import com.levviata.reflibteams.PartyManager.Result;
 
-/** {@code /rteam}: create, invite, join, leave, kick, disband, info, list, invites. Open to every player. */
 public final class PartyCommand extends CommandBase {
 
     private static final List<String> SUBS = List.of("create", "invite", "join", "leave", "kick", "disband", "info", "list", "invites");

@@ -20,14 +20,8 @@ import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.Definitions.RewardTable;
 import com.levviata.reflibquests.model.Definitions.Task;
 
-/**
- * The whole set of quest definitions: book settings, groups, chapters (with quests) and reward tables, plus
- * lookup indexes by id. Call {@link #reindex()} after structural edits. Ids should be unique; lookups return
- * the first match.
- */
 public final class QuestBook {
 
-    /** Book-wide settings as read (see docs/upstream-quest-format.md, section 3). */
     public DataNode.Compound settings = DataNode.Compound.empty();
     public ProgressionMode progressionMode = ProgressionMode.LINEAR;
     public String fallbackLocale = "en_us";
@@ -35,7 +29,7 @@ public final class QuestBook {
     private final List<ChapterGroup> groups = new ArrayList<>();
     private final List<Chapter> chapters = new ArrayList<>();
     private final Map<String, RewardTable> tables = new LinkedHashMap<>();
-    /** locale to (key to text); keys look like {@code quest.<ID>.title} */
+
     private final Map<String, Map<String, DataNode>> translations = new LinkedHashMap<>();
 
     private final Map<String, Quest> questIndex = new LinkedHashMap<>();
@@ -47,7 +41,6 @@ public final class QuestBook {
         return groups;
     }
 
-    /** Chapters in display order. The list is live; call {@link #reindex()} after changes. */
     public List<Chapter> chapters() {
         return chapters;
     }
@@ -86,7 +79,6 @@ public final class QuestBook {
         return taskIndex.get(id);
     }
 
-    /** @return the quest that owns the task, or null */
     public Quest questOfTask(String taskId) {
         return taskOwner.get(taskId);
     }
@@ -104,12 +96,10 @@ public final class QuestBook {
         return null;
     }
 
-    /** @return all quests in chapter order */
     public List<Quest> allQuests() {
         return Collections.unmodifiableList(new ArrayList<>(questIndex.values()));
     }
 
-    /** Effective progression mode of a quest: its own, else its chapter's, else the book's (LINEAR if unset). */
     public ProgressionMode effectiveMode(Quest q) {
         if (q.progressionMode != ProgressionMode.DEFAULT) {
             return q.progressionMode;

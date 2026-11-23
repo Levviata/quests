@@ -17,20 +17,18 @@ import com.levviata.reflib.api.data.DataFiles;
 import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflibquests.ReflibQuestsMod;
 
-/** The player's own questbook settings (the "Player Preferences" screen), kept in {@code config/reflibquests/client_prefs.snbt}. */
 @SideOnly(Side.CLIENT)
 final class ClientPrefs {
 
-    // user interface
     static boolean backspaceHistory = true;
     static boolean chapterPanelPinned = false;
     static boolean oldScrollWheel = false;
     static boolean showLockIcon = true;
-    // notifications
+
     static String completionNotification = "Toast";
     static boolean completionSounds = true;
     static String rewardNotification = "Toast";
-    // pinned quests
+
     static String autoPinFollows = "Chapter";
     static boolean excludeFlexible = true;
     static boolean autoPinEnabled = false;
@@ -39,11 +37,11 @@ final class ClientPrefs {
     static int pinnedXInset = 2;
     static int pinnedYInset = 2;
     static String trackerVisibility = "Quests and Tasks";
-    // translations
+
     static String fallbackLocale = "";
     static boolean highlightMissing = true;
     static String localeOverride = "";
-    // change history display
+
     static boolean alwaysShowHistory = false;
     static double historySeconds = 5.0;
     static double changelogScale = 0.75;

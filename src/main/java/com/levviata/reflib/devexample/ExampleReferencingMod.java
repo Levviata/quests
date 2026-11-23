@@ -29,12 +29,6 @@ import com.levviata.reflib.api.net.ReflibChannel;
 import com.levviata.reflib.api.project.ReflibProjects;
 import com.levviata.reflib.api.team.Teams;
 
-/**
- * Development-only example of a referencing project. It is a separate mod (id {@code reflibexample}) that uses
- * only {@code com.levviata.reflib.api}, it is excluded from the release jar, and it doubles as the in-game
- * smoke test: start a server with {@code -Dreflib.smoke=true} and it checks the library, prints
- * {@code REFLIB-SMOKE: PASS} or {@code FAIL}, and stops the server.
- */
 @Mod(modid = ExampleReferencingMod.ID, name = "Reflib Example", version = "0.1.0", dependencies = "required-after:reflib")
 public class ExampleReferencingMod {
 
@@ -46,10 +40,9 @@ public class ExampleReferencingMod {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        // 1. identify ourselves and declare the API level we need
+
         ReflibProjects.register(ID, "0.1.0", 1);
 
-        // 2. typed messages: one channel per project
         channel = ReflibChannel.create(ID)
                 .register(PingMessage.class, Side.SERVER, (msg, ctx) -> {
                     LOGGER.info("Server got ping #{} from {}", msg.counter, ctx.sender());
@@ -60,10 +53,8 @@ public class ExampleReferencingMod {
             ClientHook.init(channel);
         }
 
-        // 2b. assets from a jar the player supplies (here a tiny synthetic test jar placed by the developer)
         SuppliedAssets.declare(ID, "Reflib test assets", "dev only: made by the test setup", "reflibtestassets");
 
-        // 3. an optional integration that must NOT run (the target mod does not exist)
         Integrations.register("definitely_not_installed", "*", () -> () -> optionalIntegrationRan.set(true));
     }
 
@@ -86,7 +77,6 @@ public class ExampleReferencingMod {
         FMLCommonHandler.instance().getMinecraftServerInstance().initiateShutdown();
     }
 
-    /** @return null on success, otherwise a description of the first failed check */
     private String runSmokeTest() {
         try {
             if (ReflibProjects.all().stream().noneMatch(p -> p.modId().equals(ID))) {
@@ -99,7 +89,6 @@ public class ExampleReferencingMod {
                 return "integration for an absent mod ran";
             }
 
-            // text codec round trip, upgrade, and NBT bridge, all inside the real game classpath
             DataNode.Compound quest = Snbt.parse("""
                     {
                       title: "First steps"   // comment

@@ -25,11 +25,6 @@ import org.lwjgl.input.Mouse;
 import com.levviata.reflib.gui.Rect;
 import com.levviata.reflib.api.data.DataNode;
 
-/**
- * The "Icon" row of every properties window, as FTB Quests 26.1.2 has it: clicking it opens a small menu (Item Icon,
- * Image Icon) beside the row; each opens the matching selection window. The row's value is {@code Unchanged}, {@code Clear}
- * or a choice written {@code item:<id>|<damage>} / {@code image:<picture id>}. The entity-face icon is left out on purpose.
- */
 @SideOnly(Side.CLIENT)
 final class IconPicker {
 
@@ -39,7 +34,6 @@ final class IconPicker {
 
     private IconPicker() {}
 
-    /** Turns a choice row into the icon row: the menu opens on click, and the value is shown as the icon's name. */
     static SettingsScreen.Entry decorate(SettingsScreen.Entry row, DataNode.Compound current) {
         row.pick = done -> open(done);
         row.formatted(v -> describe(v, current));
@@ -81,7 +75,6 @@ final class IconPicker {
         }
     }
 
-    /** The arguments of a {@code set_icon} edit for a row value; null when the value means "leave the icon alone". */
     static DataNode.Compound edit(String kind, String id, String value) {
         if (value.equals(KEEP) || value.equals("None")) {
             return null;
@@ -91,7 +84,7 @@ final class IconPicker {
             return a.with("mode", "image").with("image", value.substring(6));
         }
         if (value.startsWith("item:")) {
-            // "item:<id>|<damage>|<nbt>": the damage and the item's NBT travel with it, since a plugin or a resource pack can tell items apart by them
+
             String[] parts = value.substring(5).split("[|]", 3);
             DataNode.Compound item = DataNode.Compound.empty().with("id", parts[0]);
             if (parts.length > 1 && parse(parts[1]) > 0) {
@@ -116,7 +109,6 @@ final class IconPicker {
         mc.displayGuiScreen(new Menu(mc.currentScreen, x, y, done));
     }
 
-    /** The small list beside the row; it is drawn like the book's own context menus. */
     private static final class Menu extends GuiScreen {
         private static final int ROW = 13;
         private final GuiScreen parent;

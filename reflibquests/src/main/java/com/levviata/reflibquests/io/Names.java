@@ -12,12 +12,10 @@ import java.util.List;
 
 import com.levviata.reflibquests.model.Definitions.WeightedReward;
 
-/** Small pure helpers for names and weighted choices. */
 public final class Names {
 
     private Names() {}
 
-    /** Dimension names of newer versions to 1.12.2 numeric ids. Unknown names return empty. */
     public static OptionalInt dimensionId(String name) {
         switch (name.toLowerCase(Locale.ROOT)) {
             case "minecraft:overworld":
@@ -40,10 +38,8 @@ public final class Names {
         }
     }
 
-    /** The prefix of a dimension that is not one of the three of the base game. */
     public static final String MODDED_PREFIX = "modded:";
 
-    /** A dimension type of this game by its name ({@code modded:name}, or the bare name). */
     private static OptionalInt registeredDimension(String name) {
         String bare = name.contains(":") ? name.substring(name.indexOf(':') + 1) : name;
         for (net.minecraft.world.DimensionType type : net.minecraft.world.DimensionType.values()) {
@@ -55,7 +51,6 @@ public final class Names {
         return OptionalInt.empty();
     }
 
-    /** Every dimension this game has registered, as the ids a Dimension task stores. */
     public static java.util.List<String> dimensionNames() {
         java.util.List<String> out = new java.util.ArrayList<>(java.util.List.of("minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"));
         for (net.minecraft.world.DimensionType type : net.minecraft.world.DimensionType.values()) {
@@ -67,12 +62,6 @@ public final class Names {
         return out;
     }
 
-    /**
-     * Pick one entry by weight; {@code emptyWeight} is the weight of "nothing". Entries with non-positive
-     * weight are never picked.
-     *
-     * @return the chosen entry, or null for "nothing" (also when there are no entries)
-     */
     public static WeightedReward pick(List<WeightedReward> entries, float emptyWeight, Random random) {
         double total = Math.max(0, emptyWeight);
         for (WeightedReward w : entries) {

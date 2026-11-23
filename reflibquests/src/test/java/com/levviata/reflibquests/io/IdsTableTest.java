@@ -16,7 +16,7 @@ class IdsTableTest {
 
     @Test
     void numericTableIdGivesTheHexKeyOfTheTableFile() {
-        // the value FTB Quests 26.1.2 wrote in the reference book
+
         DataNode.Compound p = DataNode.Compound.empty().with("table_id", new DataNode.Lng(8688099075117598374L));
         assertEquals("78925413C9C8C6A6", Ids.tableId(p));
     }

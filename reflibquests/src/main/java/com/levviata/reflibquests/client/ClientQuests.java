@@ -19,11 +19,6 @@ import com.levviata.reflibquests.model.ProgressEngine;
 import com.levviata.reflibquests.model.QuestBook;
 import com.levviata.reflibquests.model.TeamProgress;
 
-/**
- * The client's copy of the quest book and of its team's progress, as last synced from the server. Holds only
- * model data (no client classes), so it is safe to reference from common code. All access is on the client
- * thread.
- */
 public final class ClientQuests {
 
     private static QuestBook book;
@@ -50,7 +45,6 @@ public final class ClientQuests {
         }
     }
 
-    /** Some chapters and reward tables were put back by the server (undo or redo): swap them in without waiting for the whole book. */
     public static void onDelta(byte[] packed) {
         if (book == null) {
             return;
@@ -117,7 +111,7 @@ public final class ClientQuests {
         undoLabel = undoText;
         redoLabel = redoText;
         if (undo == 0 && redo == 0 && !TableEdits.hasPending()) {
-            ChangeLog.clearHistoryNotes(); // the server's history was emptied (a reload): the tooltips start again
+            ChangeLog.clearHistoryNotes();
         }
     }
 
@@ -137,7 +131,6 @@ public final class ClientQuests {
         return redoLabel;
     }
 
-    /** Whether the server lets this player edit the quest book. */
     public static boolean canEdit() {
         return canEdit;
     }
@@ -146,7 +139,6 @@ public final class ClientQuests {
         pins = java.util.List.copyOf(ids);
     }
 
-    /** Ids of the quests this player pinned, in the order pinned. */
     public static java.util.List<String> pins() {
         return pins;
     }
@@ -174,7 +166,6 @@ public final class ClientQuests {
         return progress;
     }
 
-    /** Increases whenever a new book arrives, so screens can drop cached layout. */
     public static int bookVersion() {
         return bookVersion;
     }

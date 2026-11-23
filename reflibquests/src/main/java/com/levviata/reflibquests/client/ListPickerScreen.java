@@ -21,13 +21,11 @@ import org.lwjgl.input.Mouse;
 
 import com.levviata.reflib.gui.Rect;
 
-/** A search box over a list of (label, value) pairs; clicking a row picks its value. Used for the entity types of a kill task. */
 @SideOnly(Side.CLIENT)
 final class ListPickerScreen extends GuiScreen {
 
     private static final int ROW = 14;
 
-    /** One row: what is shown and what is given back. */
     record Option(String label, String value) {}
 
     private final GuiScreen parent;
@@ -36,7 +34,7 @@ final class ListPickerScreen extends GuiScreen {
     private final Consumer<String> picked;
     private final TextEditor search = new TextEditor("", 60);
     private final RewardTablesScreen.Scroller scroller = new RewardTablesScreen.Scroller();
-    private final List<Object[]> hits = new ArrayList<>(); // {Rect, Runnable}
+    private final List<Object[]> hits = new ArrayList<>();
 
     ListPickerScreen(GuiScreen parent, String title, List<Option> options, Consumer<String> picked) {
         this.parent = parent;

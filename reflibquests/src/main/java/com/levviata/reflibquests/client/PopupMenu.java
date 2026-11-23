@@ -20,11 +20,9 @@ import org.lwjgl.input.Keyboard;
 
 import com.levviata.reflib.gui.Rect;
 
-/** A small list that opens where the mouse was (a right click) over the screen it came from; a click on a row runs it. */
 @SideOnly(Side.CLIENT)
 final class PopupMenu extends GuiScreen {
 
-    /** {@code icon}: {@code item:<name>}, {@code lib:<FTB Library icon>} or {@code quests:<FTB Quests gui picture>}; empty for none. */
     record Item(String label, String icon, Runnable action) {}
 
     private static final int ROW = 13;

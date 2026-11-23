@@ -14,13 +14,6 @@ import com.levviata.reflib.api.net.ReflibMessage;
 import com.levviata.reflibquests.client.ClientQuests;
 import com.levviata.reflibquests.game.QuestServer;
 
-/**
- * The mod's network channel. Server to client: the whole quest book once on join and after reloads, then a
- * snapshot of the player's team progress whenever it changes. Client to server: the three player actions
- * (claim, check, hand in); the server validates everything and answers through normal progress sync and chat.
- *
- * <p>Registration order is the wire protocol; client and server must run the same build.
- */
 public final class QuestNet {
 
     private static ReflibChannel channel;
@@ -80,7 +73,6 @@ public final class QuestNet {
         channel.sendTo(new SyncDelta(packed), player);
     }
 
-    /** Server to client: some chapters and reward tables that changed (after an undo or redo), packed. */
     public static final class SyncDelta implements ReflibMessage {
         byte[] data = new byte[0];
 
@@ -105,7 +97,6 @@ public final class QuestNet {
         channel.sendTo(new SyncHistory(undo, redo, undoLabel, redoLabel), player);
     }
 
-    /** Server to client: how many edits can be undone and redone, and what the next of each is. */
     public static final class SyncHistory implements ReflibMessage {
         int undo;
         int redo;
@@ -162,7 +153,6 @@ public final class QuestNet {
         channel.sendToServer(new ClaimAll());
     }
 
-    /** Ask the server to edit the quest book. {@code args} are plain data; the server validates everything. */
     public static void edit(String op, com.levviata.reflib.api.data.DataNode.Compound args) {
         channel.sendToServer(new EditAction(op, com.levviata.reflib.api.data.Snbt.printCompact(args)));
     }
@@ -194,9 +184,6 @@ public final class QuestNet {
         return data;
     }
 
-    // ------------------------------------------------------------------ messages
-
-    /** Server to client: the packed quest book. */
     public static final class SyncBook implements ReflibMessage {
         byte[] data = new byte[0];
 
@@ -217,7 +204,6 @@ public final class QuestNet {
         }
     }
 
-    /** Server to client: a snapshot of the receiving player's team progress. */
     public static final class SyncProgress implements ReflibMessage {
         byte[] data = new byte[0];
 
@@ -238,7 +224,6 @@ public final class QuestNet {
         }
     }
 
-    /** Client to server: claim a reward; {@code choice} is a zero-based index for choice rewards, else -1. */
     public static final class ClaimReward implements ReflibMessage {
         String rewardId = "";
         int choice = -1;
@@ -263,7 +248,6 @@ public final class QuestNet {
         }
     }
 
-    /** Client to server: confirm a checkmark task. */
     public static final class CheckTask implements ReflibMessage {
         String taskId = "";
 
@@ -284,7 +268,6 @@ public final class QuestNet {
         }
     }
 
-    /** Client to server: one edit of the quest book (operation name and arguments as compact text). */
     public static final class EditAction implements ReflibMessage {
         String op = "";
         String args = "{}";
@@ -309,7 +292,6 @@ public final class QuestNet {
         }
     }
 
-    /** Server to client: whether the receiving player may edit the book. */
     public static final class SyncPerms implements ReflibMessage {
         boolean canEdit;
 
@@ -330,7 +312,6 @@ public final class QuestNet {
         }
     }
 
-    /** Client to server: pin or unpin a quest for tracking. */
     public static final class TogglePin implements ReflibMessage {
         String questId = "";
 
@@ -351,7 +332,6 @@ public final class QuestNet {
         }
     }
 
-    /** Server to client: the receiving player's pinned quests, in the order pinned. */
     public static final class SyncPins implements ReflibMessage {
         java.util.List<String> ids = new java.util.ArrayList<>();
 
@@ -382,7 +362,6 @@ public final class QuestNet {
         }
     }
 
-    /** Client to server: claim everything claimable (choices excluded). */
     public static final class ClaimAll implements ReflibMessage {
         public ClaimAll() {}
 
@@ -393,7 +372,6 @@ public final class QuestNet {
         public void read(PacketBuffer buf) {}
     }
 
-    /** Client to server: hand in items for a consuming item task. */
     public static final class SubmitTask implements ReflibMessage {
         String taskId = "";
 

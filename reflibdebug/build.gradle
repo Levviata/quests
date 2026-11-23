@@ -16,7 +16,6 @@ java {
     }
 }
 
-// Java 8 bytecode: the helper must also load in a plain Forge 1.12.2 client running on Java 8
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs.addAll(['-source', '8', '-target', '8', '-Xlint:-options'])
 }

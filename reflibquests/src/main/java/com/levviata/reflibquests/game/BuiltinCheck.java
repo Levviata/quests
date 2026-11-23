@@ -19,16 +19,10 @@ import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 import com.levviata.reflibquests.io.BuiltinIdMap;
 
-/**
- * Checks the built-in id table against the real registries of the running game: every target item must exist,
- * and a target damage value must be a variant the item really has. Used by the smoke test so a wrong table entry
- * is found by a test run instead of by a player.
- */
 public final class BuiltinCheck {
 
     private BuiltinCheck() {}
 
-    /** @return one line per wrong entry; empty if the table is consistent with the game */
     public static List<String> problems() {
         List<String> out = new ArrayList<>();
         for (Map.Entry<String, String> e : BuiltinIdMap.items().entrySet()) {
@@ -63,7 +57,7 @@ public final class BuiltinCheck {
                     break;
                 }
             }
-            // bark-on-all-sides logs (damage 12 to 15) exist but are not offered in the creative inventory
+
             boolean hiddenBark = (name.equals("minecraft:log") || name.equals("minecraft:log2")) && meta >= 12;
             if (!found && !hiddenBark) {
                 out.add(e.getKey() + " -> " + target + ": the item has no variant " + meta);

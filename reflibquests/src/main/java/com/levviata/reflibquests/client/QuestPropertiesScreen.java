@@ -21,7 +21,6 @@ import com.levviata.reflibquests.model.Definitions.Tristate;
 import com.levviata.reflibquests.net.QuestNet;
 import com.levviata.reflibquests.text.RichText;
 
-/** "Quest Properties": the quest's settings in groups, with a hover tip for each; Accept sends only what changed. */
 @SideOnly(Side.CLIENT)
 final class QuestPropertiesScreen extends SettingsScreen {
 
@@ -95,7 +94,7 @@ final class QuestPropertiesScreen extends SettingsScreen {
             presetNames.addAll(presetBook.settings.getCompound("presets").entries().keySet());
         }
         if (!presetNames.contains(values.get("preset"))) {
-            presetNames.add(values.get("preset")); // a preset the book no longer lists: keep it selectable
+            presetNames.add(values.get("preset"));
         }
         choice("Visual Preset", presetNames, () -> values.get("preset"), v -> values.put("preset", v))
                 .tip("Visual preset to be used by this quest").defaults("None");
@@ -205,6 +204,6 @@ final class QuestPropertiesScreen extends SettingsScreen {
 
     @Override
     protected void cancelled() {
-        // nothing was sent, so nothing to undo
+
     }
 }

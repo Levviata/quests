@@ -22,7 +22,6 @@ import com.levviata.reflibquests.model.Definitions.Chapter;
 import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.QuestBook;
 
-/** Sample packs are hand-written from docs/upstream-quest-format.md, not copied from any real pack. */
 class ExporterTest {
 
     @TempDir
@@ -74,7 +73,6 @@ class ExporterTest {
         return BookCodec.write(b, DataNode.Compound.empty());
     }
 
-    /** The quest FTB Quests 26.1.2 saved for the "Quest Options" chapter (copied from its file, 2026-11-22). */
     @Test
     void questOptionsFtbSavedAreReadAndWrittenBack() throws IOException {
         Path src = dir.resolve("ftb");
@@ -103,7 +101,7 @@ class ExporterTest {
         assertEquals("normal", q.preset);
         Path out = dir.resolve("ftb-out");
         UpstreamExporter.export(r.book(), out);
-        String text = Files.readString(out.resolve("chapters/quest_options.json5")).replace("\"", ""); // the writer quotes keys; compare without quotes
+        String text = Files.readString(out.resolve("chapters/quest_options.json5")).replace("\"", "");
         text = text.replace("guide_page: guide_x", "guide_page: \"guide_x\"").replace("preset: normal", "preset: \"normal\"");
         for (String key : List.of("icon_scale: 1.5", "max_completable_dependents: 3", "guide_page: \"guide_x\"", "preset: \"normal\"")) {
             assertTrue(text.contains(key), "exported file keeps " + key + ": " + text);
@@ -113,7 +111,6 @@ class ExporterTest {
         assertEquals("normal", back.preset);
     }
 
-    /** The tags and the Stage reward FTB Quests 26.1.2 saved for the Options Test quest (copied from its file, 2026-11-22). */
     @Test
     void tagsAndStageRewardFtbSavedAreKept() throws IOException {
         Path src = dir.resolve("ftb2");
@@ -145,7 +142,6 @@ class ExporterTest {
         assertTrue(back.rewards.get(0).params().getBool("remove", false));
     }
 
-    /** The chapter keys FTB Quests 26.1.2 saved for the Quest Options chapter (copied from its file, 2026-11-22). */
     @Test
     void chapterPresetSizeAndWidthFtbSavedAreKept() throws IOException {
         Path src = dir.resolve("ftb3");
@@ -169,7 +165,7 @@ class ExporterTest {
         assertEquals(2.0, c.defaultQuestSize);
         assertEquals(150, c.minWindowWidth);
         assertEquals("normal", c.preset);
-        // a quest without a preset takes the chapter's; one with its own keeps it
+
         assertEquals("square", com.levviata.reflibquests.model.Presets.shape(book, book.quest("0DF76E3E8547FC1E")));
         assertEquals("hexagon", com.levviata.reflibquests.model.Presets.shape(book, book.quest("0DF76E3E8547FC1F")));
         assertEquals(2.0, com.levviata.reflibquests.model.Presets.size(book, book.quest("0DF76E3E8547FC1F")));
@@ -191,7 +187,6 @@ class ExporterTest {
         UpstreamImporter.Result second = UpstreamImporter.load(out);
         assertEquals(List.of(), second.problems());
 
-        // book-wide settings are compared separately: the exporter adds the required keys that were missing
         assertEquals(wire(first.book()).without("settings"), wire(second.book()).without("settings"), "book content is identical after a round trip");
         for (var e : first.book().settings.entries().entrySet()) {
             assertEquals(e.getValue(), second.book().settings.get(e.getKey()), "setting " + e.getKey() + " is kept");
@@ -200,7 +195,6 @@ class ExporterTest {
         assertEquals(first.book().settings.getInt("detection_delay", 0), second.book().settings.getInt("detection_delay", 0));
         assertEquals(0.75, second.book().settings.getDouble("grid_scale", 0));
 
-        // values the model does not interpret are kept
         Chapter c = second.book().chapter("0000000000000001");
         assertEquals(1, c.links.size());
         assertEquals(1, c.images.size());
@@ -286,7 +280,7 @@ class ExporterTest {
 
     @Test
     void settingsSavedByFtbQuests2612SurviveAnImportAndExport() throws IOException {
-        // keys as FTB Quests 26.1.2 wrote them into a saved quest folder
+
         Path root = dir.resolve("ftb");
         write(root, "data.json5", "{ version: 13, disable_toast: true, suppress_all_autoclaiming: true, default_reward_team: true, "
                 + "default_consume_items: true, default_autoclaim_rewards: \"enabled\", default_quest_shape: \"diamond\", "

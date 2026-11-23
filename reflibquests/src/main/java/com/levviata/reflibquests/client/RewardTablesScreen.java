@@ -43,11 +43,6 @@ import com.levviata.reflibquests.model.Definitions.WeightedReward;
 import com.levviata.reflibquests.model.QuestBook;
 import com.levviata.reflibquests.text.RichText;
 
-/**
- * "Edit Reward Tables": every table in the book, alphabetically, with how many quest rewards use it. Add creates a table
- * and lets you name it at once; clicking a table opens it; right-click renames. Changes show at once and are sent to the
- * server when these windows are left (see {@link TableEdits}).
- */
 @SideOnly(Side.CLIENT)
 final class RewardTablesScreen extends GuiScreen {
 
@@ -55,8 +50,8 @@ final class RewardTablesScreen extends GuiScreen {
 
     private final GuiScreen parent;
     private final Set<String> fresh = new HashSet<>();
-    private final List<Object[]> hits = new ArrayList<>(); // {Rect, Runnable}
-    private final List<Object[]> rowRects = new ArrayList<>(); // {Rect, String id}
+    private final List<Object[]> hits = new ArrayList<>();
+    private final List<Object[]> rowRects = new ArrayList<>();
     private final Scroller scroller = new Scroller();
     private Map<String, int[]> usage = new HashMap<>();
     private long usageAt;
@@ -67,14 +62,12 @@ final class RewardTablesScreen extends GuiScreen {
     private long armedUntil;
     private List<String> pendingTip;
 
-    /** Taken when the window first opens: Cancel puts the reward tables back as they were. */
     private TableEdits.Mark mark;
 
     RewardTablesScreen(GuiScreen parent) {
         this.parent = parent;
     }
 
-    /** The list, opened straight into one table (the "Edit Reward Table" entry of a table reward). */
     RewardTablesScreen(GuiScreen parent, String openTableId) {
         this.parent = parent;
         this.openOnStart = openTableId;
@@ -120,8 +113,6 @@ final class RewardTablesScreen extends GuiScreen {
         super.onGuiClosed();
     }
 
-    // ------------------------------------------------------------------ shared helpers
-
     static DataNode.Compound args(String k, String v) {
         return DataNode.Compound.empty().with(k, v);
     }
@@ -135,7 +126,6 @@ final class RewardTablesScreen extends GuiScreen {
         return RichText.stripCodes(t.title.isEmpty() ? t.id : t.title).toLowerCase(Locale.ROOT);
     }
 
-    /** The icon of a table: each of its rewards in turn, two seconds apiece; a chest while it has none. */
     static ItemStack iconOf(RewardTable t) {
         if (!t.raw.getCompound("icon").entries().isEmpty()) {
             ItemStack own = QuestText.stackOf(t.raw.getCompound("icon"));
@@ -175,7 +165,6 @@ final class RewardTablesScreen extends GuiScreen {
         GL11.glDisable(GL11.GL_SCISSOR_TEST);
     }
 
-    /** The game's own scroll bar: a dark track with a bevelled grey thumb. Drag it, click the track, or use the wheel. */
     static final class Scroller {
         int offset;
         private int content;
@@ -242,8 +231,6 @@ final class RewardTablesScreen extends GuiScreen {
             offset = Math.max(0, Math.min(max(), offset - Integer.signum(direction) * step));
         }
     }
-
-    // ------------------------------------------------------------------ this screen
 
     private Rect window() {
         int w = Math.min(width - 20, 300);
@@ -404,7 +391,7 @@ final class RewardTablesScreen extends GuiScreen {
                     break;
                 }
                 int pct = total > 0 ? Math.round(1000 * w.weight() / total) : 0;
-                // the chance is dark grey with two decimals in the user's number format, as FTB Quests writes "[12,50%]"
+
                 lines.add("§7- " + QuestText.reward(w.reward()) + " §8[" + String.format(java.util.Locale.getDefault(), "%.2f", total <= 0 ? 0 : w.weight() * 100.0 / total) + "%]");
             }
             Ui.drawTooltip(fr, lines, mouseX, mouseY, width, height);
@@ -416,7 +403,6 @@ final class RewardTablesScreen extends GuiScreen {
         drawFieldText(fr, r, edit);
     }
 
-    /** The text, selection and caret of a one-line field, on whatever background the caller drew. */
     static void drawFieldText(FontRenderer fr, Rect r, TextEditor edit) {
         String text = edit.text();
         int caret = Math.min(edit.caret(), text.length());
@@ -442,7 +428,6 @@ final class RewardTablesScreen extends GuiScreen {
         }
     }
 
-    /** Keys for a one-line field backed by a {@link TextEditor}; true if the key was handled. */
     static boolean typeInto(TextEditor edit, char typed, int keyCode, boolean numeric) {
         boolean shift = isShiftKeyDown();
         if (isCtrlKeyDown()) {
@@ -504,7 +489,6 @@ final class RewardTablesScreen extends GuiScreen {
         startEdit(id);
     }
 
-    /** FTB Quests 26.1.2: right click on a table offers Edit, Remove, Enable or Disable Loot Crate, and Copy ID. */
     private void tableMenu(String id, int x, int y) {
         QuestBook book = ClientQuests.book();
         RewardTable t = book == null ? null : book.tables().get(id);
@@ -613,9 +597,6 @@ final class RewardTablesScreen extends GuiScreen {
         }
     }
 
-    // ------------------------------------------------------------------ one table
-
-    /** The inside of one table: its rewards with weights and chances, a + menu to add, and a cog for its settings. */
     @SideOnly(Side.CLIENT)
     static final class TablePanel extends GuiScreen {
 
@@ -624,7 +605,7 @@ final class RewardTablesScreen extends GuiScreen {
         private final GuiScreen parent;
         private final String tableId;
         private final List<Object[]> hits = new ArrayList<>();
-        private final List<Object[]> entryRects = new ArrayList<>(); // {Rect, WeightedReward}
+        private final List<Object[]> entryRects = new ArrayList<>();
         private final Scroller scroller = new Scroller();
         private boolean menuOpen;
         private String editingEntry = "";
@@ -682,7 +663,7 @@ final class RewardTablesScreen extends GuiScreen {
                     }
                 }
             } catch (NumberFormatException ignored) {
-                // not a number: keep the old weight
+
             }
         }
 
@@ -702,7 +683,7 @@ final class RewardTablesScreen extends GuiScreen {
             FontRenderer fr = fontRenderer;
             RewardTable table = table();
             if (table == null) {
-                mc.displayGuiScreen(parent); // it was removed
+                mc.displayGuiScreen(parent);
                 return;
             }
             Rect win = window();
@@ -815,13 +796,13 @@ final class RewardTablesScreen extends GuiScreen {
             }});
 
             if (menuOpen) {
-                // FTB Quests 26.1.2: the reward types a table can hold, in its order, each with its picture
+
                 int menuW = 40;
                 for (String[] type : TYPES) {
                     menuW = Math.max(menuW, fr.getStringWidth(type[0]) + 32);
                 }
                 Rect menu = new Rect(Math.min(plus.x() - 40, width - menuW - 2), plus.y() + 22, menuW, 4 + TYPES.length * 13);
-                // the menu's own area comes first so the lines inside it (added after) are found before it
+
                 hits.add(0, new Object[] {menu, (Runnable) () -> { }});
                 Ui.shadow(menu);
                 Ui.box(menu, 0xFF2F343B);
@@ -857,10 +838,9 @@ final class RewardTablesScreen extends GuiScreen {
             {"Item", "item:diamond"}, {"Command", "item:command_block"}, {"Custom", "lib:color_hsb"}, {"XP", "item:experience_bottle"},
             {"XP Levels", "item:experience_bottle"}, {"Advancement", "item:wheat"}, {"Toast", "item:sign"}, {"Stage", "lib:controller"}};
 
-        /** FTB Quests opens the new reward's options first, as it does for a new task: the entry is added when Accept is pressed. */
         private void addWith(String type, DataNode.Compound params) {
             mc.displayGuiScreen(TaskRewardScreen.forRewardDraft(this, new TaskRewardScreen.RewardDraft(tableId, newId(), type, params)));
-            scroller.offset = Integer.MAX_VALUE; // show the new entry at the bottom
+            scroller.offset = Integer.MAX_VALUE;
         }
 
         private void entryMenu(WeightedReward w, int x, int y) {
@@ -923,7 +903,7 @@ final class RewardTablesScreen extends GuiScreen {
         @Override
         protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
             if (button == 1) {
-                // FTB Quests 26.1.2: right click on a reward of the table offers Edit, Set Weight and Remove
+
                 for (Object[] r : entryRects) {
                     if (((Rect) r[0]).contains(mouseX, mouseY)) {
                         entryMenu((WeightedReward) r[1], mouseX, mouseY);
@@ -992,7 +972,6 @@ final class RewardTablesScreen extends GuiScreen {
         }
     }
 
-    /** Title, empty weight and loot size of one table. Nothing is changed until Accept. */
     @SideOnly(Side.CLIENT)
     private static final class TableProperties extends SettingsScreen {
         private final RewardTable table;
@@ -1122,7 +1101,7 @@ final class RewardTablesScreen extends GuiScreen {
 
         @Override
         protected void cancelled() {
-            // nothing was changed
+
         }
     }
 }
