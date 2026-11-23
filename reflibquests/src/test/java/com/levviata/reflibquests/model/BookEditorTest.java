@@ -66,6 +66,23 @@ class BookEditorTest {
     }
 
     @Test
+    void picturesCanBeCreatedAndALockedOneStaysPut() {
+        String id = ed.createImage(chapter.id, "minecraft:backyard", 9.6, 2.0, 0.75, 1.0);
+        assertNotNull(id);
+        var raw = chapter.images.get(0).raw();
+        assertEquals("minecraft:backyard", raw.getString("image", ""));
+        assertEquals(0.75, raw.getDouble("width", 0));
+        assertEquals(1.0, raw.getDouble("height", 0));
+        assertEquals(9.5, raw.getDouble("x", 0), "positions snap like a move does");
+        assertNull(ed.createImage("nope", "a:b", 0, 0, 1, 1), "unknown chapter");
+        assertNull(ed.createImage(chapter.id, " ", 0, 0, 1, 1), "no name");
+        assertNull(ed.createImage(chapter.id, "a:b", Double.NaN, 0, 1, 1), "bad place");
+        assertEquals(OK, ed.setImageProps(id, DataNode.Compound.empty().with("position_locked", "true")));
+        assertEquals(INVALID, ed.moveImage(id, 1, 1), "Lock Position: the picture cannot be moved");
+        assertEquals(9.5, chapter.images.get(0).raw().getDouble("x", 0));
+    }
+
+    @Test
     void setPropChangesQuestProperties() {
         Quest q = ed.createQuest(chapter.id, 1, 1);
         assertNotNull(q);
@@ -484,7 +501,7 @@ class BookEditorTest {
         Quest q = ed.createQuest(chapter.id, 1.26, -2.74);
         assertEquals(1.5, q.x);
         assertEquals(-2.5, q.y);
-        assertEquals("New quest", q.title);
+        assertEquals("", q.title); // named after its first task by the client, as FTB Quests does
         assertEquals(1, q.tasks.size());
         assertEquals("checkmark", q.tasks.get(0).type());
         assertSame(q, book.quest(q.id));

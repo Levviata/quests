@@ -316,7 +316,12 @@ public final class RichText {
             String action = ce.getString("action", "");
             if (!action.isEmpty()) {
                 String value = ce.getString("value", ce.getString("url", ce.getString("command", ce.getString("page", ""))));
-                style = style.withClick(new Click(action, value));
+                if (action.equals("custom") && ce.getString("id", "").equals("ftbquests:link")) {
+                    // FTB 26.1.2 "Insert Quest Link": {"id":"ftbquests:link","payload":{"quest_id":"...","page":1},"action":"custom"}
+                    style = style.withClick(new Click("change_page", ce.getCompound("payload").getString("quest_id", "")));
+                } else {
+                    style = style.withClick(new Click(action, value));
+                }
             }
             DataNode.Compound he = c.has("hover_event") ? c.getCompound("hover_event") : c.getCompound("hoverEvent");
             if (he.getString("action", "").equals("show_text")) {
@@ -396,8 +401,22 @@ public final class RichText {
 
     /** A one-link JSON line, for example an {@code open_url} or {@code change_page} link. */
     public static String linkJson(String text, String action, String value) {
-        return "[{\"text\":" + jsonString(text) + ",\"underlined\":true,\"clickEvent\":{\"action\":" + jsonString(action)
-                + ",\"value\":" + jsonString(value) + "}}]";
+        String event;
+        if (action.equals("change_page")) {
+            // FTB 26.1.2 "Insert Quest Link"
+            event = "{\"id\":\"ftbquests:link\",\"payload\":{\"quest_id\":" + jsonString(value) + ",\"page\":1},\"action\":\"custom\"}";
+        } else if (action.equals("open_url")) {
+            event = "{\"url\":" + jsonString(value) + ",\"action\":\"open_url\"}";
+        } else {
+            event = "{\"action\":" + jsonString(action) + ",\"value\":" + jsonString(value) + "}";
+        }
+        return "[ { \"text\": " + jsonString(text) + ", \"underlined\": true, \"click_event\": " + event + " } ]";
+    }
+
+    /** A one-line JSON entry whose text shows {@code tip} when hovered, as FTB 26.1.2 saves it ("Hovered tooltip"). */
+    public static String hoverJson(String text, String tip) {
+        return "[ { \"text\": " + jsonString(text) + ", \"hover_event\": {\"value\":{\"translate\":" + jsonString(tip)
+                + "},\"action\":\"show_text\"} } ]";
     }
 
     /** The same text as a JSON component list, so styles can be edited as data; null if the entry is not plain formatted text. */

@@ -59,7 +59,7 @@ public final class TeamProgress {
     }
 
     public boolean isClaimed(String rewardId, UUID player) {
-        return claimed.containsKey(claimKey(rewardId, player));
+        return claimed.containsKey(claimKey(rewardId, player)) || claimed.containsKey(claimKey(rewardId, teamId));
     }
 
     public boolean isLocked() {

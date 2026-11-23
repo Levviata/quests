@@ -106,7 +106,10 @@ public final class ItemResolver {
         if (item == null) {
             return null;
         }
-        int meta = target.hasMeta() ? target.meta() : damage >= 0 ? damage : OreDictionary.WILDCARD_VALUE;
+        // the id map turns a newer game's name into an item and a damage value ("diorite" is stone, damage 3); a spec that names an
+        // item of this game and gives its damage itself (a picked item) keeps that damage, or "stone, damage 3" would come out as stone
+        boolean namedHere = ForgeRegistries.ITEMS.containsKey(new ResourceLocation(id));
+        int meta = damage >= 0 && namedHere ? damage : target.hasMeta() ? target.meta() : damage >= 0 ? damage : OreDictionary.WILDCARD_VALUE;
         return new Resolved(item, meta, count, nbt);
     }
 }

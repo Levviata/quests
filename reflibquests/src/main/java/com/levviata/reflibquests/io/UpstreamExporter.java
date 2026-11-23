@@ -123,6 +123,9 @@ public final class UpstreamExporter {
         o = flag(o, "default_hide_dependency_lines", c.defaultHideDependencyLines);
         o = setOrRemove(o, "default_quest_shape", c.defaultQuestShape == null || c.defaultQuestShape.isEmpty() ? null
                 : new DataNode.Str(c.defaultQuestShape));
+        o = setOrRemove(o, "default_quest_size", c.defaultQuestSize == 1.0 ? null : new DataNode.Dbl(c.defaultQuestSize));
+        o = setOrRemove(o, "default_min_width", c.minWindowWidth == 0 ? null : new DataNode.Int(c.minWindowWidth));
+        o = setOrRemove(o, "preset", c.preset == null || c.preset.isEmpty() ? null : new DataNode.Str(c.preset));
         List<DataNode> quests = new ArrayList<>();
         for (Quest q : c.quests) {
             quests.add(questData(q));
@@ -153,6 +156,11 @@ public final class UpstreamExporter {
         o = setOrRemove(o, "dependency_requirement", q.dependencyMode == DependencyMode.ALL_COMPLETED ? null
                 : new DataNode.Str(q.dependencyMode.name().toLowerCase(Locale.ROOT)));
         o = setOrRemove(o, "min_required_dependencies", q.minRequiredDependencies == 0 ? null : new DataNode.Int(q.minRequiredDependencies));
+        o = setOrRemove(o, "max_completable_dependents", q.maxCompletableDependents == 0 ? null : new DataNode.Int(q.maxCompletableDependents));
+        o = setOrRemove(o, "tags", q.tags.isEmpty() ? null : new DataNode.Lst(q.tags.stream().<DataNode>map(DataNode.Str::new).toList()));
+        o = setOrRemove(o, "icon_scale", q.iconScale == 1.0 ? null : new DataNode.Dbl(q.iconScale));
+        o = setOrRemove(o, "guide_page", q.guidePage.isEmpty() ? null : new DataNode.Str(q.guidePage));
+        o = setOrRemove(o, "preset", q.preset.isEmpty() ? null : new DataNode.Str(q.preset));
         o = flag(o, "optional", q.optional);
         o = flag(o, "invisible", q.invisible);
         o = setOrRemove(o, "invisible_until_tasks", q.invisibleUntilTasks == 0 ? null : new DataNode.Int(q.invisibleUntilTasks));

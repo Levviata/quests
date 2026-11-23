@@ -15,6 +15,7 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ChatAllowedCharacters;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -32,7 +33,7 @@ import com.levviata.reflib.gui.Rect;
 @SideOnly(Side.CLIENT)
 abstract class SettingsScreen extends GuiScreen {
 
-    private static final int ROW = 12;
+    private static final int ROW = 11; // FTB Quests 26.1.2: 11 GUI pixels per row (measured at GUI scale 3)
     private static final int GREEN = 0xFF4EA84E;
     private static final int RED = 0xFFD03A3A;
     private static final int BLUE = 0xFF2F8BFF;
@@ -134,6 +135,19 @@ abstract class SettingsScreen extends GuiScreen {
     private final String title;
     protected final List<Entry> entries = new ArrayList<>();
     private int scroll;
+    private Rect scrollTrack;
+    private int scrollMax;
+    private int scrollThumb;
+    private boolean draggingBar;
+
+    private void dragBar(int mouseY) {
+        if (scrollTrack == null) {
+            return;
+        }
+        double f = (mouseY - scrollTrack.y() - 2 - scrollThumb / 2.0) / Math.max(1, scrollTrack.height() - 4 - scrollThumb);
+        scroll = (int) Math.round(Math.max(0, Math.min(1, f)) * scrollMax);
+    }
+
     private Entry editing;
     private TextEditor edit = new TextEditor("", 120);
     private Rect fieldRect;
@@ -195,10 +209,104 @@ abstract class SettingsScreen extends GuiScreen {
         return e;
     }
 
+    private int rowsHeight() {
+        int h = 0;
+        boolean open = true;
+        for (Entry e : entries) {
+            if (e.kind == Kind.SECTION) {
+                open = e.open;
+                h += ROW + 2;
+            } else if (open) {
+                h += ROW;
+            }
+        }
+        return h;
+    }
+
+    private int labelWidest() {
+        int w = 0;
+        for (Entry e : entries) {
+            if (e.kind != Kind.SECTION) {
+                w = Math.max(w, fontRenderer.getStringWidth(e.label));
+            }
+        }
+        return w;
+    }
+
+    private int sectionWidest() {
+        int w = 0;
+        for (Entry e : entries) {
+            if (e.kind == Kind.SECTION) {
+                w = Math.max(w, fontRenderer.getStringWidth(e.label));
+            }
+        }
+        return w;
+    }
+
+    /** Where the value column starts, relative to the list: after the widest label. */
+    private int valueOffset() {
+        return 15 + labelWidest() + 6;
+    }
+
+    /** The widest value as it is drawn in the value column. */
+    private int valueWidest() {
+        int w = 0;
+        for (Entry e : entries) {
+            if (e.kind == Kind.SECTION) {
+                continue;
+            }
+            String v = e.get.get();
+            String shown = e.format != null ? e.format.apply(v) : e.kind == Kind.TEXT && !e.plain ? "\"" + v + "\"" : v;
+            w = Math.max(w, fontRenderer.getStringWidth(shown) + (e.swatch ? 12 : 0));
+        }
+        return w;
+    }
+
+    private int sectionCount() {
+        int n = 0;
+        for (Entry e : entries) {
+            if (e.kind == Kind.SECTION) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Size measured on FTB Quests 26.1.2 (GUI scale 3): the width follows the widest label and section title (268 at least),
+     * the height follows the rows but is never below 62% or above 86.6% of the screen's height.
+     */
+    /** How much bigger than normal this window is drawn (1 = as measured on FTB Quests; a window can ask for more). */
+    protected float uiScale() {
+        return 1f;
+    }
+
+    private int vw() {
+        return (int) (width / uiScale());
+    }
+
+    private int vh() {
+        return (int) (height / uiScale());
+    }
+
     private Rect window() {
-        int w = Math.min(420, width - 20);
-        int h = Math.min(height - 20, 360);
-        return new Rect((width - w) / 2, (height - h) / 2, w, h);
+        // measured: 9 rows made a window 245 wide and 171 tall; with 14 rows and 3 headings it is 268 x 297
+        // wide enough for the longest value and for the footer (Undo, Redo, Accept and Cancel side by side)
+        int w = Math.max(Math.max(valueOffset() + 86, valueOffset() + valueWidest() + 14), Math.max(sectionWidest() + 30, 262));
+        w = Math.min(w, vw() - 20);
+        int rowCount = 0;
+        boolean openNow = true;
+        for (Entry e : entries) {
+            if (e.kind == Kind.SECTION) {
+                openNow = e.open;
+                rowCount += 2; // a heading takes the space of two rows
+            } else if (openNow) {
+                rowCount++;
+            }
+        }
+        int h = 51 + ROW * (rowCount + 2);
+        h = Math.min(h, Math.min(vh() - 20, (int) (vh() * 0.866)));
+        return new Rect((vw() - w) / 2, (vh() - h) / 2, w, h);
     }
 
     @Override
@@ -219,22 +327,36 @@ abstract class SettingsScreen extends GuiScreen {
     }
 
     @Override
-    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+    public void drawScreen(int screenMouseX, int screenMouseY, float partialTicks) {
+        drawDefaultBackground();
+        GlStateManager.pushMatrix();
+        GlStateManager.scale(uiScale(), uiScale(), 1f);
+        drawWindow((int) (screenMouseX / uiScale()), (int) (screenMouseY / uiScale()));
+        GlStateManager.popMatrix();
+    }
+
+    private void drawWindow(int mouseX, int mouseY) {
         hit.clear();
         hoverRows.clear();
-        drawDefaultBackground();
         FontRenderer fr = fontRenderer;
         Rect win = window();
-        Ui.box(win, 0xFF2D3140);
-        fr.drawStringWithShadow("§n" + title, win.x() + 8, win.y() + 8, 0xFFFFFF);
-        Rect collapse = new Rect(win.x() + win.width() - 34, win.y() + 6, 12, 12);
-        Rect expand = new Rect(win.x() + win.width() - 18, win.y() + 6, 12, 12);
-        fr.drawStringWithShadow("-", collapse.x() + 4, collapse.y() + 2, 0x66CCFF);
-        fr.drawStringWithShadow("+", expand.x() + 4, expand.y() + 2, 0x66CCFF);
+        Gui.drawRect(win.x() - 1, win.y() - 1, win.x() + win.width() + 1, win.y() + win.height() + 1, 0xFF101010);
+        Gui.drawRect(win.x(), win.y(), win.x() + win.width(), win.y() + win.height(), 0xFF3B4151);
+        // a window named after a reward is bold with its value coloured; the others are underlined
+        fr.drawString(title.startsWith("§l") ? title : "§n" + title, win.x() + 8, win.y() + 8, 0xFFD8DEE9);
+        Rect collapse = new Rect(win.x() + win.width() - 34, win.y() + 4, 14, 14);
+        Rect expand = new Rect(win.x() + win.width() - 18, win.y() + 4, 14, 14);
+        // the pictures come from the supplied FTB Library jar, as the rest of the theme does
+        if (!Ui.icon(Ui.LIBRARY, "textures/icons/collapse.png", collapse.x(), collapse.y(), 14, 14, 0xFFFFFFFF)) {
+            fr.drawStringWithShadow("-", collapse.x() + 4, collapse.y() + 2, 0x66CCFF);
+        }
+        if (!Ui.icon(Ui.LIBRARY, "textures/icons/expand.png", expand.x(), expand.y(), 14, 14, 0xFFFFFFFF)) {
+            fr.drawStringWithShadow("+", expand.x() + 4, expand.y() + 2, 0x66CCFF);
+        }
         hit.add(new Object[] {collapse, (Runnable) () -> entries.stream().filter(e -> e.kind == Kind.SECTION).forEach(e -> e.open = false)});
         hit.add(new Object[] {expand, (Runnable) () -> entries.stream().filter(e -> e.kind == Kind.SECTION).forEach(e -> e.open = true)});
         Rect list = new Rect(win.x() + 4, win.y() + 24, win.width() - 8, win.height() - 24 - 30);
-        Gui.drawRect(list.x(), list.y(), list.x() + list.width(), list.y() + list.height(), 0xFF2B2F3C);
+        Gui.drawRect(list.x(), list.y(), list.x() + list.width(), list.y() + list.height(), 0xFF2E333F);
         int contentHeight = 0;
         boolean open = true;
         List<Object[]> rows = new ArrayList<>();
@@ -251,16 +373,18 @@ abstract class SettingsScreen extends GuiScreen {
         int maxScroll = Math.max(0, contentHeight - list.height());
         scroll = Math.max(0, Math.min(maxScroll, scroll));
         scissor(list);
-        int valueX = list.x() + (int) (list.width() * 0.62);
+        int valueX = list.x() + valueOffset();
+        int rowWidth = list.width() - (maxScroll > 0 ? 12 : 0);
         for (Object[] row : rows) {
             Entry e = (Entry) row[0];
             int y = list.y() + (Integer) row[1] - scroll;
             if (y + ROW < list.y() || y > list.y() + list.height()) {
                 continue;
             }
-            Rect line = new Rect(list.x(), y, list.width(), e.kind == Kind.SECTION ? ROW + 1 : ROW);
+            Rect line = new Rect(list.x(), y, rowWidth, e.kind == Kind.SECTION ? ROW + 1 : ROW);
             if (e.kind == Kind.SECTION) {
-                Gui.drawRect(line.x(), line.y(), line.x() + line.width(), line.y() + line.height(), 0xFF454B5D);
+                Gui.drawRect(line.x(), line.y(), line.x() + line.width(), line.y() + line.height(), 0xFF576074);
+                Gui.drawRect(line.x() + 1, line.y() + 1, line.x() + line.width() - 1, line.y() + line.height() - 1, 0xFF3B4151);
                 if (!Ui.questsGui(e.open ? "arrow_expanded" : "arrow_collapsed", line.x() + 3, line.y() + 2, 8, 8, 0xFF55FF55)) {
                     fr.drawString(e.open ? "v" : ">", line.x() + 4, line.y() + 2, 0x55FF55);
                 }
@@ -310,7 +434,7 @@ abstract class SettingsScreen extends GuiScreen {
             if (!live) {
                 color = (color >> 1 & 0x7F7F7F) | 0xFF000000; // dimmed
             }
-            fr.drawStringWithShadow(fr.trimStringToWidth(shown, list.x() + list.width() - valueX - 52), valueX, line.y() + 2, color & 0xFFFFFF);
+            fr.drawStringWithShadow(fr.trimStringToWidth(shown, list.x() + list.width() - valueX - (showDefault() ? 52 : 6)), valueX, line.y() + 2, color & 0xFFFFFF);
             if (e.swatch && e != editing) {
                 int rgb = 0xFFFFFF;
                 try {
@@ -332,14 +456,25 @@ abstract class SettingsScreen extends GuiScreen {
             hit.add(new Object[] {line, (Runnable) () -> activate(e)});
         }
         unscissor();
-        Rect accept = new Rect(win.x() + win.width() - 150, win.y() + win.height() - 24, 70, 18);
-        Rect cancel = new Rect(win.x() + win.width() - 74, win.y() + win.height() - 24, 70, 18);
-        Ui.box(accept, accept.contains(mouseX, mouseY) ? 0xFF3A4054 : 0xFF23262F);
-        Ui.box(cancel, cancel.contains(mouseX, mouseY) ? 0xFF3A4054 : 0xFF23262F);
-        Ui.icon(Ui.LIBRARY, "textures/icons/accept.png", accept.x() + 4, accept.y() + 1, 16, 16, 0xFFFFFFFF);
-        fr.drawStringWithShadow("Accept", accept.x() + 24, accept.y() + 5, 0xFFFFFF);
-        Ui.icon(Ui.LIBRARY, "textures/icons/cancel.png", cancel.x() + 4, cancel.y() + 1, 16, 16, 0xFFFFFFFF);
-        fr.drawStringWithShadow("Cancel", cancel.x() + 24, cancel.y() + 5, 0xFFFFFF);
+        // the footer buttons are 62 x 20 with a black outline, light top and left, dark bottom and right (measured on FTB Quests 26.1.2)
+        Rect accept = new Rect(win.x() + win.width() - 5 - 62 - 5 - 62, win.y() + win.height() - 24, 62, 20);
+        Rect cancel = new Rect(win.x() + win.width() - 5 - 62, win.y() + win.height() - 24, 62, 20);
+        for (Rect b : new Rect[] {accept, cancel}) {
+            Gui.drawRect(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(), 0xFF000000);
+            Gui.drawRect(b.x() + 1, b.y() + 1, b.x() + b.width() - 1, b.y() + b.height() - 1, 0xFF2F3645);
+            Gui.drawRect(b.x() + 1, b.y() + 1, b.x() + b.width() - 2, b.y() + b.height() - 2, 0xFF4F5666);
+            Gui.drawRect(b.x() + 2, b.y() + 2, b.x() + b.width() - 2, b.y() + b.height() - 2, 0xFF3B4252);
+            if (b.contains(mouseX, mouseY)) {
+                Gui.drawRect(b.x() + 1, b.y() + 1, b.x() + b.width() - 1, b.y() + 2, 0xFFFFFFFF);
+                Gui.drawRect(b.x() + 1, b.y() + b.height() - 2, b.x() + b.width() - 1, b.y() + b.height() - 1, 0xFFFFFFFF);
+                Gui.drawRect(b.x() + 1, b.y() + 1, b.x() + 2, b.y() + b.height() - 1, 0xFFFFFFFF);
+                Gui.drawRect(b.x() + b.width() - 2, b.y() + 1, b.x() + b.width() - 1, b.y() + b.height() - 1, 0xFFFFFFFF);
+            }
+        }
+        Ui.icon(Ui.LIBRARY, "textures/icons/accept.png", accept.x() + 4, accept.y() + 2, 16, 16, 0xFFFFFFFF);
+        fr.drawStringWithShadow("Accept", accept.x() + 22, accept.y() + 8, 0xFFD8DEE9);
+        Ui.icon(Ui.LIBRARY, "textures/icons/cancel.png", cancel.x() + 4, cancel.y() + 2, 16, 16, 0xFFFFFFFF);
+        fr.drawStringWithShadow("Cancel", cancel.x() + 22, cancel.y() + 8, 0xFFD8DEE9);
         Rect undo = new Rect(win.x() + 8, win.y() + win.height() - 24, 54, 18);
         Rect redo = new Rect(win.x() + 66, win.y() + win.height() - 24, 54, 18);
         Ui.box(undo, !undoStack.isEmpty() && undo.contains(mouseX, mouseY) ? 0xFF3A4054 : 0xFF23262F);
@@ -350,16 +485,30 @@ abstract class SettingsScreen extends GuiScreen {
         hit.add(new Object[] {redo, (Runnable) this::redo});
         hit.add(new Object[] {accept, (Runnable) this::accept});
         hit.add(new Object[] {cancel, (Runnable) this::cancel});
+        scrollTrack = null;
         if (maxScroll > 0) {
-            int knob = Math.max(12, list.height() * list.height() / contentHeight);
-            int ky = list.y() + (list.height() - knob) * scroll / maxScroll;
-            Gui.drawRect(list.x() + list.width() - 3, ky, list.x() + list.width(), ky + knob, 0xFF808080);
+            // a draggable bar in the style of the book's other windows: dark framed track, bevelled thumb
+            Rect t = new Rect(list.x() + list.width() - 11, list.y(), 11, list.height());
+            scrollTrack = t;
+            scrollMax = maxScroll;
+            scrollThumb = Math.max(7, Math.min(t.height() - 4, (t.height() - 4) * list.height() / Math.max(1, contentHeight)));
+            Gui.drawRect(t.x(), t.y(), t.x() + t.width(), t.y() + t.height(), 0xFF101010);
+            Gui.drawRect(t.x() + 1, t.y() + 1, t.x() + t.width() - 1, t.y() + t.height() - 1, 0xFF2E3440);
+            Gui.drawRect(t.x() + 1, t.y() + 1, t.x() + t.width() - 1, t.y() + 2, 0xFF1C1F27);
+            Gui.drawRect(t.x() + 1, t.y() + 1, t.x() + 2, t.y() + t.height() - 1, 0xFF1C1F27);
+            int travel = t.height() - 4 - scrollThumb;
+            int ty = t.y() + 2 + travel * scroll / maxScroll;
+            int tx = t.x() + 2;
+            Gui.drawRect(tx, ty, tx + 7, ty + scrollThumb, 0xFF313745);
+            Gui.drawRect(tx, ty, tx + 7, ty + 1, 0xFF5E6B84);
+            Gui.drawRect(tx, ty + 1, tx + 6, ty + scrollThumb - 1, 0xFF434C5E);
         }
         // hover tooltip: the setting's name, what it does, and its default
         if (editing == null && list.contains(mouseX, mouseY)) {
             for (Object[] h : hoverRows) {
                 Entry e = (Entry) h[1];
-                if (((Rect) h[0]).contains(mouseX, mouseY) && (!e.tip.isEmpty() || !e.def.isEmpty() || e.info != null || e.valueLine || e.listOptions || !e.min.isEmpty())) {
+                if (((Rect) h[0]).contains(mouseX, mouseY) && (!e.tip.isEmpty() || !defaultOf(e).isEmpty() || e.kind == Kind.TEXT && !e.label.equals("Tags")
+                        || e.info != null || e.valueLine || e.listOptions || !e.min.isEmpty())) {
                     List<String> lines = new ArrayList<>();
                     lines.add("§n" + e.label);
                     if (!e.tip.isEmpty()) {
@@ -374,8 +523,10 @@ abstract class SettingsScreen extends GuiScreen {
                     if (e.valueLine) {
                         lines.add("§bValue: §f\"" + e.get.get() + "\"");
                     }
-                    if ((!e.def.isEmpty() || e.valueLine) && e.info == null) {
-                        lines.add("§bDefault: §f" + (e.kind == Kind.TEXT && !e.plain ? "\"" + e.def + "\"" : e.def));
+                    String shownDefault = defaultOf(e);
+                    boolean emptyTextDefault = e.kind == Kind.TEXT && !e.label.equals("Tags") && shownDefault.isEmpty();
+                    if ((!shownDefault.isEmpty() || e.valueLine || emptyTextDefault) && e.info == null && !e.label.equals("Tags")) {
+                        lines.add("§bDefault: §f" + (e.kind == Kind.TEXT && !e.plain ? "\"" + shownDefault + "\"" : shownDefault));
                     }
                     if (!e.min.isEmpty()) {
                         lines.add("§bMin: §f" + e.min);
@@ -392,8 +543,7 @@ abstract class SettingsScreen extends GuiScreen {
                     while (lines.size() > 1 && lines.get(lines.size() - 1).isEmpty()) {
                         lines.remove(lines.size() - 1);
                     }
-                    ScaledResolution res = new ScaledResolution(mc);
-                    Ui.drawTooltip(fr, lines, mouseX, mouseY, res.getScaledWidth(), res.getScaledHeight());
+                    Ui.drawTooltip(fr, lines, mouseX, mouseY, vw(), vh());
                     break;
                 }
             }
@@ -413,13 +563,30 @@ abstract class SettingsScreen extends GuiScreen {
     }
 
     private void scissor(Rect r) {
-        int f = new ScaledResolution(mc).getScaleFactor();
+        double f = new ScaledResolution(mc).getScaleFactor() * uiScale();
         GL11.glEnable(GL11.GL_SCISSOR_TEST);
-        GL11.glScissor(r.x() * f, mc.displayHeight - (r.y() + r.height()) * f, Math.max(0, r.width() * f), Math.max(0, r.height() * f));
+        GL11.glScissor((int) (r.x() * f), (int) (mc.displayHeight - (r.y() + r.height()) * f), (int) Math.max(0, r.width() * f), (int) Math.max(0, r.height() * f));
     }
 
     private void unscissor() {
         GL11.glDisable(GL11.GL_SCISSOR_TEST);
+    }
+
+    /** The default shown in a row's tooltip: the one the screen gave, else the usual one for the kind of row (never for Tags). */
+    private static String defaultOf(Entry e) {
+        if (!e.def.isEmpty() || e.label.equals("Tags")) {
+            return e.def;
+        }
+        switch (e.kind) {
+            case BOOL:
+                return "False";
+            case NUMBER:
+                return "0";
+            case CHOICE:
+                return e.options.contains("Default") ? "Default" : e.options.contains("False") ? "False" : "";
+            default:
+                return "";
+        }
     }
 
     private void activate(Entry e) {
@@ -504,8 +671,18 @@ abstract class SettingsScreen extends GuiScreen {
     }
 
     @Override
-    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+    protected void mouseClicked(int screenX, int screenY, int mouseButton) throws IOException {
+        clicked((int) (screenX / uiScale()), (int) (screenY / uiScale()), mouseButton);
+    }
+
+    private void clicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         if (mouseButton != 0) {
+            return;
+        }
+        if (scrollTrack != null && scrollTrack.contains(mouseX, mouseY)) {
+            commitEdit();
+            draggingBar = true;
+            dragBar(mouseY);
             return;
         }
         if (editing != null && fieldRect != null && fieldRect.contains(mouseX, mouseY)) {
@@ -543,7 +720,15 @@ abstract class SettingsScreen extends GuiScreen {
     }
 
     @Override
-    protected void mouseClickMove(int mouseX, int mouseY, int button, long timeSinceLastClick) {
+    protected void mouseClickMove(int screenX, int screenY, int button, long timeSinceLastClick) {
+        dragged((int) (screenX / uiScale()), (int) (screenY / uiScale()));
+    }
+
+    private void dragged(int mouseX, int mouseY) {
+        if (draggingBar) {
+            dragBar(mouseY);
+            return;
+        }
         if (draggingField && editing != null && fieldRect != null) {
             edit.setCaret(caretAt(mouseX), true);
         }
@@ -552,6 +737,7 @@ abstract class SettingsScreen extends GuiScreen {
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int state) {
         draggingField = false;
+        draggingBar = false;
     }
 
     @Override

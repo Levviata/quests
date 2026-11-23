@@ -64,9 +64,45 @@ final class QuestEdits {
                 return fail(ed.moveChapter(a.getString("id", ""), a.getInt("by", 0)));
             case "move_group":
                 return fail(ed.moveGroup(a.getString("id", ""), a.getInt("by", 0)));
-            case "create_quest":
-                return ed.createQuest(a.getString("chapter", ""), a.getDouble("x", Double.NaN), a.getDouble("y", Double.NaN)) != null
-                        ? null : "Could not create a quest there.";
+            case "create_quest": {
+                com.levviata.reflibquests.model.Definitions.Quest made = ed.createQuest(a.getString("chapter", ""), a.getDouble("x", Double.NaN), a.getDouble("y", Double.NaN));
+                if (made == null) {
+                    return "Could not create a quest there.";
+                }
+                String newTitle = a.getString("title", "").strip();
+                if (!newTitle.isEmpty() && newTitle.length() <= 200) {
+                    made.title = newTitle;
+                }
+                DataNode.Compound first = a.getCompound("task");
+                if (!first.entries().isEmpty()) {
+                    // the map menu lists task types: the new quest starts with that task instead of the checkmark
+                    String placeholder = made.tasks.get(0).id();
+                    String error = addTask(ed, player, first.with("id", made.id));
+                    if (error != null) {
+                        ed.deleteQuest(made.id);
+                        return error;
+                    }
+                    ed.removeTask(placeholder);
+                    // the edits made in the options window before Accept, aimed at the task that now exists
+                    String realTask = made.tasks.isEmpty() ? "" : made.tasks.get(0).id();
+                    int applied = 0;
+                    for (DataNode e : a.getList("edits")) {
+                        if (!(e instanceof DataNode.Compound ec) || applied++ >= 40) {
+                            continue;
+                        }
+                        String editOp = ec.getString("op", "");
+                        if (!(editOp.equals("set_task_prop") || editOp.equals("task_value") || editOp.equals("set_icon"))) {
+                            continue;
+                        }
+                        DataNode.Compound editArgs = ec.getCompound("args");
+                        if (editArgs.getString("id", "").equals("@task")) {
+                            editArgs = editArgs.with("id", realTask);
+                        }
+                        apply(qs, player, editOp, editArgs);
+                    }
+                }
+                return null;
+            }
             case "move_quest":
                 return fail(ed.moveQuest(a.getString("id", ""), a.getDouble("x", Double.NaN), a.getDouble("y", Double.NaN)));
             case "delete_quest":
@@ -87,6 +123,10 @@ final class QuestEdits {
                 return fail(ed.addLines(a.getString("id", ""), lines(a.getList("lines"))));
             case "move_image":
                 return fail(ed.moveImage(a.getString("id", ""), a.getDouble("x", 0), a.getDouble("y", 0)));
+            case "create_image":
+                return ed.createImage(a.getString("chapter", ""), a.getString("image", ""), a.getDouble("x", Double.NaN),
+                        a.getDouble("y", Double.NaN), a.getDouble("width", 1), a.getDouble("height", 1)) != null
+                        ? null : "Could not put that picture there.";
             case "delete_image":
                 return fail(ed.deleteImage(a.getString("id", "")));
             case "set_image_props":
@@ -128,7 +168,24 @@ final class QuestEdits {
                     return fail(ed.setIconFromTask(a.getString("id", ""), a.getString("task", "")));
                 }
                 DataNode.Compound icon = DataNode.Compound.empty();
-                if (a.getString("mode", "").equals("held")) {
+                if (a.getString("mode", "").equals("item")) {
+                    DataNode.Compound chosen = pickedItem(a.getCompound("item"));
+                    if (chosen == null) {
+                        return "That item does not exist in this game.";
+                    }
+                    icon = chosen.getCompound("item");
+                } else if (a.getString("mode", "").equals("image")) {
+                    String image = a.getString("image", "");
+                    try {
+                        new net.minecraft.util.ResourceLocation(image);
+                    } catch (RuntimeException ex) {
+                        return "That is not a valid picture name.";
+                    }
+                    if (image.isEmpty() || image.length() > 200) {
+                        return "That is not a valid picture name.";
+                    }
+                    icon = DataNode.Compound.empty().with("image", image);
+                } else if (a.getString("mode", "").equals("held")) {
                     DataNode.Compound held = heldItem(player);
                     if (held == null) {
                         return "Hold the item in your main hand first.";
@@ -215,12 +272,23 @@ final class QuestEdits {
             if (item.getInt("damage", 0) > 0) {
                 clean = clean.with("damage", Math.min(item.getInt("damage", 0), 32767));
             }
-            params = DataNode.Compound.empty().with("item", clean).with("count", Math.max(1, Math.min(64, params.getInt("count", 1))));
+            clean = withNbt(clean, item);
+            params = DataNode.Compound.empty().with("item", clean).with("count", Math.max(1, params.getInt("count", 1)));
         } else {
             params = params.without("item");
         }
         return ed.addTableEntry(a.getString("id", ""), type, params, (float) a.getDouble("weight", 1), a.getString("entry", "")) != null
                 ? null : "Could not add that entry.";
+    }
+
+    /** The item's NBT, when it has some that the game can read. */
+    private static DataNode.Compound withNbt(DataNode.Compound clean, DataNode.Compound item) {
+        DataNode.Compound nbt = item.getCompound("nbt");
+        if (nbt.entries().isEmpty()) {
+            return clean;
+        }
+        DataNode.Compound checked = BookEditor.parseNbt(com.levviata.reflib.api.data.Snbt.printCompact(nbt));
+        return checked == null ? clean : clean.with("nbt", checked);
     }
 
     /** An item picked in the item picker: only its registry name and damage are kept, and the item has to exist in this game. Null when none was given. */
@@ -239,6 +307,7 @@ final class QuestEdits {
         if (damage > 0 && damage < 32767) {
             clean = clean.with("damage", damage);
         }
+        clean = withNbt(clean, item);
         return DataNode.Compound.empty().with("item", clean).with("count", 1);
     }
 
@@ -246,7 +315,7 @@ final class QuestEdits {
     @Nullable
     private static DataNode.Compound pickedItem(DataNode.Compound item, long count) {
         DataNode.Compound base = pickedItem(item);
-        return base == null ? null : base.with("count", (int) Math.max(1, Math.min(1_000_000, count)));
+        return base == null ? null : base.with("count", (int) Math.max(1, Math.min(Integer.MAX_VALUE, count)));
     }
 
     /** The stack in the player's main hand as quest-file parameters: an item with its damage value, and a count. */
@@ -259,6 +328,12 @@ final class QuestEdits {
         DataNode.Compound item = DataNode.Compound.empty().with("id", held.getItem().getRegistryName().toString());
         if (held.getHasSubtypes() || held.getMetadata() != 0) {
             item = item.with("damage", held.getMetadata());
+        }
+        if (held.hasTagCompound() && !held.getTagCompound().isEmpty()) {
+            DataNode.Compound nbt = BookEditor.parseNbt(held.getTagCompound().toString());
+            if (nbt != null && !nbt.entries().isEmpty()) {
+                item = item.with("nbt", nbt);
+            }
         }
         return DataNode.Compound.empty().with("item", item).with("count", held.getCount());
     }

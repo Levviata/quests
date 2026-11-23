@@ -105,6 +105,34 @@ class RichTextTest {
     }
 
     @Test
+    void questLinkAndUrlLinkAsFtbSavedThem() {
+        // exactly what FTB Quests 26.1.2 saved (2026-11-22) for "Insert Quest Link" and "Insert URL/Docs Link"
+        String quest = "[ { \"text\": \"quest link\", \"underlined\": true, \"click_event\": {\"id\":\"ftbquests:link\",\"payload\":{\"quest_id\":\"2C946717C6E02D33\",\"page\":1},\"action\":\"custom\"} } ]";
+        Span q = span(RichText.parseEntry(quest).get(0), 0);
+        assertEquals("quest link", q.text());
+        assertEquals("change_page", q.click().action());
+        assertEquals("2C946717C6E02D33", q.click().value());
+        String url = "[ { \"text\": \"link only\", \"underlined\": true, \"click_event\": {\"url\":\"https://example.com\",\"action\":\"open_url\"} } ]";
+        Span u = span(RichText.parseEntry(url).get(0), 0);
+        assertEquals("open_url", u.click().action());
+        assertEquals("https://example.com", u.click().value());
+    }
+
+    @Test
+    void linksAndHoversWeWriteAreReadBackAndMatchFtbsSpelling() {
+        assertEquals("[ { \"text\": \"link only\", \"underlined\": true, \"click_event\": {\"url\":\"https://example.com\",\"action\":\"open_url\"} } ]",
+                RichText.linkJson("link only", "open_url", "https://example.com"));
+        assertEquals("[ { \"text\": \"quest link\", \"underlined\": true, \"click_event\": {\"id\":\"ftbquests:link\",\"payload\":{\"quest_id\":\"2C946717C6E02D33\",\"page\":1},\"action\":\"custom\"} } ]",
+                RichText.linkJson("quest link", "change_page", "2C946717C6E02D33"));
+        assertEquals("[ { \"text\": \"link text\", \"hover_event\": {\"value\":{\"translate\":\"tip\"},\"action\":\"show_text\"} } ]",
+                RichText.hoverJson("link text", "tip"));
+        Span back = span(RichText.parseEntry(RichText.linkJson("a", "change_page", "ABC")).get(0), 0);
+        assertEquals("change_page", back.click().action());
+        assertEquals("ABC", back.click().value());
+        assertEquals("tip", span(RichText.parseEntry(RichText.hoverJson("a", "tip")).get(0), 0).hover());
+    }
+
+    @Test
     void ampersandZIsTheRainbowCode() {
         Line l = RichText.parseEntry("plain &zrainbow&r plain").get(0);
         assertFalse(span(l, 0).rainbow());

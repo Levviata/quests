@@ -27,6 +27,9 @@ final class QuestText {
             return q.title;
         }
         String auto = autoTitle(q);
+        if (auto.isEmpty() && q.tasks.isEmpty()) {
+            return "Unnamed"; // no title and no task to take one from
+        }
         return auto.isEmpty() ? q.id : auto;
     }
 
@@ -48,12 +51,17 @@ final class QuestText {
     }
 
     private static String autoTitle(Quest q) {
+        return autoTitle(q, true); // a quest without a title takes the title of its first task, the task's own title if it has one
+    }
+
+    /** {@code ownTitle}: a task's own title is used (for naming the task itself); a quest is named after what its first task asks for, never after the task's title. */
+    private static String autoTitle(Quest q, boolean ownTitle) {
         if (q.tasks.isEmpty()) {
             return "";
         }
         Task t = q.tasks.get(0);
         String custom = t.params().getString("title", "");
-        if (!custom.isEmpty()) {
+        if (ownTitle && !custom.isEmpty()) {
             return custom;
         }
         switch (t.type()) {
@@ -76,7 +84,7 @@ final class QuestText {
                 boolean points = t.params().getBool("points", false);
                 net.minecraft.client.entity.EntityPlayerSP me = net.minecraft.client.Minecraft.getMinecraft().player;
                 long have = me == null ? Long.MAX_VALUE : points ? me.experienceTotal : me.experienceLevel;
-                return (points ? "XP: " : "XP Levels: ") + (have < t.maxProgress() ? "\u00a7c" : "") + t.maxProgress(); // red while the player is short of it
+                return (points ? "XP: " : "XP Levels: ") + "\u00a7c" + t.maxProgress(); // the required amount is red, as in FTB Quests
             }
             case "location":
                 return "Location";
@@ -90,17 +98,17 @@ final class QuestText {
             case "stat":
                 return titleCase(t.params().getString("stat", ""));
             case "dimension":
-                return "Visit Dimension: \u00a7a" + t.params().getString("dimension", "");
+                return "Visit Dimension: \u00a72" + t.params().getString("dimension", "");
             case "biome":
-                return "Visit Biome: \u00a7a" + t.params().getString("biome", "");
+                return "Visit Biome: \u00a72" + t.params().getString("biome", "");
             case "observation":
-                return "Observation: \u00a7a" + t.params().getString("to_observe", "");
+                return "Observation: \u00a72" + t.params().getString("to_observe", "");
             case "gamestage":
                 return "Stage: " + t.params().getString("stage", "");
             case "interaction":
                 return "Interaction: " + t.params().getString("to_interact", "minecraft:air"); // FTB: "Interaction: minecraft:air"
             case "forge_energy":
-                return "Forge Energy: \u00a7a" + t.maxProgress() + " FE";
+                return "Forge Energy: \u00a72" + t.maxProgress() + " FE";
             case "advancement": {
                 String adv = t.params().getString("advancement", "");
                 String last = adv.contains("/") ? adv.substring(adv.lastIndexOf('/') + 1) : adv.contains(":") ? adv.substring(adv.indexOf(':') + 1) : adv;
@@ -199,14 +207,34 @@ final class QuestText {
 
     @Nullable
     static ItemStack stackOf(@Nullable DataNode spec) {
+        if (spec instanceof DataNode.Compound c && c.get("image") instanceof DataNode.Str img && !img.value().isEmpty()) {
+            return imageMarker(img.value());
+        }
         java.util.List<ItemResolver.Resolved> set = setOf(spec);
         if (set.isEmpty()) {
             return null;
         }
         if (com.levviata.reflibquests.game.ItemSet.isFilter(spec)) {
-            return set.get((int) ((System.currentTimeMillis() / 1200) % set.size())).toStack(1); // a collection cycles its items
+            return set.get((int) ((System.currentTimeMillis() / 2000) % set.size())).toStack(1); // a collection cycles its items, two seconds each
         }
         return set.get(0).toStack(Math.max(1, set.get(0).count()));
+    }
+
+    /** An image icon travels as a painting stack tagged with the picture's id; {@code drawItem} draws the picture instead. */
+    static ItemStack imageMarker(String id) {
+        ItemStack marker = new ItemStack(net.minecraft.init.Items.PAINTING);
+        net.minecraft.nbt.NBTTagCompound tag = new net.minecraft.nbt.NBTTagCompound();
+        tag.setString(IMAGE_TAG, id);
+        marker.setTagCompound(tag);
+        return marker;
+    }
+
+    static final String IMAGE_TAG = "reflib_image";
+
+    /** The picture id of an image-icon stack, or null for an ordinary item. */
+    @Nullable
+    static String imageOf(ItemStack stack) {
+        return stack.hasTagCompound() && stack.getTagCompound().hasKey(IMAGE_TAG) ? stack.getTagCompound().getString(IMAGE_TAG) : null;
     }
 
     @Nullable
@@ -333,7 +361,15 @@ final class QuestText {
         return null;
     }
 
+    /** What a task is called where no description of its own exists: its title ("Observation: minecraft:air"), as FTB Quests shows it. */
     static String task(Task t) {
+        Quest holder = new Quest("task-title");
+        holder.tasks.add(t);
+        String title = autoTitle(holder, true);
+        return title.isEmpty() ? taskSentence(t) : title;
+    }
+
+    private static String taskSentence(Task t) {
         DataNode.Compound p = t.params();
         switch (t.type()) {
             case "item": {
@@ -382,13 +418,17 @@ final class QuestText {
                 return (count > 1 ? count + "x " : "") + (s == null ? itemName(p.get("item")) : s.getDisplayName());
             }
             case "xp":
-                return "XP: +" + Math.max(1, p.getInt("xp", 1)); // as FTB Quests names it
+                return "XP: §a+" + Math.max(1, p.getInt("xp", 1)); // as FTB Quests names it, the amount in green
             case "xp_levels":
-                return "XP Levels: +" + Math.max(1, p.getInt("xp_levels", 1));
+                return "XP Levels: §a+" + Math.max(1, p.getInt("xp_levels", 1));
             case "command":
                 return "Command: §c" + p.getString("command", ""); // the command in red, as FTB Quests shows it
             case "toast":
                 return "Toast";
+            case "custom":
+                return "Custom";
+            case "gamestage":
+                return "Stage: §e" + p.getString("stage", "");
             case "advancement": {
                 String adv = p.getString("advancement", "");
                 String last = adv.contains("/") ? adv.substring(adv.lastIndexOf('/') + 1) : adv.contains(":") ? adv.substring(adv.indexOf(':') + 1) : adv;

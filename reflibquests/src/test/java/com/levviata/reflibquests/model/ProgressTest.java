@@ -329,6 +329,56 @@ class ProgressTest {
     }
 
     @Test
+    void maxCompletableDependentsMakesTheOtherBranchesUnavailable() {
+        Quest root = quest("ROOT", check("TR"));
+        root.maxCompletableDependents = 1;
+        Quest a = quest("A", check("TA"));
+        Quest b = quest("B", check("TB"));
+        a.dependencies.add("ROOT");
+        b.dependencies.add("ROOT");
+        ready();
+        engine.forceComplete(team, "ROOT", 1);
+        assertTrue(QuestRules.dependenciesMet(book, team, a));
+        assertTrue(QuestRules.dependenciesMet(book, team, b));
+        engine.forceComplete(team, "A", 2);
+        assertFalse(QuestRules.dependenciesMet(book, team, b), "one dependent is done: the other branch is closed");
+        assertTrue(team.isCompleted("A"));
+    }
+
+    @Test
+    void perTeamRewardByTypeSettingDecidesWhenTheRewardSaysNothing() {
+        Quest q = quest("Q1", check("T1"));
+        Reward item = new Reward("R1", "item", DataNode.Compound.empty());
+        Reward cmd = new Reward("R2", "command", DataNode.Compound.empty());
+        Reward own = new Reward("R3", "item", DataNode.Compound.empty().with("team_reward", false));
+        q.rewards.add(item);
+        q.rewards.add(cmd);
+        q.rewards.add(own);
+        // as FTB 26.1.2 saved it: item true, command false
+        book.settings = DataNode.Compound.empty().with("default_reward_team", true).with("default_reward_team_by_type",
+                DataNode.Compound.empty().with("ftbquests:item", true).with("ftbquests:command", false));
+        ready();
+        assertTrue(engine.isTeamReward(item));
+        assertFalse(engine.isTeamReward(cmd), "the type overrides the book default");
+        assertFalse(engine.isTeamReward(own), "the reward's own setting wins");
+        book.settings = DataNode.Compound.empty().with("default_reward_team", true);
+        assertTrue(engine.isTeamReward(cmd), "without a type entry the book default applies");
+    }
+
+    @Test
+    void teamRewardIsClaimedOnceForTheWholeTeam() {
+        Quest q = quest("Q1", check("T1"));
+        Reward r = new Reward("R1", "xp", DataNode.Compound.empty().with("xp", 10).with("team_reward", true));
+        q.rewards.add(r);
+        ready();
+        engine.setTaskProgress(team, "T1", 1, 1);
+        UUID other = UUID.randomUUID();
+        assertTrue(engine.claim(team, player, r, 2));
+        assertFalse(engine.canClaim(team, other, r), "a team reward is gone for the other members once one claimed it");
+        assertTrue(team.isClaimed("R1", other));
+    }
+
+    @Test
     void rewardsClaimOncePerPlayerAndRespectBlocking() {
         Quest q = quest("Q1", check("T1"));
         Reward r = new Reward("R1", "xp", DataNode.Compound.empty().with("xp", 10));

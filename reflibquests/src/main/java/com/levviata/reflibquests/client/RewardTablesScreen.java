@@ -135,14 +135,22 @@ final class RewardTablesScreen extends GuiScreen {
         return RichText.stripCodes(t.title.isEmpty() ? t.id : t.title).toLowerCase(Locale.ROOT);
     }
 
+    /** The icon of a table: each of its rewards in turn, two seconds apiece; a chest while it has none. */
     static ItemStack iconOf(RewardTable t) {
+        if (!t.raw.getCompound("icon").entries().isEmpty()) {
+            ItemStack own = QuestText.stackOf(t.raw.getCompound("icon"));
+            if (own != null && !own.isEmpty()) {
+                return own;
+            }
+        }
+        List<ItemStack> icons = new java.util.ArrayList<>();
         for (WeightedReward w : t.entries) {
             ItemStack s = RewardsScreen.rewardIcon(w.reward());
             if (s != null && !s.isEmpty()) {
-                return s;
+                icons.add(s);
             }
         }
-        return new ItemStack(Blocks.CHEST);
+        return icons.isEmpty() ? new ItemStack(Blocks.CHEST) : icons.get((int) ((System.currentTimeMillis() / 2000) % icons.size()));
     }
 
     static String trim(float v) {
@@ -396,7 +404,8 @@ final class RewardTablesScreen extends GuiScreen {
                     break;
                 }
                 int pct = total > 0 ? Math.round(1000 * w.weight() / total) : 0;
-                lines.add("- " + QuestText.reward(w.reward()) + " §7[" + pct / 10f + "%]");
+                // the chance is dark grey with two decimals in the user's number format, as FTB Quests writes "[12,50%]"
+                lines.add("§7- " + QuestText.reward(w.reward()) + " §8[" + String.format(java.util.Locale.getDefault(), "%.2f", total <= 0 ? 0 : w.weight() * 100.0 / total) + "%]");
             }
             Ui.drawTooltip(fr, lines, mouseX, mouseY, width, height);
         }
@@ -495,6 +504,23 @@ final class RewardTablesScreen extends GuiScreen {
         startEdit(id);
     }
 
+    /** FTB Quests 26.1.2: right click on a table offers Edit, Remove, Enable or Disable Loot Crate, and Copy ID. */
+    private void tableMenu(String id, int x, int y) {
+        QuestBook book = ClientQuests.book();
+        RewardTable t = book == null ? null : book.tables().get(id);
+        if (t == null) {
+            return;
+        }
+        commitEdit();
+        boolean crate = t.raw.has("loot_crate");
+        mc.displayGuiScreen(new PopupMenu(this, x, y, List.of(
+                new PopupMenu.Item("Edit", "quests:editor_white", () -> mc.displayGuiScreen(new TablePanel(this, id))),
+                new PopupMenu.Item("Remove", "lib:bin", () -> TableEdits.record("delete_table", args("id", id))),
+                new PopupMenu.Item(crate ? "Disable Loot Crate" : "Enable Loot Crate", "item:chest",
+                        () -> TableEdits.record("set_table_prop", args("id", id).with("key", "loot_enabled").with("value", crate ? "false" : "true"))),
+                new PopupMenu.Item("Copy ID", "lib:settings", () -> GuiScreen.setClipboardString(id)))));
+    }
+
     private void removeTable(String id) {
         if (id.equals(armedDelete) && System.currentTimeMillis() < armedUntil) {
             armedDelete = "";
@@ -528,7 +554,7 @@ final class RewardTablesScreen extends GuiScreen {
         if (button == 1) {
             for (Object[] r : rowRects) {
                 if (((Rect) r[0]).contains(mouseX, mouseY)) {
-                    startEdit((String) r[1]);
+                    tableMenu((String) r[1], mouseX, mouseY);
                     return;
                 }
             }
@@ -598,6 +624,7 @@ final class RewardTablesScreen extends GuiScreen {
         private final GuiScreen parent;
         private final String tableId;
         private final List<Object[]> hits = new ArrayList<>();
+        private final List<Object[]> entryRects = new ArrayList<>(); // {Rect, WeightedReward}
         private final Scroller scroller = new Scroller();
         private boolean menuOpen;
         private String editingEntry = "";
@@ -670,6 +697,7 @@ final class RewardTablesScreen extends GuiScreen {
         @Override
         public void drawScreen(int mouseX, int mouseY, float partialTicks) {
             hits.clear();
+            entryRects.clear();
             drawDefaultBackground();
             FontRenderer fr = fontRenderer;
             RewardTable table = table();
@@ -713,6 +741,7 @@ final class RewardTablesScreen extends GuiScreen {
                     continue;
                 }
                 Rect row = new Rect(list.x() + 1, y, rowWidth, ROW - 1);
+                entryRects.add(new Object[] {clip(row, list), w});
                 boolean over = row.contains(mouseX, mouseY) && list.contains(mouseX, mouseY) && !scroller.dragging;
                 if (over) {
                     Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0x28FFFFFF);
@@ -786,14 +815,35 @@ final class RewardTablesScreen extends GuiScreen {
             }});
 
             if (menuOpen) {
-                String[] labels = {"Item (held)", "XP", "XP Levels"};
-                Rect menu = new Rect(plus.x() - 40, plus.y() + 22, 110, 4 + labels.length * 16);
+                // FTB Quests 26.1.2: the reward types a table can hold, in its order, each with its picture
+                int menuW = 40;
+                for (String[] type : TYPES) {
+                    menuW = Math.max(menuW, fr.getStringWidth(type[0]) + 32);
+                }
+                Rect menu = new Rect(Math.min(plus.x() - 40, width - menuW - 2), plus.y() + 22, menuW, 4 + TYPES.length * 13);
                 // the menu's own area comes first so the lines inside it (added after) are found before it
                 hits.add(0, new Object[] {menu, (Runnable) () -> { }});
-                Ui.box(menu, 0xFA23262D);
-                for (int i = 0; i < labels.length; i++) {
-                    Rect r = new Rect(menu.x() + 1, menu.y() + 2 + i * 16, menu.width() - 2, 16);
-                    fr.drawStringWithShadow(labels[i], r.x() + 6, r.y() + 4, r.contains(mouseX, mouseY) ? 0xFFFF55 : 0xFFFFFF);
+                Ui.shadow(menu);
+                Ui.box(menu, 0xFF2F343B);
+                for (int i = 0; i < TYPES.length; i++) {
+                    Rect r = new Rect(menu.x() + 1, menu.y() + 2 + i * 13, menu.width() - 2, 13);
+                    String icon = TYPES[i][1];
+                    if (icon.startsWith("item:")) {
+                        net.minecraft.item.Item it = net.minecraft.item.Item.getByNameOrId(icon.substring(5));
+                        if (it != null) {
+                            GlStateManager.pushMatrix();
+                            GlStateManager.translate(r.x() + 5, r.y() + 1, 0);
+                            GlStateManager.scale(0.75f, 0.75f, 1f);
+                            RenderHelper.enableGUIStandardItemLighting();
+                            itemRender.renderItemAndEffectIntoGUI(new ItemStack(it), 0, 0);
+                            RenderHelper.disableStandardItemLighting();
+                            GlStateManager.popMatrix();
+                            GlStateManager.disableLighting();
+                        }
+                    } else {
+                        Ui.icon(Ui.LIBRARY, "textures/icons/" + icon.substring(4) + ".png", r.x() + 5, r.y() + 2, 12, 12, 0xFFFFFFFF);
+                    }
+                    fr.drawStringWithShadow(TYPES[i][0], r.x() + 21, r.y() + 3, r.contains(mouseX, mouseY) ? 0xFFFF55 : 0xFFFFFF);
                     final int which = i;
                     hits.add(0, new Object[] {r, (Runnable) () -> {
                         menuOpen = false;
@@ -803,26 +853,65 @@ final class RewardTablesScreen extends GuiScreen {
             }
         }
 
-        private void addEntry(int which) {
-            DataNode.Compound a = args("id", tableId).with("weight", 1.0).with("entry", newId());
-            switch (which) {
-                case 0 -> {
-                    ItemStack held = mc.player == null ? ItemStack.EMPTY : mc.player.getHeldItemMainhand();
-                    if (held.isEmpty() || held.getItem().getRegistryName() == null) {
-                        mc.ingameGUI.getChatGUI().printChatMessage(new TextComponentString("[Quests] Hold the item in your main hand first."));
-                        return;
-                    }
-                    DataNode.Compound item = DataNode.Compound.empty().with("id", held.getItem().getRegistryName().toString());
-                    if (held.getMetadata() != 0) {
-                        item = item.with("damage", held.getMetadata());
-                    }
-                    a = a.with("type", "item").with("params", DataNode.Compound.empty().with("item", item).with("count", 1));
-                }
-                case 1 -> a = a.with("type", "xp").with("params", DataNode.Compound.empty().with("xp", 10));
-                default -> a = a.with("type", "xp_levels").with("params", DataNode.Compound.empty().with("xp_levels", 1));
-            }
-            TableEdits.record("add_table_entry", a);
+        private static final String[][] TYPES = {
+            {"Item", "item:diamond"}, {"Command", "item:command_block"}, {"Custom", "lib:color_hsb"}, {"XP", "item:experience_bottle"},
+            {"XP Levels", "item:experience_bottle"}, {"Advancement", "item:wheat"}, {"Toast", "item:sign"}, {"Stage", "lib:controller"}};
+
+        /** FTB Quests opens the new reward's options first, as it does for a new task: the entry is added when Accept is pressed. */
+        private void addWith(String type, DataNode.Compound params) {
+            mc.displayGuiScreen(TaskRewardScreen.forRewardDraft(this, new TaskRewardScreen.RewardDraft(tableId, newId(), type, params)));
             scroller.offset = Integer.MAX_VALUE; // show the new entry at the bottom
+        }
+
+        private void entryMenu(WeightedReward w, int x, int y) {
+            commitWeight();
+            final String rid = w.reward().id();
+            mc.displayGuiScreen(new PopupMenu(this, x, y, List.of(
+                    new PopupMenu.Item("Edit", "quests:editor_white", () -> mc.displayGuiScreen(TaskRewardScreen.forTableEntry(this, w.reward()))),
+                    new PopupMenu.Item("Set Weight", "item:anvil", () -> {
+                        editingEntry = rid;
+                        weightEdit = new TextEditor(trim(w.weight()), 12);
+                        weightEdit.selectAll();
+                    }),
+                    new PopupMenu.Item("Remove", "lib:bin", () -> TableEdits.record("remove_table_entry", args("id", tableId).with("entry", rid))))));
+        }
+
+        private void ask(String title, String initial, int max, java.util.function.Consumer<String> done) {
+            ScaledResolution res = new ScaledResolution(mc);
+            int px = Mouse.getX() / res.getScaleFactor();
+            int py = (mc.displayHeight - Mouse.getY()) / res.getScaleFactor();
+            mc.displayGuiScreen(new NamePrompt(this, px + 7, py + 12, title, initial, max, done));
+        }
+
+        private void addEntry(int which) {
+            DataNode.Compound none = DataNode.Compound.empty();
+            switch (which) {
+                case 0 -> mc.displayGuiScreen(SelectorScreen.items(this, true, (stack, n) -> {
+                    DataNode.Compound item = DataNode.Compound.empty().with("id", String.valueOf(stack.getItem().getRegistryName()));
+                    if (stack.getMetadata() != 0) {
+                        item = item.with("damage", stack.getMetadata());
+                    }
+                    if (stack.hasTagCompound() && !stack.getTagCompound().isEmpty()) {
+                        item = item.with("nbt", com.levviata.reflib.api.data.Snbt.parse(stack.getTagCompound().toString()));
+                    }
+                    addWith("item", DataNode.Compound.empty().with("item", item).with("count", n));
+                }));
+                case 1 -> addWith("command", none.with("command", "/say Hi, @p!"));
+                case 2 -> addWith("custom", none);
+                case 3 -> ask("XP", "100", 9, text -> addWith("xp", none.with("xp", parsePositive(text, 100))));
+                case 4 -> ask("XP Levels", "5", 9, text -> addWith("xp_levels", none.with("xp_levels", parsePositive(text, 5))));
+                case 5 -> addWith("advancement", none.with("advancement", "minecraft:story/root"));
+                case 6 -> addWith("toast", none.with("description", "Well done!"));
+                default -> ask("Stage", "", 100, text -> addWith("gamestage", none.with("stage", text.strip())));
+            }
+        }
+
+        private static int parsePositive(String text, int fallback) {
+            try {
+                return Math.max(1, Integer.parseInt(text.trim()));
+            } catch (NumberFormatException ex) {
+                return fallback;
+            }
         }
 
         private void small(FontRenderer fr, Rect r, String label, int mx, int my, Rect clipTo) {
@@ -833,6 +922,16 @@ final class RewardTablesScreen extends GuiScreen {
 
         @Override
         protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
+            if (button == 1) {
+                // FTB Quests 26.1.2: right click on a reward of the table offers Edit, Set Weight and Remove
+                for (Object[] r : entryRects) {
+                    if (((Rect) r[0]).contains(mouseX, mouseY)) {
+                        entryMenu((WeightedReward) r[1], mouseX, mouseY);
+                        return;
+                    }
+                }
+                return;
+            }
             if (button != 0) {
                 return;
             }
@@ -903,6 +1002,21 @@ final class RewardTablesScreen extends GuiScreen {
         private final String initialTitle;
         private final String initialEmpty;
         private final String initialLoot;
+        private String hideTip;
+        private String useTitle;
+        private final String initialHideTip;
+        private final String initialUseTitle;
+
+        private String tagsText;
+        private String iconChoice = IconPicker.KEEP;
+        private String crateColor;
+        private String crateGlow;
+        private String crateId;
+        private String crateName;
+        private String dropBoss;
+        private String dropMonster;
+        private String dropPassive;
+        private final java.util.Map<String, String> initialCrate = new java.util.HashMap<>();
 
         TableProperties(GuiScreen parent, RewardTable t) {
             super(parent, RichText.stripCodes(t.title.isEmpty() ? t.id : t.title));
@@ -913,12 +1027,64 @@ final class RewardTablesScreen extends GuiScreen {
             this.initialTitle = title;
             this.initialEmpty = empty;
             this.initialLoot = loot;
+            this.hideTip = t.raw.getBool("hide_tooltip", false) ? "True" : "False";
+            this.useTitle = t.raw.getBool("use_title", false) ? "True" : "False";
+            this.initialHideTip = hideTip;
+            this.initialUseTitle = useTitle;
+            StringBuilder tg = new StringBuilder();
+            for (DataNode n : t.raw.getList("tags")) {
+                if (n instanceof DataNode.Str st) {
+                    tg.append(tg.length() > 0 ? ", " : "").append(st.value());
+                }
+            }
+            this.tagsText = tg.toString();
+            DataNode.Compound crate = t.raw.getCompound("loot_crate");
+            DataNode.Compound drops = crate.getCompound("drops");
+            this.crateColor = String.format("#%06X", crate.getInt("color", 0xFFFFFF) & 0xFFFFFF);
+            this.crateGlow = crate.getBool("glow", false) ? "True" : "False";
+            this.crateId = crate.getString("string_id", t.id);
+            this.crateName = crate.getString("item_name", "");
+            this.dropBoss = String.valueOf(drops.getInt("boss", 0));
+            this.dropMonster = String.valueOf(drops.getInt("monster", 0));
+            this.dropPassive = String.valueOf(drops.getInt("passive", 0));
+            initialCrate.put("loot_color", crateColor);
+            initialCrate.put("loot_glow", crateGlow);
+            initialCrate.put("loot_string_id", crateId);
+            initialCrate.put("loot_item_name", crateName);
+            initialCrate.put("loot_boss", dropBoss);
+            initialCrate.put("loot_monster", dropMonster);
+            initialCrate.put("loot_passive", dropPassive);
+            final String initialTags = tagsText;
             section("Reward Table");
             text("Title", () -> title, v -> title = v).tip("The name shown when a quest uses this table.");
+            IconPicker.decorate(choice("Icon", IconPicker.ICON_CHOICES, () -> iconChoice, v -> iconChoice = v).defaults("None"), t.raw.getCompound("icon"));
+            text("Tags", () -> tagsText, v -> tagsText = v).tip("Words that mark the table, separated by commas.");
             number("Empty Weight", false, () -> empty, v -> empty = trim(Math.max(0, Float.parseFloat(v))))
                     .tip("How likely it is that nothing is given, in the same units as the entry weights.");
+            choice("Hide Tooltip", java.util.List.of("False", "True"), () -> hideTip, v -> hideTip = v).defaults("False");
             number("Loot Size", true, () -> loot, v -> loot = String.valueOf(Math.max(0, Math.min(100, Integer.parseInt(v)))))
                     .tip("How many things a loot crate of this table gives.");
+            choice("Use Title", java.util.List.of("False", "True"), () -> useTitle, v -> useTitle = v).defaults("False");
+            section("Reward Table \u2192 Loot Crate");
+            text("Color", () -> crateColor, v -> crateColor = v.startsWith("#") ? v.toUpperCase(java.util.Locale.ROOT) : "#" + v.toUpperCase(java.util.Locale.ROOT)).plainText().withSwatch()
+                    .tip("The colour of the loot crate.").defaults("#FFFFFF");
+            choice("Glow", java.util.List.of("False", "True"), () -> crateGlow, v -> crateGlow = v).tip("The loot crate glows.").defaults("False");
+            text("ID", () -> crateId, v -> crateId = v).tip("The id of the loot crate.");
+            text("Item Name", () -> crateName, v -> crateName = v).tip("The name of the loot crate item. Empty uses the table's title.").defaults("");
+            section("Reward Table \u2192 Loot Crate \u2192 Entity Drops");
+            number("Boss", true, () -> dropBoss, v -> dropBoss = String.valueOf(Math.max(0, Integer.parseInt(v)))).tip("Weight of this crate among the drops of boss mobs.").defaults("0");
+            number("Monster", true, () -> dropMonster, v -> dropMonster = String.valueOf(Math.max(0, Integer.parseInt(v)))).tip("Weight of this crate among the drops of monsters.").defaults("0");
+            number("Passive", true, () -> dropPassive, v -> dropPassive = String.valueOf(Math.max(0, Integer.parseInt(v)))).tip("Weight of this crate among the drops of passive mobs.").defaults("0");
+            this.initialTagsText = initialTags;
+        }
+
+        private final String initialTagsText;
+
+        private void crateChanged(String key, String now) {
+            if (!now.equals(initialCrate.get(key))) {
+                TableEdits.record("set_table_prop", args("id", table.id).with("key", key)
+                        .with("value", key.equals("loot_glow") ? now.toLowerCase(java.util.Locale.ROOT) : now));
+            }
         }
 
         @Override
@@ -932,6 +1098,26 @@ final class RewardTablesScreen extends GuiScreen {
             if (!loot.equals(initialLoot)) {
                 TableEdits.record("set_table_prop", args("id", table.id).with("key", "loot_size").with("value", loot));
             }
+            if (!hideTip.equals(initialHideTip)) {
+                TableEdits.record("set_table_prop", args("id", table.id).with("key", "hide_tooltip").with("value", hideTip.toLowerCase(java.util.Locale.ROOT)));
+            }
+            if (!useTitle.equals(initialUseTitle)) {
+                TableEdits.record("set_table_prop", args("id", table.id).with("key", "use_title").with("value", useTitle.toLowerCase(java.util.Locale.ROOT)));
+            }
+            if (!tagsText.equals(initialTagsText)) {
+                TableEdits.record("set_table_prop", args("id", table.id).with("key", "tags").with("value", tagsText));
+            }
+            if (!iconChoice.equals(IconPicker.KEEP)) {
+                String value = iconChoice.equals(IconPicker.CLEAR) ? "clear" : iconChoice;
+                TableEdits.record("set_table_prop", args("id", table.id).with("key", "icon").with("value", value));
+            }
+            crateChanged("loot_color", crateColor);
+            crateChanged("loot_glow", crateGlow);
+            crateChanged("loot_string_id", crateId);
+            crateChanged("loot_item_name", crateName);
+            crateChanged("loot_boss", dropBoss);
+            crateChanged("loot_monster", dropMonster);
+            crateChanged("loot_passive", dropPassive);
         }
 
         @Override

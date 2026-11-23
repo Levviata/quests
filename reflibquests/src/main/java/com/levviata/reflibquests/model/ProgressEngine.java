@@ -247,12 +247,30 @@ public final class ProgressEngine {
         return !p.areRewardsBlocked() || q.ignoreRewardBlocking || reward.params().getBool("ignore_reward_blocking", false);
     }
 
+    /**
+     * Whether a reward is one reward for the whole team: its own "Per-Team Reward" if it says so, else the book's
+     * "Per-Team Reward by Type" for its type ({@code default_reward_team_by_type}, ids like {@code ftbquests:item}, as FTB
+     * 26.1.2 saves it), else the book's "Reward 'Team Reward'" default.
+     */
+    public boolean isTeamReward(Reward reward) {
+        if (reward.params().has("team_reward")) {
+            return reward.params().getBool("team_reward", false);
+        }
+        var byType = book.settings.getCompound("default_reward_team_by_type");
+        String key = "ftbquests:" + reward.type();
+        if (byType.has(key)) {
+            return byType.getBool(key, false);
+        }
+        return book.settings.getBool("default_reward_team", false);
+    }
+
     /** Record a claim. The caller grants the reward only if this returns true. */
     public boolean claim(TeamProgress p, UUID player, Reward reward, long now) {
         if (!canClaim(p, player, reward)) {
             return false;
         }
-        p.claimed.put(TeamProgress.claimKey(reward.id(), player), now);
+        // "Per-Team Reward": one claim for the whole team (FTB: only the submitting player receives it), stored under the team id
+        p.claimed.put(TeamProgress.claimKey(reward.id(), isTeamReward(reward) ? p.teamId() : player), now);
         Quest owner = questOf(reward);
         if (owner != null && QuestRules.repeatable(book, owner) && owner.rewards.stream().allMatch(r -> p.isClaimed(r.id(), player))) {
             // the quest is redone only after every reward is claimed; the cooldown (in seconds, as in FTB Quests) counts from then

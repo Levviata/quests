@@ -92,6 +92,11 @@ public final class ZipAssetIndex implements AutoCloseable {
         }
     }
 
+    /** @return every exposed entry as a lower-case {@code assets/domain/path} name */
+    public java.util.List<String> keys() {
+        return new java.util.ArrayList<>(index.keySet());
+    }
+
     /** @return the number of exposed files */
     public int size() {
         return index.size();

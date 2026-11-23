@@ -58,6 +58,11 @@ final class BookSettingsScreen extends SettingsScreen {
         values.put("default_quest_disable_jei", String.valueOf(s.getBool("default_quest_disable_jei", false)));
         values.put("default_reward_team", String.valueOf(s.getBool("default_reward_team", false)));
         values.put("default_autoclaim_rewards", AUTO_LABELS.get(Math.max(0, AUTO_VALUES.indexOf(s.getString("default_autoclaim_rewards", "disabled")))));
+        DataNode.Compound byType = s.getCompound("default_reward_team_by_type");
+        for (String[] t : TEAM_TYPES) {
+            String k = "ftbquests:" + t[0];
+            values.put("reward_team_" + t[0], !byType.has(k) ? "Default" : byType.getBool(k, false) ? "True" : "False");
+        }
         DataNode.Compound loot = s.getCompound("loot_crate_no_drop");
         values.put("loot_boss", String.valueOf(loot.getInt("boss", 0)));
         values.put("loot_monster", String.valueOf(loot.getInt("monster", 600)));
@@ -66,8 +71,8 @@ final class BookSettingsScreen extends SettingsScreen {
 
         section("Quest Book");
         text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("The name of the quest book. Formatting codes such as &6 work.");
-        choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
-                .tip("Held Item takes the item in your main hand.").defaults(ChapterPropertiesScreen.ICON_KEEP);
+        IconPicker.decorate(choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
+                .tip("The icon of the quest book.").defaults("None"), book.settings.getCompound("icon"));
         text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Words that mark the book, separated by commas.");
         unusedBool("Disable GUI", "disable_gui", "The quest book cannot be opened by players who cannot edit it.");
         unusedBool("Drop FTB Quests Book on Death", "drop_book_on_death", "Stored in the book; Reflib Quests does not use it yet.");
@@ -115,11 +120,25 @@ final class BookSettingsScreen extends SettingsScreen {
         bool("Task 'Consume Items'", () -> Boolean.parseBoolean(values.get("default_consume_items")),
                 v -> values.put("default_consume_items", String.valueOf(v)));
 
+        section("Quest Book \u2192 Defaults \u2192 Per-Team Reward by Type");
+        for (String[] t : TEAM_TYPES) {
+            choice(t[1], TEAM_LABELS, () -> values.get("reward_team_" + t[0]), v -> values.put("reward_team_" + t[0], v))
+                    .tip("When true, this is one reward for the whole team; only the submitting player receives it. Default follows 'Reward Team Reward'.")
+                    .defaults("Default");
+        }
+
         section("Quest Book \u2192 Entity Loot Crate Drop Empty Weight");
         number("Boss", true, () -> values.get("loot_boss"), v -> values.put("loot_boss", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Stored in the book; Reflib Quests does not use it yet.");
         number("Monster", true, () -> values.get("loot_monster"), v -> values.put("loot_monster", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Stored in the book; Reflib Quests does not use it yet.");
         number("Passive", true, () -> values.get("loot_passive"), v -> values.put("loot_passive", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Stored in the book; Reflib Quests does not use it yet.");
     }
+
+    /** Reward type ids and their names, in FTB's alphabetical order of names (no Currency: this game has none). */
+    private static final String[][] TEAM_TYPES = {
+        {"advancement", "Advancement"}, {"all_table", "All Table Reward"}, {"choice", "Choice Reward"}, {"command", "Command"},
+        {"custom", "Custom"}, {"item", "Item"}, {"loot", "Loot Reward"}, {"random", "Random Reward"}, {"gamestage", "Stage"},
+        {"toast", "Toast"}, {"xp", "XP"}, {"xp_levels", "XP Levels"}};
+    private static final List<String> TEAM_LABELS = List.of("Default", "False", "True");
 
     private void unusedBool(String label, String key, String tip) {
         bool(label, () -> Boolean.parseBoolean(values.get(key)), v -> values.put(key, String.valueOf(v))).tip(tip).defaults("False");
@@ -144,12 +163,17 @@ final class BookSettingsScreen extends SettingsScreen {
                 continue;
             }
             if (key.equals("icon")) {
-                TableEdits.send("set_icon", DataNode.Compound.empty().with("kind", "book").with("id", "")
-                        .with("mode", v.equals("Clear") ? "clear" : "held"));
+                DataNode.Compound iconEdit = IconPicker.edit("book", "", v);
+                if (iconEdit != null) {
+                    TableEdits.send("set_icon", iconEdit);
+                }
                 continue;
             }
             switch (key) {
                 case "default_quest_shape" -> v = SHAPE_NAMES.get(SHAPE_LABELS.indexOf(v));
+                case "reward_team_item", "reward_team_choice", "reward_team_all_table", "reward_team_random", "reward_team_loot",
+                        "reward_team_command", "reward_team_custom", "reward_team_xp", "reward_team_xp_levels",
+                        "reward_team_advancement", "reward_team_toast", "reward_team_gamestage" -> v = v.toLowerCase(Locale.ROOT);
                 case "default_autoclaim_rewards" -> v = AUTO_VALUES.get(AUTO_LABELS.indexOf(v));
                 case "progression_mode" -> v = v.toUpperCase(Locale.ROOT);
                 case "title" -> v = RichText.stripCodes(v).isEmpty() ? initial.get("title") : v.strip();

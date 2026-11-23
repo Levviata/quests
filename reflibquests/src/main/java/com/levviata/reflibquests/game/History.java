@@ -171,7 +171,7 @@ final class History {
                     }
                 }
             }
-            case "create_link" -> o.chapterIds.add(a.getString("chapter", ""));
+            case "create_link", "create_image" -> o.chapterIds.add(a.getString("chapter", ""));
             case "delete_link" -> {
                 for (Chapter c : book.chapters()) {
                     if (c.links.stream().anyMatch(l -> l.id().equals(id))) {
@@ -401,6 +401,8 @@ final class History {
             case "delete_image":
             case "set_image_props":
                 return "Changed a picture";
+            case "create_image":
+                return "Added a picture";
             case "create_link":
                 return "Linked a quest";
             case "delete_link":

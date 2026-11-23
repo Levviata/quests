@@ -80,6 +80,22 @@ public final class TaskTracker {
                     }
                     break;
                 }
+                case "advancement": {
+                    // also detects an advancement earned before the quest was started; a named criterion is checked alone
+                    net.minecraft.server.MinecraftServer server = player.getServer();
+                    String id = t.params().getString("advancement", "");
+                    net.minecraft.advancements.Advancement adv = server == null || id.isEmpty() ? null
+                            : server.getAdvancementManager().getAdvancement(new ResourceLocation(id));
+                    if (adv != null) {
+                        net.minecraft.advancements.AdvancementProgress progress = player.getAdvancements().getProgress(adv);
+                        String criterion = t.params().getString("criterion", "");
+                        net.minecraft.advancements.CriterionProgress cp = criterion.isEmpty() ? null : progress.getCriterionProgress(criterion);
+                        if (criterion.isEmpty() ? progress.isDone() : cp != null && cp.isObtained()) {
+                            quests.setTaskProgress(player, t, 1);
+                        }
+                    }
+                    break;
+                }
                 case "gamestage": {
                     // 1.12.2 has no game stages: the stage is a player tag, given with /tag <player> add <stage>
                     String stage = t.params().getString("stage", "");
@@ -172,6 +188,18 @@ public final class TaskTracker {
     }
 
     /** The fluid of a fluid task as 1.12.2 names it (no namespace for the vanilla ones: {@code water}). */
+    /** The data a fluid task asks the fluid to have, or null for any. */
+    private static net.minecraft.nbt.NBTTagCompound fluidNbt(DataNode.Compound p) {
+        if (!(p.get("fluid") instanceof DataNode.Compound f) || f.getCompound("nbt").entries().isEmpty()) {
+            return null;
+        }
+        try {
+            return net.minecraft.nbt.JsonToNBT.getTagFromJson(com.levviata.reflib.api.data.Snbt.printCompact(f.getCompound("nbt")));
+        } catch (net.minecraft.nbt.NBTException | RuntimeException ex) {
+            return null;
+        }
+    }
+
     static String fluidNameOf(DataNode.Compound p) {
         DataNode f = p.get("fluid");
         String name = f instanceof DataNode.Compound c ? c.getString("fluid", "") : f instanceof DataNode.Str s ? s.value() : "";
@@ -193,6 +221,8 @@ public final class TaskTracker {
             return "That quest is not available yet.";
         }
         String fluid = fluidNameOf(t.params());
+        net.minecraft.nbt.NBTTagCompound wantedNbt = fluidNbt(t.params());
+        boolean exact = exactNbt(t); // "Match Data Components": the fluid's data must equal the task's, not just contain it
         long need = t.maxProgress() - team.taskProgress(t.id());
         long taken = 0;
         for (int i = 0; i < player.inventory.mainInventory.size() && taken < need; i++) {
@@ -207,6 +237,9 @@ public final class TaskTracker {
                 net.minecraftforge.fluids.FluidStack contained = handler == null ? null : net.minecraftforge.fluids.FluidUtil.getFluidContained(one);
                 if (contained == null || contained.getFluid() == null || !contained.getFluid().getName().equals(fluid)) {
                     break;
+                }
+                if (wantedNbt != null && !net.minecraft.nbt.NBTUtil.areNBTEquals(wantedNbt, contained.tag, !exact)) {
+                    break; // the right fluid, but not with the data the task asks for
                 }
                 net.minecraftforge.fluids.FluidStack drained = handler.drain((int) Math.min(contained.amount, need - taken), true);
                 if (drained == null || drained.amount <= 0) {
@@ -284,8 +317,8 @@ public final class TaskTracker {
     }
 
     private void pollItem(EntityPlayerMP player, Task t, Entry e) {
-        if (consumes(t)) {
-            return; // consumed only through submit
+        if (consumes(t) || t.params().getBool("only_from_crafting", false)) {
+            return; // consumed only through submit; "Only Detect From Crafting" counts only what is crafted (see onCraft)
         }
         List<ItemResolver.Resolved> set = ItemSet.resolveAll(t.params().get("item"), quests.idMap());
         if (set.isEmpty()) {
@@ -426,6 +459,21 @@ public final class TaskTracker {
                 }
             }
             quests.addTaskProgress(killer, e.task(), 1);
+        }
+    }
+
+    /** An item was crafted: counts for item tasks that have "Only Detect From Crafting". */
+    public void onCraft(EntityPlayerMP player, ItemStack crafted) {
+        TeamProgress team = quests.progressOf(player);
+        for (Entry e : new ArrayList<>(entries)) {
+            Task t = e.task();
+            if (!t.type().equals("item") || !t.params().getBool("only_from_crafting", false) || consumes(t) || !open(team, e)) {
+                continue;
+            }
+            List<ItemResolver.Resolved> set = ItemSet.resolveAll(t.params().get("item"), quests.idMap());
+            if (!set.isEmpty() && ItemSet.matches(set, crafted, exactNbt(t))) {
+                quests.addTaskProgress(player, t, crafted.getCount());
+            }
         }
     }
 

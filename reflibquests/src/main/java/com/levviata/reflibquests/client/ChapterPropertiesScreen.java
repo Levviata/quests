@@ -46,6 +46,7 @@ final class ChapterPropertiesScreen extends SettingsScreen {
         values.put("min_width", String.valueOf(c.minWindowWidth));
         values.put("shape", SHAPE_LABELS.get(Math.max(0, SHAPE_NAMES.indexOf(c.defaultQuestShape.equals("default") ? "" : c.defaultQuestShape))));
         values.put("quest_size", String.valueOf(c.defaultQuestSize));
+        values.put("preset", c.preset.isEmpty() ? "None" : c.preset);
         values.put("always_invisible", String.valueOf(c.alwaysInvisible));
         values.put("hide_dep_lines", String.valueOf(c.defaultHideDependencyLines));
         values.put("hide_details", String.valueOf(c.hideQuestDetailsUntilStartable));
@@ -61,8 +62,8 @@ final class ChapterPropertiesScreen extends SettingsScreen {
 
         section("Chapter");
         text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("The name of the chapter. Formatting codes such as &6 work.");
-        choice("Icon", ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
-                .tip("Held Item takes the item in your main hand. Clear lets the chapter show its quests' icons.").defaults(ICON_KEEP);
+        IconPicker.decorate(choice("Icon", ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
+                .tip("The icon of the chapter. None lets the chapter show its quests' icons.").defaults("None"), chapter.icon);
         text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Words that mark the chapter, separated by commas.");
         text("Subtitle", () -> values.get("subtitle"), v -> values.put("subtitle", v)).tip("Shown under the chapter name. Use \\n for a new line.");
         flag("Disable Completion Toast", "disable_toast", "No pop-up when a quest of this chapter is completed.");
@@ -76,6 +77,17 @@ final class ChapterPropertiesScreen extends SettingsScreen {
         number("Default Quest Size", false, () -> values.get("quest_size"),
                 v -> values.put("quest_size", String.valueOf(Math.max(0.0625, Math.min(64.0, Double.parseDouble(v))))))
                 .tip("The size new quests of this chapter start with.").defaults("1");
+        java.util.List<String> presetNames = new java.util.ArrayList<>();
+        presetNames.add("None");
+        com.levviata.reflibquests.model.QuestBook presetBook = com.levviata.reflibquests.client.ClientQuests.book();
+        if (presetBook != null) {
+            presetNames.addAll(presetBook.settings.getCompound("presets").entries().keySet());
+        }
+        if (!presetNames.contains(values.get("preset"))) {
+            presetNames.add(values.get("preset"));
+        }
+        choice("Default Visual Preset", presetNames, () -> values.get("preset"), v -> values.put("preset", v))
+                .tip("Visual preset to be used by all quests in this chapter which don't override it").defaults("None");
 
         section("Chapter → Visibility");
         flag("Always Invisible", "always_invisible", "The chapter is not shown in the chapter list.");
@@ -112,8 +124,10 @@ final class ChapterPropertiesScreen extends SettingsScreen {
                 continue;
             }
             if (key.equals("icon")) {
-                TableEdits.send("set_icon", DataNode.Compound.empty().with("kind", "chapter").with("id", chapter.id)
-                        .with("mode", e.getValue().equals("Clear") ? "clear" : "held"));
+                DataNode.Compound iconEdit = IconPicker.edit("chapter", chapter.id, e.getValue());
+                if (iconEdit != null) {
+                    TableEdits.send("set_icon", iconEdit);
+                }
                 continue;
             }
             String v = e.getValue();

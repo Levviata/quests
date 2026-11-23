@@ -35,9 +35,36 @@ public final class Names {
                 try {
                     return OptionalInt.of(Integer.parseInt(name));
                 } catch (NumberFormatException ex) {
-                    return OptionalInt.empty();
+                    return registeredDimension(name);
                 }
         }
+    }
+
+    /** The prefix of a dimension that is not one of the three of the base game. */
+    public static final String MODDED_PREFIX = "modded:";
+
+    /** A dimension type of this game by its name ({@code modded:name}, or the bare name). */
+    private static OptionalInt registeredDimension(String name) {
+        String bare = name.contains(":") ? name.substring(name.indexOf(':') + 1) : name;
+        for (net.minecraft.world.DimensionType type : net.minecraft.world.DimensionType.values()) {
+            if (type.getName().equalsIgnoreCase(bare)) {
+                it.unimi.dsi.fastutil.ints.IntSortedSet ids = net.minecraftforge.common.DimensionManager.getRegisteredDimensions().get(type);
+                return ids == null || ids.isEmpty() ? OptionalInt.of(type.getId()) : OptionalInt.of(ids.firstInt());
+            }
+        }
+        return OptionalInt.empty();
+    }
+
+    /** Every dimension this game has registered, as the ids a Dimension task stores. */
+    public static java.util.List<String> dimensionNames() {
+        java.util.List<String> out = new java.util.ArrayList<>(java.util.List.of("minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"));
+        for (net.minecraft.world.DimensionType type : net.minecraft.world.DimensionType.values()) {
+            String name = type.getName();
+            if (!name.equals("overworld") && !name.equals("the_nether") && !name.equals("the_end")) {
+                out.add(MODDED_PREFIX + name);
+            }
+        }
+        return out;
     }
 
     /**

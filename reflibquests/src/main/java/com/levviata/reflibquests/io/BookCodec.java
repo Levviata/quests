@@ -77,8 +77,14 @@ public final class BookCodec {
         for (WeightedReward w : t.entries) {
             entries.add(writeReward(w.reward()).with("weight", (double) w.weight()));
         }
-        return DataNode.Compound.empty().with("id", t.id).with("title", t.title)
+        DataNode.Compound out = DataNode.Compound.empty().with("id", t.id).with("title", t.title)
                 .with("empty", (double) t.emptyWeight).with("loot", t.lootSize).with("entries", new DataNode.Lst(entries));
+        for (String flag : List.of("hide_tooltip", "use_title")) { // the table's own switches (FTB 26.1.2)
+            if (t.raw.has(flag)) {
+                out = out.with(flag, t.raw.getBool(flag, false));
+            }
+        }
+        return out;
     }
 
     public static RewardTable tableFrom(DataNode.Compound t) {
@@ -86,6 +92,11 @@ public final class BookCodec {
         table.title = t.getString("title", "");
         table.emptyWeight = (float) t.getDouble("empty", 0);
         table.lootSize = (int) t.getLong("loot", 0);
+        for (String flag : List.of("hide_tooltip", "use_title")) {
+            if (t.has(flag)) {
+                table.raw = table.raw.with(flag, t.getBool(flag, false));
+            }
+        }
         for (DataNode e : t.getList("entries")) {
             if (e instanceof DataNode.Compound ec) {
                 table.entries.add(new WeightedReward((float) ec.getDouble("weight", 1), readReward(ec)));
@@ -122,6 +133,9 @@ public final class BookCodec {
             o = o.with("qsize", c.defaultQuestSize);
         }
         o = putIf(o, "minWidth", c.minWindowWidth);
+        if (!c.preset.isEmpty()) {
+            o = o.with("preset", c.preset);
+        }
         o = putList(o, "tags", c.tags);
         o = putIf(o, "repeatable", c.defaultRepeatable);
         if (!c.images.isEmpty()) {
@@ -176,6 +190,17 @@ public final class BookCodec {
             o = o.with("depMode", q.dependencyMode.name());
         }
         o = putIf(o, "minDeps", q.minRequiredDependencies);
+        o = putIf(o, "maxDependents", q.maxCompletableDependents);
+        o = putList(o, "tags", q.tags);
+        if (q.iconScale != 1.0) {
+            o = o.with("iconScale", q.iconScale);
+        }
+        if (!q.guidePage.isEmpty()) {
+            o = o.with("guide", q.guidePage);
+        }
+        if (!q.preset.isEmpty()) {
+            o = o.with("preset", q.preset);
+        }
         o = putIf(o, "optional", q.optional);
         o = putIf(o, "orTasks", q.orTasks);
         o = putIf(o, "invisible", q.invisible);
@@ -292,6 +317,7 @@ public final class BookCodec {
         ch.defaultConsumeItems = tri(c, "consume");
         ch.defaultQuestSize = c.getDouble("qsize", 1.0);
         ch.minWindowWidth = c.getInt("minWidth", 0);
+        ch.preset = c.getString("preset", "");
         ch.tags = new ArrayList<>(strings(c.getList("tags")));
         ch.defaultQuestShape = c.getString("qshape", "");
         ch.defaultRepeatable = c.getBool("repeatable", false);
@@ -338,6 +364,11 @@ public final class BookCodec {
         q.depControlPts = com.levviata.reflibquests.model.ControlPoints.read(c.getCompound("dcp"));
         q.dependencyMode = DependencyMode.parse(c.getString("depMode", "ALL_COMPLETED"));
         q.minRequiredDependencies = c.getInt("minDeps", 0);
+        q.maxCompletableDependents = c.getInt("maxDependents", 0);
+        q.tags.addAll(strings(c.getList("tags")));
+        q.iconScale = c.getDouble("iconScale", 1.0);
+        q.guidePage = c.getString("guide", "");
+        q.preset = c.getString("preset", "");
         q.optional = c.getBool("optional", false);
         q.orTasks = c.getBool("orTasks", false);
         q.invisible = c.getBool("invisible", false);
