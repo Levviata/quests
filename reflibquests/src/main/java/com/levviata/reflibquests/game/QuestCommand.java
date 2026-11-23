@@ -28,7 +28,7 @@ import com.levviata.reflibquests.model.TeamProgress;
 public final class QuestCommand extends CommandBase {
 
     private static final List<String> PLAYER = List.of("list", "info", "check", "submit", "claim", "claimall");
-    private static final List<String> ADMIN = List.of("complete", "reset", "reload", "lock", "blockrewards", "problems", "export");
+    private static final List<String> ADMIN = List.of("complete", "reset", "reload", "lock", "blockrewards", "problems", "export", "delete_empty_reward_tables", "generate_chapter_with_all_items_in_game");
 
     @Override
     public String getName() {
@@ -43,7 +43,7 @@ public final class QuestCommand extends CommandBase {
     @Override
     public String getUsage(ICommandSender sender) {
         return "/rquests <list|info <quest>|check <task>|submit <task>|claim <reward> [choice]|claimall>"
-                + " (admin: complete|reset <quest> [player], reload, lock|blockrewards <true|false> [player], problems)";
+                + " (admin: complete|reset <quest|all> [player], reload, lock|blockrewards <true|false> [player], problems, export, delete_empty_reward_tables, generate_chapter_with_all_items_in_game)";
     }
 
     @Override
@@ -99,6 +99,12 @@ public final class QuestCommand extends CommandBase {
                 for (int i = 0; i < Math.min(15, qs.inertTasks().size()); i++) {
                     say(sender, " - " + qs.inertTasks().get(i));
                 }
+                return;
+            case "generate_chapter_with_all_items_in_game":
+                say(sender, "Generated a chapter with " + qs.generateItemChapter() + " item quests.");
+                return;
+            case "delete_empty_reward_tables":
+                deleteEmptyTables(qs, getCommandSenderAsPlayer(sender), sender);
                 return;
             case "list":
                 list(qs, getCommandSenderAsPlayer(sender), sender);
@@ -225,6 +231,23 @@ public final class QuestCommand extends CommandBase {
         return null;
     }
 
+    private void deleteEmptyTables(QuestServer qs, EntityPlayerMP player, ICommandSender sender) {
+        int deleted = 0;
+        int kept = 0;
+        for (com.levviata.reflibquests.model.Definitions.RewardTable t : new ArrayList<>(qs.book().tables().values())) {
+            if (!t.entries.isEmpty()) {
+                continue;
+            }
+            qs.handleEdit(player, "delete_table", com.levviata.reflib.api.data.Snbt.printCompact(com.levviata.reflib.api.data.DataNode.Compound.empty().with("id", t.id)));
+            if (qs.book().tables().containsKey(t.id)) {
+                kept++;
+            } else {
+                deleted++;
+            }
+        }
+        say(sender, "Deleted " + deleted + " empty reward table(s)" + (kept > 0 ? "; " + kept + " empty one(s) are still used by a quest and were kept." : "."));
+    }
+
     private void admin(MinecraftServer server, QuestServer qs, ICommandSender sender, String sub, String[] args) throws CommandException {
         boolean isFlag = sub.equals("lock") || sub.equals("blockrewards");
         String targetName = args.length > 2 ? args[2] : null;
@@ -243,6 +266,18 @@ public final class QuestCommand extends CommandBase {
             return;
         }
         String questId = arg(args, 1);
+        if (questId.equalsIgnoreCase("all")) {
+            for (Quest cq : new ArrayList<>(qs.book().allQuests())) {
+                if (sub.equals("complete")) {
+                    qs.apply(team, qs.engine().forceComplete(team, cq.id, System.currentTimeMillis()));
+                } else {
+                    qs.apply(team, qs.engine().resetQuest(team, cq.id));
+                }
+            }
+            say(sender, sub + " all quests done for " + target.getName() + "'s team");
+            ReflibQuestsMod.LOGGER.info("{} ran /rquests {} on every quest", sender.getName(), sub);
+            return;
+        }
         com.levviata.reflibquests.model.Definitions.Chapter wholeChapter = qs.book().chapter(questId);
         if (qs.book().quest(questId) == null && wholeChapter != null) {
 

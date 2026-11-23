@@ -22,7 +22,7 @@ final class PreferencesScreen extends SettingsScreen {
         super(parent, "Player Preferences");
         section("User Interface");
         bool("Backspace Goes Back", () -> ClientPrefs.backspaceHistory, v -> ClientPrefs.backspaceHistory = v)
-                .tip("Not used yet. Would take you back to the previous quest.").defaults("True");
+                .tip("On: Backspace goes back to the previous quest.\nOff: Backspace closes the quest window, then the book.").defaults("True");
         bool("Keep Chapter Panel Open", () -> ClientPrefs.chapterPanelPinned, v -> ClientPrefs.chapterPanelPinned = v)
                 .tip("Chapter panel stays open instead of hiding when the mouse leaves.").defaults("False");
         bool("Old Scroll Wheel", () -> ClientPrefs.oldScrollWheel, v -> ClientPrefs.oldScrollWheel = v)
@@ -47,7 +47,7 @@ final class PreferencesScreen extends SettingsScreen {
         section("Translations");
         text("Fallback Locale", () -> ClientPrefs.fallbackLocale, v -> ClientPrefs.fallbackLocale = v).tip("Not used yet.");
         bool("Highlight missing translations", () -> ClientPrefs.highlightMissing, v -> ClientPrefs.highlightMissing = v).tip("Not used yet.").defaults("True");
-        text("Locale Override", () -> ClientPrefs.localeOverride, v -> ClientPrefs.localeOverride = v).tip("Not used yet.");
+        text("Locale Override", () -> ClientPrefs.localeOverride, v -> ClientPrefs.localeOverride = v).tip("Only changes the language shown in the status line for now.\nQuest text always follows the book's fallback locale.");
         section("Change History Display");
         bool("Always Show Recent Changes", () -> ClientPrefs.alwaysShowHistory, v -> ClientPrefs.alwaysShowHistory = v).tip("Recent changes stay on the map and don't fade.").defaults("False");
         number("Recent Changes Show Time (seconds)", false, () -> String.valueOf(ClientPrefs.historySeconds), v -> ClientPrefs.historySeconds = Double.parseDouble(v)).defaults("5.00");

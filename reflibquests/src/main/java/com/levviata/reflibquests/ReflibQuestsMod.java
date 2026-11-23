@@ -34,12 +34,14 @@ public class ReflibQuestsMod {
     public static final Logger LOGGER = LogManager.getLogger("reflibquests");
 
     public static final net.minecraft.item.Item QUEST_BOOK = new QuestBookItem();
+    public static final net.minecraft.item.Item LOOT_CRATE = new LootCrateItem();
 
     private int serverTicks;
 
     @SubscribeEvent
     public void registerItems(net.minecraftforge.event.RegistryEvent.Register<net.minecraft.item.Item> event) {
         event.getRegistry().register(QUEST_BOOK);
+        event.getRegistry().register(LOOT_CRATE);
     }
 
     @Mod.EventHandler
@@ -103,6 +105,75 @@ public class ReflibQuestsMod {
             QuestServer qs = QuestServer.get();
             if (qs != null) {
                 qs.tracker().tick((EntityPlayerMP) event.player);
+            }
+        }
+    }
+
+    private static final java.util.Map<java.util.UUID, java.util.List<net.minecraft.item.ItemStack>> KEPT_BOOKS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    @SubscribeEvent
+    public void onDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
+        QuestServer qs = QuestServer.get();
+        if (qs == null) {
+            return;
+        }
+        com.levviata.reflibquests.model.QuestBook book = qs.book();
+        net.minecraft.entity.EntityLivingBase dying = event.getEntityLiving();
+        if (dying instanceof EntityPlayerMP) {
+            if (!book.settings.getBool("drop_book_on_death", false)) {
+                java.util.List<net.minecraft.item.ItemStack> kept = new java.util.ArrayList<>();
+                java.util.Iterator<net.minecraft.entity.item.EntityItem> it = event.getDrops().iterator();
+                while (it.hasNext()) {
+                    net.minecraft.item.ItemStack stack = it.next().getItem();
+                    if (stack.getItem() == QUEST_BOOK) {
+                        kept.add(stack.copy());
+                        it.remove();
+                    }
+                }
+                if (!kept.isEmpty()) {
+                    KEPT_BOOKS.put(dying.getUniqueID(), kept);
+                }
+            }
+            return;
+        }
+        if (!book.settings.getBool("drop_loot_crates", false) || !(event.getSource().getTrueSource() instanceof EntityPlayerMP)) {
+            return;
+        }
+        String category = !dying.isNonBoss() ? "boss" : dying instanceof net.minecraft.entity.monster.IMob ? "monster" : "passive";
+        int noDrop = book.settings.getCompound("loot_crate_no_drop").getInt(category, category.equals("passive") ? 4000 : category.equals("monster") ? 600 : 0);
+        java.util.List<com.levviata.reflibquests.model.Definitions.RewardTable> tables = new java.util.ArrayList<>();
+        int total = 0;
+        for (com.levviata.reflibquests.model.Definitions.RewardTable t : book.tables().values()) {
+            int weight = t.raw.getCompound("loot_crate").getCompound("drops").getInt(category, 0);
+            if (LootCrates.enabled(t) && weight > 0) {
+                tables.add(t);
+                total += weight;
+            }
+        }
+        if (total <= 0) {
+            return;
+        }
+        int roll = dying.world.rand.nextInt(total + Math.max(0, noDrop));
+        if (roll >= total) {
+            return;
+        }
+        for (com.levviata.reflibquests.model.Definitions.RewardTable t : tables) {
+            roll -= t.raw.getCompound("loot_crate").getCompound("drops").getInt(category, 0);
+            if (roll < 0) {
+                event.getDrops().add(new net.minecraft.entity.item.EntityItem(dying.world, dying.posX, dying.posY, dying.posZ, LootCrates.stackFor(t)));
+                return;
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onRespawn(net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerRespawnEvent event) {
+        java.util.List<net.minecraft.item.ItemStack> kept = KEPT_BOOKS.remove(event.player.getUniqueID());
+        if (kept != null) {
+            for (net.minecraft.item.ItemStack stack : kept) {
+                if (!event.player.inventory.addItemStackToInventory(stack)) {
+                    event.player.dropItem(stack, false);
+                }
             }
         }
     }

@@ -341,6 +341,57 @@ public final class QuestServer {
         editApplied(op);
     }
 
+    public int generateItemChapter() {
+        com.levviata.reflibquests.model.BookEditor ed = new com.levviata.reflibquests.model.BookEditor(book, new java.util.Random());
+        com.levviata.reflibquests.model.Definitions.Chapter chapter = ed.createChapter("All Items");
+        if (chapter == null) {
+            return 0;
+        }
+        int count = 0;
+        for (net.minecraft.item.Item item : net.minecraftforge.fml.common.registry.ForgeRegistries.ITEMS) {
+            net.minecraft.util.NonNullList<net.minecraft.item.ItemStack> stacks = net.minecraft.util.NonNullList.create();
+            try {
+                item.getSubItems(net.minecraft.creativetab.CreativeTabs.SEARCH, stacks);
+            } catch (RuntimeException ex) {
+                stacks.clear();
+            }
+            if (stacks.isEmpty()) {
+                stacks.add(new net.minecraft.item.ItemStack(item));
+            }
+            for (net.minecraft.item.ItemStack stack : stacks) {
+                if (stack.isEmpty() || item.getRegistryName() == null) {
+                    continue;
+                }
+                com.levviata.reflibquests.model.Definitions.Quest q = ed.createQuest(chapter.id, (count % 40) * 1.5, (count / 40) * 1.5);
+                if (q == null) {
+                    continue;
+                }
+                q.tasks.clear();
+                com.levviata.reflib.api.data.DataNode.Compound spec = com.levviata.reflib.api.data.DataNode.Compound.empty()
+                        .with("id", item.getRegistryName().toString());
+                if (stack.getHasSubtypes() || stack.getMetadata() != 0) {
+                    spec = spec.with("damage", stack.getMetadata());
+                }
+                String nbtText = "";
+                if (stack.hasTagCompound() && !stack.getTagCompound().isEmpty()) {
+                    nbtText = stack.getTagCompound().toString();
+                    com.levviata.reflib.api.data.DataNode.Compound nbt = com.levviata.reflibquests.model.BookEditor.parseNbt(nbtText);
+                    if (nbt != null && !nbt.entries().isEmpty()) {
+                        spec = spec.with("nbt", nbt);
+                    }
+                }
+                ed.addTask(q.id, "item", com.levviata.reflib.api.data.DataNode.Compound.empty().with("item", spec).with("count", 1));
+                q.subtitle = item.getRegistryName().toString() + (stack.getMetadata() != 0 ? " @" + stack.getMetadata() : "");
+                if (!nbtText.isEmpty() && nbtText.length() < com.levviata.reflibquests.model.BookEditor.MAX_LINE) {
+                    q.description = new java.util.ArrayList<>(java.util.List.of(nbtText));
+                }
+                count++;
+            }
+        }
+        changed(true);
+        return count;
+    }
+
     private final History history = new History();
     private boolean bookBytesStale;
 
