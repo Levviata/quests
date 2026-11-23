@@ -210,7 +210,7 @@ public final class ClientBootstrap {
                 if (!p.isClaimed(rw.id(), me)) {
                     CLAIMED_SEEN.remove(rw.id());
                 }
-                if (p.isClaimed(rw.id(), me) && CLAIMED_SEEN.add(rw.id()) && !quiet) {
+                if (p.isClaimed(rw.id(), me) && CLAIMED_SEEN.add(rw.id()) && !quiet && !QuestText.silentReward(book, rw)) {
                     String text = rw.type().equals("xp") ? "XP: \u00a7a+" + Math.max(1, rw.params().getInt("xp", 1)) : QuestText.reward(rw);
                     net.minecraft.item.ItemStack icon = rw.type().startsWith("xp")
                             ? new net.minecraft.item.ItemStack(net.minecraft.init.Items.EXPERIENCE_BOTTLE)
