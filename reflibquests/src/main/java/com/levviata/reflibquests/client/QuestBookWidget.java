@@ -1446,7 +1446,7 @@ final class QuestBookWidget extends Widget {
             return;
         }
         boolean chevrons = QuestArt.hasGui("dependency");
-        double phase = (System.currentTimeMillis() % 20000L) / 20000.0 * 8.0;
+        double phase = (System.currentTimeMillis() % 10000L) / 10000.0 * 8.0;
         double[] nx = new double[count];
         double[] ny = new double[count];
         double[] vv = new double[count];
@@ -1993,7 +1993,7 @@ final class QuestBookWidget extends Widget {
         double ny = dx / len * thickness / 2;
         boolean chevrons = QuestArt.hasGui("dependency");
         double repeats = len / (chevrons ? thickness : thickness * 8);
-        double phase = (System.currentTimeMillis() % 20000L) / 20000.0 * 8.0;
+        double phase = (System.currentTimeMillis() % 10000L) / 10000.0 * 8.0;
         double v0 = -flow * phase;
         double v1 = repeats - flow * phase;
         mc().getTextureManager().bindTexture(chevrons ? QuestArt.guiTexture("dependency") : LADDER);
@@ -2240,7 +2240,7 @@ final class QuestBookWidget extends Widget {
         fr.drawStringWithShadow("Rewards", x, y, 0xFFFFFF);
         y += 12;
         UUID me = mc().player == null ? null : mc().player.getUniqueID();
-        for (Reward rw : q.rewards) {
+        for (Reward rw : shownRewards(q)) {
             boolean claimed = me != null && p.isClaimed(rw.id(), me);
             boolean ready = me != null && engine.canClaim(p, me, rw);
             String text = QuestText.reward(rw) + (claimed ? " (claimed)" : "");
@@ -2707,7 +2707,8 @@ final class QuestBookWidget extends Widget {
         int y = top;
 
         int taskSlots = q.tasks.size() + (isEditing() ? 1 : 0);
-        int rewardSlots = q.rewards.size() + (isEditing() ? 1 : 0);
+        final List<Reward> shownRewards = shownRewards(q);
+        int rewardSlots = shownRewards.size() + (isEditing() ? 1 : 0);
 
         int taskPer = balancedPerRow(taskSlots);
         int rewardPer = balancedPerRow(rewardSlots);
@@ -2863,8 +2864,8 @@ final class QuestBookWidget extends Widget {
             addHit(plus, () -> openMenu(lastMouseX, lastMouseY, taskTypeMenu(a -> send("add_task", a.with("id", owner)))),
                     "Add a task");
         }
-        for (int i = 0; i < q.rewards.size(); i++) {
-            Reward rw = q.rewards.get(i);
+        for (int i = 0; i < shownRewards.size(); i++) {
+            Reward rw = shownRewards.get(i);
             int inRow = Math.min(rewardPer, rewardSlots - (i / rewardPer) * rewardPer);
             int sx = mid + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % rewardPer) * 20;
             int sy = y + 18 + (i / rewardPer) * 21;
@@ -2901,7 +2902,7 @@ final class QuestBookWidget extends Widget {
                     : () -> rewardMenu(q, target));
         }
         if (isEditing()) {
-            int i = q.rewards.size();
+            int i = shownRewards.size();
             int inRow = Math.min(rewardPer, rewardSlots - (i / rewardPer) * rewardPer);
             int sx = mid + r.width() / 4 - (inRow * 20 - 2) / 2 + (i % rewardPer) * 20;
             int sy = y + 18 + (i / rewardPer) * 21;
@@ -3549,6 +3550,20 @@ final class QuestBookWidget extends Widget {
     }
 
     private static final Map<String, Object[]> CHAPTER_ICON_CACHE = new HashMap<>();
+
+    private List<Reward> shownRewards(Quest q) {
+        QuestBook book = ClientQuests.book();
+        if (isEditing() || book == null) {
+            return q.rewards;
+        }
+        List<Reward> out = new ArrayList<>();
+        for (Reward r : q.rewards) {
+            if (!QuestText.hiddenReward(book, r)) {
+                out.add(r);
+            }
+        }
+        return out;
+    }
 
     private static Object chapterIconFromQuests(Chapter c) {
         long now = System.currentTimeMillis();

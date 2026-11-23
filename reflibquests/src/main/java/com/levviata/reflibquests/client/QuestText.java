@@ -331,6 +331,20 @@ final class QuestText {
         }
     }
 
+    static String autoMode(com.levviata.reflibquests.model.QuestBook book, Reward r) {
+        String mode = r.autoClaim();
+        return mode.equals("default") ? book.settings.getString("default_autoclaim_rewards", "disabled") : mode;
+    }
+
+    static boolean hiddenReward(com.levviata.reflibquests.model.QuestBook book, Reward r) {
+        return autoMode(book, r).equals("invisible");
+    }
+
+    static boolean silentReward(com.levviata.reflibquests.model.QuestBook book, Reward r) {
+        String mode = autoMode(book, r);
+        return mode.equals("no_toast") || mode.equals("invisible");
+    }
+
     @Nullable
     static net.minecraftforge.fluids.Fluid iconFluid(Quest q) {
         if (!q.icon.entries().isEmpty() && stackOf(q.icon) != null) {
