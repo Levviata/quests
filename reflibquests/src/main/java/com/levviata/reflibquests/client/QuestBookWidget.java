@@ -860,7 +860,8 @@ final class QuestBookWidget extends Widget {
                         new MenuItem("Complete Instantly", "", "lib:check", false, () -> confirmBook("Complete this task instantly?", "complete_quest")),
                         new MenuItem("Edit Reward Tables", "", "collect_rewards", false,
                                 () -> mc().displayGuiScreen(new RewardTablesScreen(mc().currentScreen))),
-                        new MenuItem("Save on Server now", "", "", false, () -> send("save_now", DataNode.Compound.empty()))), "Settings"));
+                        new MenuItem("Save on Server now", "", "", false, () -> send("save_now", DataNode.Compound.empty())),
+                        new MenuItem("Open Wiki", "", "", false, () -> onLink(wikiBook, new RichText.Click("open_url", "https://go.ftb.team/docs-quests")))), "Settings"));
             }
         }
     }
@@ -3280,7 +3281,7 @@ final class QuestBookWidget extends Widget {
         int x = 0;
         String[] parts = {
             String.format(java.util.Locale.ROOT, "Cursor: [%+.2f, %+.2f]", mx, my),
-            "Selected: " + selected + "/" + chapter.quests.size(),
+            "Selected: " + selected + "/" + (chapter.quests.size() + chapter.images.size()), // FTB counts the chapter's images too
             "Lang: " + lang,
         };
         String center = String.format(java.util.Locale.ROOT, "Center: [%.2f, %.2f]", cx, cy);
@@ -3675,7 +3676,7 @@ final class QuestBookWidget extends Widget {
         boolean done = p != null && p.isCompleted(target.id);
         List<MenuItem> items = new ArrayList<>();
         items.add(new MenuItem("\"" + QuestText.titlePlain(target) + "\"", "", "", false, null));
-        items.add(new MenuItem("Edit", "", "settings", true, () -> selectedQuest = target.id));
+        items.add(new MenuItem("Edit", "", "settings", true, () -> mc().displayGuiScreen(new QuestPropertiesScreen(mc().currentScreen, target))));
         items.add(new MenuItem("Move", "", "lib:up", false, () -> startQuestMove(target)));
         items.add(new MenuItem("Resize", "", "lib:expand", false, () -> startResize(target)));
         items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickProperties(target, lastMouseX, lastMouseY)));

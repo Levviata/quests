@@ -46,6 +46,7 @@ final class QuestPropertiesScreen extends SettingsScreen {
         values.put("shape", SHAPE_LABELS.get(Math.max(0, SHAPE_NAMES.indexOf(q.shape.equals("default") ? "" : q.shape))));
         values.put("size", String.valueOf(q.size));
         values.put("z", String.valueOf(q.z));
+        values.put("disable_toast", String.valueOf(q.disableToast));
         values.put("hide_details", tri(q.hideDetailsUntilStartable));
         values.put("hide_deps_complete", tri(q.hideUntilDepsComplete));
         values.put("hide_deps_visible", tri(q.hideUntilDepsVisible));
@@ -72,6 +73,9 @@ final class QuestPropertiesScreen extends SettingsScreen {
         choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
                 .tip("Held Item takes the item in your main hand. Clear goes back to the icon of the first task or reward.")
                 .defaults(ChapterPropertiesScreen.ICON_KEEP);
+        bool("Disable Completion Toast", () -> Boolean.parseBoolean(values.get("disable_toast")), v -> values.put("disable_toast", String.valueOf(v)))
+                .tip("No pop-up when this quest is completed.").defaults("False");
+
         section("Quest → Appearance");
         choice("Shape", SHAPE_LABELS, () -> values.get("shape"), v -> values.put("shape", v))
                 .tip("How the quest is drawn on the map.").defaults("Default");
