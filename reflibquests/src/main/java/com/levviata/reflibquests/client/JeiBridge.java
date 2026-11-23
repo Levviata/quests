@@ -12,10 +12,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.levviata.reflibquests.ReflibQuestsMod;
 
-/**
- * Opens Just Enough Items' recipe screen for an item when JEI is installed. JEI is not a dependency: it is reached by
- * name at run time, and every failure just means "no recipe screen".
- */
 @SideOnly(Side.CLIENT)
 final class JeiBridge {
 
@@ -25,7 +21,6 @@ final class JeiBridge {
         return Loader.isModLoaded("jei");
     }
 
-    /** Show the recipes that produce the item. @return false if JEI is missing or could not open the screen */
     static boolean showRecipes(ItemStack stack) {
         if (!available() || stack.isEmpty()) {
             return false;

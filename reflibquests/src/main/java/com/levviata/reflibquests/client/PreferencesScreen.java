@@ -13,7 +13,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.levviata.reflib.api.data.DataNode;
 
-/** The "Player Preferences" window: grouped settings with coloured values, Accept and Cancel. */
 @SideOnly(Side.CLIENT)
 final class PreferencesScreen extends SettingsScreen {
 

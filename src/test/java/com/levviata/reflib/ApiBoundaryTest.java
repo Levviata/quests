@@ -15,10 +15,6 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Mechanical check of the api/impl split (architecture doc 2.2): the example project and the public API may
- * use only the public API, never reflib internals, and common code never touches the client-only GUI package.
- */
 class ApiBoundaryTest {
 
     private static final Path MAIN = Path.of("src/main/java/com/levviata/reflib");

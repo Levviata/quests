@@ -15,7 +15,6 @@ import com.levviata.reflibquests.model.Definitions.ProgressionMode;
 import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.Definitions.Task;
 
-/** Read-only rules over a {@link QuestBook} and a {@link TeamProgress}: dependencies, visibility, sequencing. */
 public final class QuestRules {
 
     private QuestRules() {}
@@ -24,7 +23,6 @@ public final class QuestRules {
         return p.taskProgress(t.id()) >= t.maxProgress();
     }
 
-    /** Number of finished tasks. Optional tasks count too (they simply are not required, see {@link #allRequiredTasksDone}). */
     public static int tasksDone(TeamProgress p, Quest q) {
         int n = 0;
         for (Task t : q.tasks) {
@@ -35,10 +33,9 @@ public final class QuestRules {
         return n;
     }
 
-    /** True if every non-optional task is done; a quest with no tasks never completes by itself. */
     public static boolean allRequiredTasksDone(TeamProgress p, Quest q) {
         if (q.orTasks) {
-            return tasksDone(p, q) > 0; // any one task is enough
+            return tasksDone(p, q) > 0;
         }
         boolean anyRequired = false;
         for (Task t : q.tasks) {
@@ -58,7 +55,6 @@ public final class QuestRules {
         return q.requireSequentialTasks.resolve(c != null && c.requireSequentialTasks);
     }
 
-    /** @return the first unfinished task if tasks must be done in order, otherwise null (any task may progress) */
     public static Task requiredNextTask(QuestBook book, TeamProgress p, Quest q) {
         if (!sequential(book, q)) {
             return null;
@@ -76,10 +72,6 @@ public final class QuestRules {
         return q.canRepeat.resolve(c != null && c.defaultRepeatable);
     }
 
-    /**
-     * Dependency check. Dependencies on quests that do not exist are ignored. An optional quest still has to be
-     * completed before the quests that depend on it, as in FTB Quests. A quest with no remaining dependencies is open.
-     */
     public static boolean dependenciesMet(QuestBook book, TeamProgress p, Quest q) {
         List<Quest> required = new ArrayList<>();
         for (String id : q.dependencies) {
@@ -92,7 +84,7 @@ public final class QuestRules {
             return true;
         }
         if (!p.isCompleted(q.id)) {
-            // "Max Completable Dependents": once that many dependents of a dependency are completed, the others are unavailable
+
             for (Quest dep : required) {
                 if (dep.maxCompletableDependents > 0) {
                     int done = 0;
@@ -122,7 +114,6 @@ public final class QuestRules {
         return satisfied >= needed;
     }
 
-    /** Whether tasks of the quest may currently make progress. */
     public static boolean canProgress(QuestBook book, TeamProgress p, Quest q) {
         if (p.isLocked()) {
             return false;
@@ -130,7 +121,6 @@ public final class QuestRules {
         return book.effectiveMode(q) == ProgressionMode.FLEXIBLE || dependenciesMet(book, p, q);
     }
 
-    /** Whether the quest is shown on the map at all. */
     public static boolean isVisible(QuestBook book, TeamProgress p, Quest q) {
         return isVisible(book, p, q, new HashSet<>(), new java.util.HashMap<>());
     }
@@ -159,7 +149,7 @@ public final class QuestRules {
         if (q.invisibleUntilTasks > 0 && tasksDone(p, q) < q.invisibleUntilTasks) {
             return false;
         }
-        // a quest whose dependencies are all hidden is hidden as well
+
         boolean anyDependency = false;
         boolean anyVisible = false;
         if (visiting.add(q.id)) {
@@ -184,7 +174,7 @@ public final class QuestRules {
         boolean needDepsVisible = q.hideUntilDepsVisible.resolve(c != null && c.hideQuestUntilDepsVisible);
         if (needDepsVisible) {
             if (!visiting.add(q.id)) {
-                return false; // dependency loop: hide rather than recurse forever
+                return false;
             }
             try {
                 for (String id : q.dependencies) {
@@ -204,14 +194,12 @@ public final class QuestRules {
         return true;
     }
 
-    /** Whether title/description/tasks of a visible quest are readable. */
     public static boolean detailsVisible(QuestBook book, TeamProgress p, Quest q) {
         Chapter c = book.chapterOf(q.id);
         boolean hide = q.hideDetailsUntilStartable.resolve(c != null && c.hideQuestDetailsUntilStartable);
         return !hide || p.isCompleted(q.id) || dependenciesMet(book, p, q);
     }
 
-    /** A chapter is complete when it has at least one non-optional quest and all of those are completed. */
     public static boolean chapterCompleted(TeamProgress p, Chapter c) {
         boolean any = false;
         for (Quest q : c.quests) {
@@ -226,7 +214,6 @@ public final class QuestRules {
         return any;
     }
 
-    /** @return 0..100, share of task progress over the quest's tasks (completed quests count as 100) */
     public static int percent(TeamProgress p, Quest q) {
         if (p.isCompleted(q.id)) {
             return 100;

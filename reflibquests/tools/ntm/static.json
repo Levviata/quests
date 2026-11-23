@@ -1,0 +1,444 @@
+{
+ "vanilla": {
+  "minecraft:grass@0": {
+   "to": "minecraft:grass_block",
+   "status": "renamed",
+   "note": "flattening"
+  },
+  "minecraft:reeds@0": {
+   "to": "minecraft:sugar_cane",
+   "status": "renamed",
+   "note": "flattening"
+  },
+  "minecraft:yellow_flower@0": {
+   "to": "minecraft:dandelion",
+   "status": "renamed",
+   "note": "flattening"
+  },
+  "minecraft:quartz_ore@0": {
+   "to": "minecraft:nether_quartz_ore",
+   "status": "renamed",
+   "note": "flattening"
+  },
+  "minecraft:log@0": {
+   "to": "minecraft:oak_log",
+   "status": "renamed",
+   "note": "flattening"
+  },
+  "minecraft:log@3": {
+   "to": "minecraft:jungle_log",
+   "status": "renamed",
+   "note": "flattening"
+  },
+  "minecraft:planks@0": {
+   "to": "minecraft:oak_planks",
+   "status": "renamed",
+   "note": "flattening"
+  },
+  "minecraft:coal@1": {
+   "to": "minecraft:charcoal",
+   "status": "renamed",
+   "note": "flattening"
+  },
+  "minecraft:dye@4": {
+   "to": "minecraft:lapis_lazuli",
+   "status": "renamed",
+   "note": "flattening"
+  },
+  "futuremc:grindstone@0": {
+   "to": "minecraft:grindstone",
+   "status": "renamed",
+   "note": "Future MC block is vanilla in 26.1.2"
+  },
+  "futuremc:smoker@0": {
+   "to": "minecraft:smoker",
+   "status": "renamed",
+   "note": "Future MC block is vanilla in 26.1.2"
+  },
+  "refinedstorage:cable@0": {
+   "to": "refinedstorage:cable",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:constructor@0": {
+   "to": "refinedstorage:constructor",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:destructor@0": {
+   "to": "refinedstorage:destructor",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:disk_drive@0": {
+   "to": "refinedstorage:disk_drive",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:exporter@0": {
+   "to": "refinedstorage:exporter",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:importer@0": {
+   "to": "refinedstorage:importer",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:external_storage@0": {
+   "to": "refinedstorage:external_storage",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:network_card@0": {
+   "to": "refinedstorage:network_card",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:network_receiver@0": {
+   "to": "refinedstorage:network_receiver",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:network_transmitter@0": {
+   "to": "refinedstorage:network_transmitter",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:pattern@0": {
+   "to": "refinedstorage:pattern",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:portable_grid@0": {
+   "to": "refinedstorage:portable_grid",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:quartz_enriched_iron@0": {
+   "to": "refinedstorage:quartz_enriched_iron",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage_housing@0": {
+   "to": "refinedstorage:storage_housing",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:wireless_grid@0": {
+   "to": "refinedstorage:wireless_grid",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:wrench@0": {
+   "to": "refinedstorage:wrench",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:controller@0": {
+   "to": "refinedstorage:controller",
+   "status": "same-ish",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:controller@1": {
+   "to": "refinedstorage:creative_controller",
+   "status": "flattened",
+   "note": "meta 1 was the creative controller; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:core@0": {
+   "to": "refinedstorage:construction_core",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:core@1": {
+   "to": "refinedstorage:destruction_core",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:crafter@0": {
+   "to": "refinedstorage:autocrafter",
+   "status": "renamed",
+   "note": "Crafter is Autocrafter in 2.x; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:crafter_manager@0": {
+   "to": "refinedstorage:autocrafter_manager",
+   "status": "renamed",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:crafting_monitor@0": {
+   "to": "refinedstorage:autocrafting_monitor",
+   "status": "renamed",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:disk_manipulator@0": {
+   "to": "refinedstorage:disk_interface",
+   "status": "substitute",
+   "note": "the Disk Manipulator was replaced by the Disk Interface; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:fluid_storage_part@0": {
+   "to": "refinedstorage:64b_fluid_storage_part",
+   "status": "substitute",
+   "note": "1.6 fluid parts hold 64k; 2.x parts are 64B..4096B, smallest used; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:grid@0": {
+   "to": "refinedstorage:grid",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:grid@1": {
+   "to": "refinedstorage:crafting_grid",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:grid@2": {
+   "to": "refinedstorage:pattern_grid",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:grid@3": {
+   "to": "refinedstorage:grid",
+   "status": "substitute",
+   "note": "no separate Fluid Grid in 2.x: the Grid handles fluids; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:processor@3": {
+   "to": "refinedstorage:basic_processor",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:processor@4": {
+   "to": "refinedstorage:improved_processor",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:processor@5": {
+   "to": "refinedstorage:advanced_processor",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:reader@0": {
+   "to": "refinedstorage:relay",
+   "status": "substitute-weak",
+   "note": "Reader/Writer do not exist in 2.x; the Relay is the closest network-linking block; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:writer@0": {
+   "to": "refinedstorage:relay",
+   "status": "substitute-weak",
+   "note": "Reader/Writer do not exist in 2.x; the Relay is the closest network-linking block; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage@0": {
+   "to": "refinedstorage:1k_storage_block",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage_disk@0": {
+   "to": "refinedstorage:1k_storage_disk",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage_part@0": {
+   "to": "refinedstorage:1k_storage_part",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage@1": {
+   "to": "refinedstorage:4k_storage_block",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage_disk@1": {
+   "to": "refinedstorage:4k_storage_disk",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage_part@1": {
+   "to": "refinedstorage:4k_storage_part",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage@2": {
+   "to": "refinedstorage:16k_storage_block",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage_disk@2": {
+   "to": "refinedstorage:16k_storage_disk",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage_part@2": {
+   "to": "refinedstorage:16k_storage_part",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage@3": {
+   "to": "refinedstorage:64k_storage_block",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage_disk@3": {
+   "to": "refinedstorage:64k_storage_disk",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:storage_part@3": {
+   "to": "refinedstorage:64k_storage_part",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:upgrade@0": {
+   "to": "refinedstorage:upgrade",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:upgrade@1": {
+   "to": "refinedstorage:range_upgrade",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:upgrade@2": {
+   "to": "refinedstorage:speed_upgrade",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:upgrade@3": {
+   "to": "refinedstorage:autocrafting_upgrade",
+   "status": "flattened",
+   "note": "1.6 Crafting Upgrade is the 2.x Autocrafting Upgrade; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:upgrade@4": {
+   "to": "refinedstorage:stack_upgrade",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:upgrade@6": {
+   "to": "refinedstorage:silk_touch_upgrade",
+   "status": "flattened",
+   "note": "id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:upgrade@7": {
+   "to": "refinedstorage:fortune_1_upgrade",
+   "status": "inferred",
+   "note": "fortune levels 7-9 taken as I-III; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:upgrade@8": {
+   "to": "refinedstorage:fortune_2_upgrade",
+   "status": "inferred",
+   "note": "fortune levels 7-9 taken as I-III; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  },
+  "refinedstorage:upgrade@9": {
+   "to": "refinedstorage:fortune_3_upgrade",
+   "status": "inferred",
+   "note": "fortune levels 7-9 taken as I-III; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+  }
+ },
+ "entities": {
+  "hbm:entity_nuclear_creeper": "hbm:entity_mob_nuclear_creeper",
+  "hbm:entity_ntm_radiation_blaze": "hbm:entity_radiation_blaze",
+  "hbm:entity_ntm_ufo": "hbm:entity_ufo",
+  "hbm:entity_ntm_test_dummy": "hbm:entity_test_dummy",
+  "hbm:entity_mask_man": "hbm:entity_mob_mask_man"
+ },
+ "images": {
+  "minecraft:textures/blocks/command_block_conditional.png": "lvimages:textures/gas_centrifuge.png",
+  "minecraft:textures/items/barrier.png": "lvimages:textures/ntm_icon.png",
+  "minecraft:textures/items/structure_void.png": "lvimages:textures/wojaksona.png"
+ },
+ "keep_mods": [],
+ "oredict": {
+  "12 gauge": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  "10 gauge": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  "9mm": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  ".44": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  ".22 LR": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  ".357": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  ".50 BMG": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  "7.62mm": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  "5.56mm": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  "40mm grenade": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  "rocket": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  "flamer fuel": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  "capacitor (ammo)": {
+   "tag": "hbm:ammo",
+   "status": "substitute",
+   "note": "26.1.2 has no per-caliber ammo tag; every NTM ammo item matches"
+  },
+  "ingotAnyHardPlastic": {
+   "tag": "c:ingots/any_hardplastic",
+   "status": "derived",
+   "note": "tag name has no underscore in 26.1.2"
+  },
+  "logWood": {
+   "tag": "minecraft:logs",
+   "status": "derived",
+   "note": "vanilla log tag"
+  },
+  "treeSapling": {
+   "tag": "minecraft:saplings",
+   "status": "derived",
+   "note": "vanilla sapling tag"
+  },
+  "stoneResource": {
+   "tag": "c:cobblestones",
+   "status": "substitute-weak",
+   "note": "NTM's stoneResource has no tag in 26.1.2; cobblestones is the closest"
+  },
+  "gemCoal": {
+   "tag": "c:gems/coal",
+   "status": "derived",
+   "note": "if the tag does not exist the entry falls to unresolved at export"
+  },
+  "miniNuke": {
+   "tag": "hbm:bombs",
+   "status": "substitute-weak",
+   "note": "no mini nuke tag in 26.1.2; the bombs tag is broader"
+  }
+ }
+}

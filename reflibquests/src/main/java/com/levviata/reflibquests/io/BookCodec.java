@@ -23,12 +23,6 @@ import com.levviata.reflibquests.model.Definitions.Tristate;
 import com.levviata.reflibquests.model.Definitions.WeightedReward;
 import com.levviata.reflibquests.model.QuestBook;
 
-/**
- * Compact wire form of a {@link QuestBook} for sending to clients (our own schema, not the upstream file
- * format). Carries what the client screen needs: texts, positions, tasks and rewards with their parameters,
- * dependencies, flags and reward tables, plus the server's id map so the client resolves items identically.
- * Chapter images and quest links are carried (the images with their original fields). Defaults are omitted to keep the data small.
- */
 public final class BookCodec {
 
     public static final int VERSION = 1;
@@ -36,8 +30,6 @@ public final class BookCodec {
     private BookCodec() {}
 
     public record Decoded(QuestBook book, DataNode.Compound idMap) {}
-
-    // ------------------------------------------------------------------ write
 
     public static DataNode.Compound write(QuestBook b, DataNode.Compound idMap) {
         List<DataNode> groups = new ArrayList<>();
@@ -63,7 +55,6 @@ public final class BookCodec {
                 .with("tables", new DataNode.Lst(tables));
     }
 
-    /** One chapter in the form used to send the book (also used to send a changed chapter on its own). */
     public static DataNode.Compound chapterData(Chapter c) {
         return writeChapter(c);
     }
@@ -79,7 +70,7 @@ public final class BookCodec {
         }
         DataNode.Compound out = DataNode.Compound.empty().with("id", t.id).with("title", t.title)
                 .with("empty", (double) t.emptyWeight).with("loot", t.lootSize).with("entries", new DataNode.Lst(entries));
-        for (String flag : List.of("hide_tooltip", "use_title")) { // the table's own switches (FTB 26.1.2)
+        for (String flag : List.of("hide_tooltip", "use_title")) {
             if (t.raw.has(flag)) {
                 out = out.with(flag, t.raw.getBool(flag, false));
             }
@@ -259,11 +250,6 @@ public final class BookCodec {
         return t == Tristate.DEFAULT ? o : o.with(key, t == Tristate.TRUE);
     }
 
-    // ------------------------------------------------------------------ read
-
-    /**
-     * @throws IllegalArgumentException if the data is from a newer version
-     */
     public static Decoded read(DataNode.Compound c) {
         if (c.getInt("v", 1) > VERSION) {
             throw new IllegalArgumentException("quest book wire version " + c.getInt("v", 1) + " is newer than supported " + VERSION);

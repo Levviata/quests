@@ -22,12 +22,6 @@ import com.levviata.reflibquests.model.Definitions.Task;
 import com.levviata.reflibquests.model.Definitions.DependencyMode;
 import com.levviata.reflibquests.model.Definitions.Tristate;
 
-/**
- * Every change the in-game editor can make to a {@link QuestBook}, with its validation. Pure logic, so it can
- * be tested without the game; the server calls it after checking permission, and then saves and re-syncs. All
- * methods check their input (the data comes from clients) and never throw for bad input: they return
- * {@link Result#NOT_FOUND} or {@link Result#INVALID} and leave the book unchanged.
- */
 public final class BookEditor {
 
     public enum Result { OK, NOT_FOUND, INVALID, CYCLE }
@@ -38,16 +32,15 @@ public final class BookEditor {
     public static final double MAX_COORD = 100_000;
     public static final long MAX_VALUE = 1_000_000_000L;
 
-    /** Task types the editor may add. */
     public static final Set<String> TASK_TYPES = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom", "biome", "structure", "observation", "stat", "fluid",
             "gamestage", "interaction", "forge_energy");
-    /** FTB's Interaction types. */
+
     public static final List<String> INTERACTION_TYPES = List.of("block", "block_tag", "block_state", "entity_type", "entity_type_tag");
-    /** Reward types the editor may add. */
+
     public static final Set<String> REWARD_TYPES = Set.of("item", "xp", "xp_levels", "command", "toast", "advancement", "custom", "gamestage");
-    /** Reward types that draw from a reward table (given as {@code table_id}). */
+
     public static final Set<String> TABLE_REWARD_TYPES = Set.of("choice", "random", "loot", "all_table");
-    /** The statistics a stat task can name (the ones this game keeps; names as FTB Quests 26.1.2 writes them, without {@code minecraft:}). */
+
     public static final List<String> STATS = List.of("mob_kills", "player_kills", "deaths", "jump", "damage_dealt", "damage_taken",
             "play_one_minute", "time_since_death", "walk_one_cm", "sprint_one_cm", "crouch_one_cm", "swim_one_cm", "fall_one_cm",
             "climb_one_cm", "fly_one_cm", "boat_one_cm", "horse_one_cm", "minecart_one_cm", "pig_one_cm", "animals_bred",
@@ -62,8 +55,6 @@ public final class BookEditor {
         this.book = book;
         this.random = random;
     }
-
-    // ------------------------------------------------------------------ ids and helpers
 
     private Set<String> allIds() {
         Set<String> ids = new HashSet<>();
@@ -83,7 +74,6 @@ public final class BookEditor {
         return ids;
     }
 
-    /** A new 16-digit upper-case hexadecimal id that no object in the book uses. */
     String newId() {
         Set<String> used = allIds();
         String id;
@@ -101,7 +91,6 @@ public final class BookEditor {
         return t.length() > max || t.indexOf('\n') >= 0 ? null : t;
     }
 
-    /** The book's Grid Scale: quests and images snap to a multiple of it (0.5 unless the book says otherwise). */
     public static double gridStep(DataNode.Compound settings) {
         double step = settings.getDouble("grid_scale", 0.5);
         return step >= 0.0625 && step <= 16.0 ? step : 0.5;
@@ -121,9 +110,6 @@ public final class BookEditor {
         return s.isEmpty() ? "chapter" : s.length() > 40 ? s.substring(0, 40) : s;
     }
 
-    // ------------------------------------------------------------------ chapters
-
-    /** @return the new chapter, or null if the title is invalid */
     public Chapter createChapter(String title) {
         String t = clean(title, MAX_TITLE);
         if (t == null || t.isEmpty()) {
@@ -159,7 +145,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Puts an icon on a quest or a chapter; an empty icon clears it. {@code kind} is {@code quest} or {@code chapter}. */
     public Result setIcon(String kind, String id, DataNode.Compound icon) {
         if (kind.equals("book")) {
             book.settings = icon.entries().isEmpty() ? book.settings.without("icon") : book.settings.with("icon", icon);
@@ -225,21 +210,19 @@ public final class BookEditor {
         return Result.INVALID;
     }
 
-    /** SNBT text as data, or null when it is not valid NBT (or is absurdly long). */
     public static DataNode.Compound parseNbt(String text) {
         if (text == null || text.length() > 4000) {
             return null;
         }
         try {
             DataNode.Compound c = com.levviata.reflib.api.data.Snbt.parse(text);
-            net.minecraft.nbt.JsonToNBT.getTagFromJson(com.levviata.reflib.api.data.Snbt.printCompact(c)); // must be NBT the game can read
+            net.minecraft.nbt.JsonToNBT.getTagFromJson(com.levviata.reflib.api.data.Snbt.printCompact(c));
             return c;
         } catch (RuntimeException | net.minecraft.nbt.NBTException ex) {
             return null;
         }
     }
 
-    /** Sets one chapter-wide property; keys match the Chapter Properties screen. */
     public Result setChapterProp(String id, String key, String value) {
         Chapter c = book.chapter(id);
         if (c == null) {
@@ -272,7 +255,7 @@ public final class BookEditor {
             case "sequential" -> c.requireSequentialTasks = on;
             case "hide_dep_lines" -> c.defaultHideDependencyLines = on;
             case "subtitle" -> {
-                // lines are separated by a literal \n; an empty text removes the subtitle
+
                 List<String> lines = new ArrayList<>();
                 if (!value.isBlank()) {
                     for (String part : value.split("\\\\n")) {
@@ -355,9 +338,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    // ------------------------------------------------------------------ book settings
-
-    /** Keys of the whole book: the ones that change how the book behaves, named as in the book's own file. */
     public Result setBookProp(String key, String value) {
         if (key == null || value == null) {
             return Result.INVALID;
@@ -387,7 +367,7 @@ public final class BookEditor {
             case "reward_team_item", "reward_team_choice", "reward_team_all_table", "reward_team_random", "reward_team_loot",
                     "reward_team_command", "reward_team_custom", "reward_team_xp", "reward_team_xp_levels",
                     "reward_team_advancement", "reward_team_toast", "reward_team_gamestage", "reward_team_currency" -> {
-                // "Per-Team Reward by Type": a switch per reward type, kept like FTB 26.1.2 keeps it
+
                 if (!List.of("default", "true", "false").contains(v)) {
                     return Result.INVALID;
                 }
@@ -467,7 +447,7 @@ public final class BookEditor {
                     return Result.INVALID;
                 }
                 DataNode.Compound weights = s.getCompound("loot_crate_no_drop");
-                s = s.with("loot_crate_no_drop", weights.with(key.substring(5), n)); // boss, monster, passive
+                s = s.with("loot_crate_no_drop", weights.with(key.substring(5), n));
             }
             case "detection_delay" -> {
                 int n;
@@ -504,9 +484,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    // ------------------------------------------------------------------ chapter groups
-
-    /** @return the new group, or null if the title is invalid; {@code wantedId} lets a client show it before the server answers */
     public ChapterGroup createGroup(String title, String wantedId) {
         String t = clean(title, MAX_TITLE);
         if (t == null || t.isEmpty()) {
@@ -542,7 +519,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Its chapters stay; they just no longer belong to a group. */
     public Result deleteGroup(String id) {
         ChapterGroup g = group(id);
         if (g == null) {
@@ -557,10 +533,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /**
-     * Makes a group "held" by a chapter: the chapter's row in the list opens the group, with the group's chapters nested below.
-     * An empty chapter id lets the group go. A chapter cannot hold a group it is itself in.
-     */
     public Result setGroupChapter(String groupId, String chapterId) {
         ChapterGroup g = group(groupId);
         if (g == null) {
@@ -582,14 +554,13 @@ public final class BookEditor {
         }
         for (ChapterGroup other : book.groups()) {
             if (other != g && chapterId.equals(other.raw.getString("chapter", ""))) {
-                other.raw = other.raw.without("chapter"); // a chapter holds one group
+                other.raw = other.raw.without("chapter");
             }
         }
         g.raw = g.raw.with("chapter", chapterId);
         return Result.OK;
     }
 
-    /** @param groupId a group's id, or empty for no group */
     public Result setChapterGroup(String chapterId, String groupId) {
         Chapter c = book.chapter(chapterId);
         if (c == null) {
@@ -602,7 +573,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Move a chapter one place up (-1) or down (+1) among the chapters of its own group. */
     public Result moveChapter(String chapterId, int delta) {
         Chapter c = book.chapter(chapterId);
         if (c == null) {
@@ -618,7 +588,7 @@ public final class BookEditor {
             to += delta;
         }
         if (to < 0 || to >= all.size()) {
-            return Result.OK; // already first or last
+            return Result.OK;
         }
         Chapter other = all.get(to);
         all.set(at, other);
@@ -660,17 +630,14 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    // ------------------------------------------------------------------ quests
-
-    /** @return the new quest (with one checkmark task), or null if the chapter is unknown or the position invalid */
     public Quest createQuest(String chapterId, double x, double y) {
         Chapter c = book.chapter(chapterId);
         if (c == null || !coordOk(x) || !coordOk(y)) {
             return null;
         }
         Quest q = new Quest(newId());
-        q.size = c.defaultQuestSize; // new quests start with the chapter's size
-        q.title = ""; // FTB Quests names a new quest after its first task or its item; the client does that for a quest without a title
+        q.size = c.defaultQuestSize;
+        q.title = "";
         q.x = snap(x);
         q.y = snap(y);
         q.tasks.add(new Task(newId(), "checkmark", DataNode.Compound.empty()));
@@ -679,10 +646,6 @@ public final class BookEditor {
         return q;
     }
 
-    /**
-     * Sets the curve of a quest's dependency lines: points maps a dependency id to [x1, y1, x2, y2]; lines that are
-     * not named go back to straight. Ids that are not dependencies of the quest are refused.
-     */
     public Result setBezier(String questId, DataNode.Compound points) {
         Quest q = book.quest(questId);
         if (q == null) {
@@ -702,13 +665,6 @@ public final class BookEditor {
 
     public static final int MAX_PASTE = 200;
 
-    /**
-     * Copies quests (with their tasks and rewards, under new ids) into a chapter. The group keeps its layout: the top left
-     * quest of the sources lands on {@code x, y}. Dependencies between the copied quests point at the copies; the others are
-     * kept, or dropped when {@code keepDependencies} is false.
-     *
-     * @return the new quest ids in the order of the sources, or null if nothing could be pasted
-     */
     public List<String> pasteQuests(String chapterId, List<String> sourceIds, double x, double y, boolean keepDependencies) {
         Chapter target = book.chapter(chapterId);
         if (target == null || !coordOk(x) || !coordOk(y) || sourceIds.isEmpty() || sourceIds.size() > MAX_PASTE) {
@@ -778,7 +734,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Several moves as one edit: {@code moves} is a list of {@code {id, x, y}}. Nothing moves unless all of them are valid. */
     public Result moveQuests(DataNode.Compound a) {
         List<DataNode> moves = a.getList("moves");
         if (moves.isEmpty() || moves.size() > MAX_PASTE) {
@@ -802,7 +757,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Several deletions as one edit: {@code ids} is a list of quest ids; unknown ones are skipped. */
     public Result deleteQuests(DataNode.Compound a) {
         List<DataNode> ids = a.getList("ids");
         if (ids.isEmpty() || ids.size() > 1000) {
@@ -865,7 +819,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Adds lines at the end of the description; works on the server's current text, so quick edits cannot overwrite each other. */
     public Result addLines(String questId, List<String> lines) {
         Quest q = book.quest(questId);
         if (q == null) {
@@ -885,7 +838,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Moves a picture of a chapter to a new position (in map units). */
     public Result moveImage(String imageId, double x, double y) {
         if (!coordOk(x) || !coordOk(y)) {
             return Result.INVALID;
@@ -895,7 +847,7 @@ public final class BookEditor {
                 Definitions.ChapterImage img = c.images.get(i);
                 if (img.id().equals(imageId)) {
                     if (img.raw().getBool("position_locked", false)) {
-                        return Result.INVALID; // "Lock Position": the image cannot be moved
+                        return Result.INVALID;
                     }
                     c.images.set(i, new Definitions.ChapterImage(img.id(), img.raw().with("x", Math.round(x * 4.0) / 4.0).with("y", Math.round(y * 4.0) / 4.0)));
                     return Result.OK;
@@ -905,7 +857,6 @@ public final class BookEditor {
         return Result.NOT_FOUND;
     }
 
-    /** Several properties of a picture as one edit: x, y, width, height, rotation, alpha, order, dev (true/false) and image. */
     public Result setImageProps(String imageId, DataNode.Compound props) {
         if (props == null || props.entries().isEmpty()) {
             return Result.INVALID;
@@ -976,7 +927,7 @@ public final class BookEditor {
                                 raw = raw.with(key, t);
                             }
                             case "color" -> {
-                                // the tint: #RRGGBB or a plain number; empty removes it
+
                                 if (v.isEmpty()) {
                                     raw = raw.without(key);
                                 } else {
@@ -984,7 +935,7 @@ public final class BookEditor {
                                     if (n < 0 || n > 0xFFFFFF) {
                                         return Result.INVALID;
                                     }
-                                    raw = n == 0xFFFFFF ? raw.without(key) : raw.with(key, n); // white is the default
+                                    raw = n == 0xFFFFFF ? raw.without(key) : raw.with(key, n);
                                 }
                             }
                             case "title" -> {
@@ -992,7 +943,7 @@ public final class BookEditor {
                                 if (t == null) {
                                     return Result.INVALID;
                                 }
-                                raw = t.isEmpty() ? raw.without(key) : raw.with(key, t); // written to the language file, not the image
+                                raw = t.isEmpty() ? raw.without(key) : raw.with(key, t);
                             }
                             case "corner", "position_locked", "text_on_image" -> {
                                 if (!v.equals("true") && !v.equals("false")) {
@@ -1017,7 +968,7 @@ public final class BookEditor {
                                 if (!List.of("start", "middle", "end").contains(v)) {
                                     return Result.INVALID;
                                 }
-                                raw = v.equals("middle") ? raw.without(key) : raw.with(key, v); // middle is the default
+                                raw = v.equals("middle") ? raw.without(key) : raw.with(key, v);
                             }
                             case "click_type", "click_data" -> {
                                 String t = clean(v, 500);
@@ -1057,7 +1008,6 @@ public final class BookEditor {
         return Result.NOT_FOUND;
     }
 
-    /** A second placement (a "link") of a quest on a chapter's map; @return its id, or null if the chapter or quest is unknown */
     public String createLink(String chapterId, String questId, double x, double y) {
         Chapter c = book.chapter(chapterId);
         if (c == null || book.quest(questId) == null || !coordOk(x) || !coordOk(y) || c.links.size() >= 1000) {
@@ -1077,11 +1027,6 @@ public final class BookEditor {
         return Result.NOT_FOUND;
     }
 
-    /**
-     * A new picture on a chapter's map, written the way FTB Quests 26.1.2 writes one: x, y, width, height, rotation, image, id.
-     *
-     * @return the new image's id, or null if the chapter, the name or the place is not acceptable
-     */
     public String createImage(String chapterId, String image, double x, double y, double width, double height) {
         Chapter c = book.chapter(chapterId);
         String name = clean(image, 200);
@@ -1128,7 +1073,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Make {@code questId} depend on {@code depId}, or remove that dependency if it exists. */
     public Result toggleDependency(String questId, String depId) {
         Quest q = book.quest(questId);
         Quest dep = book.quest(depId);
@@ -1177,7 +1121,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Sets one property of a quest by name; values are text ({@code true}/{@code false}/{@code default}, numbers, names). */
     public Result setProp(String questId, String key, String value) {
         Quest q = book.quest(questId);
         if (q == null) {
@@ -1372,9 +1315,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    // ------------------------------------------------------------------ tasks and rewards
-
-    /** @return the new task's id, or null if the quest is unknown or the type/parameters are not allowed */
     public String addTask(String questId, String type, DataNode.Compound params) {
         Quest q = book.quest(questId);
         if (q == null || !TASK_TYPES.contains(type) || params == null || q.tasks.size() >= 20) {
@@ -1385,7 +1325,7 @@ public final class BookEditor {
             return null;
         }
         if (type.equals("gamestage") && !p.has("stage")) {
-            p = p.with("stage", "myStage"); // FTB's default
+            p = p.with("stage", "myStage");
         }
         if (type.equals("interaction")) {
             if (!p.has("to_interact")) {
@@ -1404,7 +1344,6 @@ public final class BookEditor {
         return id;
     }
 
-    /** Moves a task one place up (-1) or down (+1) in its quest; false at the ends. */
     public Result moveTask(String taskId, int by) {
         Quest q = book.questOfTask(taskId);
         if (q == null) {
@@ -1443,7 +1382,6 @@ public final class BookEditor {
         return Result.NOT_FOUND;
     }
 
-    /** The quest's icon becomes the item of one of its tasks. */
     public Result setIconFromTask(String questId, String taskId) {
         Quest q = book.quest(questId);
         if (q == null) {
@@ -1460,7 +1398,7 @@ public final class BookEditor {
                     q.icon = DataNode.Compound.empty().with("id", s.value());
                     return Result.OK;
                 }
-                // the other task types show a picture of their own; the quest takes the same item (FTB lists this entry for every task)
+
                 DataNode.Compound own = t.params().getCompound("icon");
                 if (!own.entries().isEmpty()) {
                     q.icon = own;
@@ -1489,7 +1427,7 @@ public final class BookEditor {
                         return Result.OK;
                     }
                     default -> {
-                        return Result.INVALID; // checkmark, custom and observation have no item to take
+                        return Result.INVALID;
                     }
                 }
                 q.icon = DataNode.Compound.empty().with("id", id);
@@ -1509,7 +1447,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Set the amount of a counted task: the item count, or the value of an xp, kill, stat or energy task. */
     public Result setTaskValue(String taskId, long value) {
         Quest q = book.questOfTask(taskId);
         if (q == null) {
@@ -1531,7 +1468,6 @@ public final class BookEditor {
         return Result.NOT_FOUND;
     }
 
-    /** @return the new reward's id, or null if the quest is unknown or the type is not allowed */
     public String addReward(String questId, String type, DataNode.Compound params) {
         Quest q = book.quest(questId);
         boolean tableType = TABLE_REWARD_TYPES.contains(type);
@@ -1545,7 +1481,7 @@ public final class BookEditor {
             if (params.getString("stage", "").isBlank()) {
                 return null;
             }
-            // as FTB 26.1.2 writes a new Stage reward: claimed by itself, whatever blocks rewards
+
             if (!params.has("auto")) {
                 params = params.with("auto", "invisible");
             }
@@ -1558,7 +1494,7 @@ public final class BookEditor {
             if (!book.tables().containsKey(tid)) {
                 return null;
             }
-            // written the way FTB Quests 26.1.2 writes it: the id as a number, and left out of "claim all"
+
             DataNode tableRef = tid.matches("[0-9A-F]{1,16}") ? new DataNode.Lng(Long.parseUnsignedLong(tid, 16)) : new DataNode.Str(tid);
             params = DataNode.Compound.empty().with("table_id", tableRef).with("exclude_from_claim_all", true);
         }
@@ -1578,11 +1514,8 @@ public final class BookEditor {
         return Result.NOT_FOUND;
     }
 
-    // ------------------------------------------------------------------ task and reward settings
-
     public static final Set<String> AUTO_CLAIM = Set.of("default", "disabled", "enabled", "no_toast", "invisible");
 
-    /** An empty or blank text removes the key; text with a line break or over the limit is refused (null). */
     private static DataNode.Compound withText(DataNode.Compound p, String key, String value, int max) {
         String t = clean(value, max);
         if (t == null) {
@@ -1591,7 +1524,6 @@ public final class BookEditor {
         return t.isEmpty() ? p.without(key) : p.with(key, t);
     }
 
-    /** The parameter that names what a task is about (entity, dimension, biome, structure, advancement), or null. */
     public static String targetKey(String type) {
         return switch (type) {
             case "kill" -> "entity";
@@ -1603,7 +1535,6 @@ public final class BookEditor {
         };
     }
 
-    /** Keys: {@code title}, {@code optional_task} (true/false), {@code consume_items} (item tasks: default, true or false). */
     public Result setTaskProp(String taskId, String key, String value) {
         Quest q = book.questOfTask(taskId);
         if (q == null || key == null || value == null) {
@@ -1634,7 +1565,7 @@ public final class BookEditor {
                                     p = tagList.isEmpty() ? p.without("tags") : p.with("tags", new DataNode.Lst(tagList));
                                 }
                 case "item" -> {
-                    // an item picked for an item task: "name" or "name|damage"
+
                     if (!t.type().equals("item")) {
                         return Result.INVALID;
                     }
@@ -1821,7 +1752,7 @@ public final class BookEditor {
                     p = value.equals("default") ? p.without(key) : p.with(key, value);
                 }
                 case "box" -> {
-                    // "x, y, z, width, height, depth" of a location task
+
                     String[] parts = value.split("[,\\s]+");
                     if (!t.type().equals("location") || parts.length != 6) {
                         return Result.INVALID;
@@ -1862,15 +1793,11 @@ public final class BookEditor {
         return Result.NOT_FOUND;
     }
 
-    /**
-     * Keys: {@code title}, {@code auto} (default, disabled, enabled, no_toast, invisible) and the amount of the reward:
-     * {@code count} (item), {@code xp}, {@code xp_levels}.
-     */
     public Result setRewardProp(String rewardId, String key, String value) {
         if (key == null || value == null) {
             return Result.INVALID;
         }
-        // a reward inside a reward table is edited the same way, on a stand-in quest that holds only it
+
         for (RewardTable tbl : book.tables().values()) {
             for (int ti = 0; ti < tbl.entries.size(); ti++) {
                 Definitions.WeightedReward entry = tbl.entries.get(ti);
@@ -1911,7 +1838,7 @@ public final class BookEditor {
                     DataNode.Compound p = r.params();
                     switch (key) {
                         case "item" -> {
-                            // the Item row of an item reward: "name", "name|damage" or "name|damage|nbt"
+
                             if (!r.type().equals("item")) {
                                 return Result.INVALID;
                             }
@@ -2053,17 +1980,13 @@ public final class BookEditor {
         return Result.NOT_FOUND;
     }
 
-    // ------------------------------------------------------------------ reward tables
-
     public static final int MAX_TABLE_ENTRIES = 200;
     public static final float MAX_WEIGHT = 1_000_000f;
 
-    /** @return the new, empty table, or null if the title is invalid */
     public RewardTable createTable(String title) {
         return createTable(title, "");
     }
 
-    /** As above, with an id chosen by the caller (16 upper-case hex digits, unused) so a client can show the table at once. */
     public RewardTable createTable(String title, String wantedId) {
         String t = clean(title, MAX_TITLE);
         if (t == null || t.isEmpty()) {
@@ -2100,7 +2023,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** A table that a reward still points at is kept: deleting it would leave that reward with nothing to give. */
     public Result deleteTable(String id) {
         if (book.tables().get(id) == null) {
             return Result.NOT_FOUND;
@@ -2118,7 +2040,6 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** Keys: {@code empty_weight} (chance of nothing, in the same units as the entry weights) and {@code loot_size}. */
     public Result setTableProp(String id, String key, String value) {
         RewardTable t = book.tables().get(id);
         if (t == null) {
@@ -2134,7 +2055,7 @@ public final class BookEditor {
                     t.emptyWeight = v;
                 }
                 case "hide_tooltip", "use_title" -> {
-                    // FTB 26.1.2 table switches, kept in the table's own data like the file keeps them
+
                     if (!value.equals("true") && !value.equals("false")) {
                         return Result.INVALID;
                     }
@@ -2173,7 +2094,7 @@ public final class BookEditor {
                     t.raw = tagList.isEmpty() ? t.raw.without("tags") : t.raw.with("tags", new DataNode.Lst(tagList));
                 }
                 case "icon" -> {
-                    // "item:<id>|<damage>", "image:<picture id>" or "clear"
+
                     if (value.equals("clear")) {
                         t.raw = t.raw.without("icon");
                     } else if (value.startsWith("image:") && value.length() < 206) {
@@ -2248,12 +2169,10 @@ public final class BookEditor {
         return Result.OK;
     }
 
-    /** @return the new entry's reward id, or null if the table is unknown, full, or the entry is not allowed */
     public String addTableEntry(String tableId, String type, DataNode.Compound params, float weight) {
         return addTableEntry(tableId, type, params, weight, "");
     }
 
-    /** As above, with an id chosen by the caller (16 upper-case hex digits, unused), so a client can show the entry at once. */
     public String addTableEntry(String tableId, String type, DataNode.Compound params, float weight, String wantedId) {
         RewardTable t = book.tables().get(tableId);
         if (t == null || !REWARD_TYPES.contains(type) || params == null || t.entries.size() >= MAX_TABLE_ENTRIES

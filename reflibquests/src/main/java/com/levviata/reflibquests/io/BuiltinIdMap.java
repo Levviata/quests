@@ -9,20 +9,10 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Built-in names of newer game versions mapped to their 1.12.2 equivalents (item name plus damage value, written
- * {@code name@meta}). Generated from the rules of the 1.13 "flattening" (colours and wood types that used to be
- * damage values became separate names) plus explicit renames. Names that did not change need no entry, and
- * things that do not exist in 1.12.2 (netherite, stripped logs, bamboo...) are deliberately absent, so tasks that
- * use them stay inert instead of silently turning into something else.
- *
- * <p>The table is checked against the real 1.12.2 registries by the in-game smoke test.
- */
 public final class BuiltinIdMap {
 
     private static final String MC = "minecraft:";
 
-    /** Colour name and its dye damage value in 1.12.2 (black 0 ... white 15). Block colours use {@code 15 - dye}. */
     private static final Object[][] COLORS = {
             {"black", 0}, {"red", 1}, {"green", 2}, {"brown", 3}, {"blue", 4}, {"purple", 5}, {"cyan", 6},
             {"light_gray", 7}, {"gray", 8}, {"pink", 9}, {"lime", 10}, {"yellow", 11}, {"light_blue", 12},
@@ -54,7 +44,6 @@ public final class BuiltinIdMap {
 
     private BuiltinIdMap() {}
 
-    /** @return new name to 1.12.2 target ({@code name} or {@code name@meta}) */
     public static Map<String, String> items() {
         return ITEMS;
     }
@@ -123,7 +112,7 @@ public final class BuiltinIdMap {
     }
 
     private static void stone(Map<String, String> m) {
-        // plain names that were one variant of a damage-value block: pin the variant instead of matching any
+
         put(m, "stone", "stone@0");
         put(m, "dirt", "dirt@0");
         put(m, "sand", "sand@0");

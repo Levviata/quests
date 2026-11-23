@@ -14,13 +14,11 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
-/** The few concrete widgets reflib ships: panel, label, button and a vertically scrolling panel. */
 @SideOnly(Side.CLIENT)
 public final class Widgets {
 
     private Widgets() {}
 
-    /** Filled rectangle container. */
     public static class Panel extends Widget {
         private int color;
 
@@ -41,7 +39,6 @@ public final class Widgets {
         }
     }
 
-    /** Single-line text. */
     public static class Label extends Widget {
         private String text;
         private int color;
@@ -62,7 +59,6 @@ public final class Widgets {
         }
     }
 
-    /** Clickable button; the action runs on the client thread. */
     public static class Button extends Widget {
         private String text;
         private final Runnable action;
@@ -97,11 +93,6 @@ public final class Widgets {
         }
     }
 
-    /**
-     * Vertical scroll container. Children are positioned in content space (y = 0 at the top of the content)
-     * and drawn translated by the scroll offset, clipped to the panel bounds. Limitation: only direct
-     * children are translated, so they must be leaf widgets (no nested containers).
-     */
     public static class ScrollPanel extends Widget {
         private final ScrollModel model;
 
@@ -145,7 +136,7 @@ public final class Widgets {
             if (!visible || !bounds.contains(mouseX, mouseY)) {
                 return false;
             }
-            // translate the pointer into content space instead of moving the children
+
             int cx = mouseX - bounds.x();
             int cy = mouseY - bounds.y() + model.offset();
             for (int i = children().size() - 1; i >= 0; i--) {
@@ -163,11 +154,6 @@ public final class Widgets {
         }
     }
 
-    /**
-     * Single-line text input. Clicking focuses it; while focused it takes printable keys, Backspace, Delete,
-     * the arrow keys, Home and End. Enter, Tab and Escape are left to the screen (return false) so it can
-     * confirm, switch field or cancel.
-     */
     public static class TextField extends Widget {
         private final TextModel model;
         private final String label;
@@ -208,7 +194,7 @@ public final class Widgets {
                 fr.drawStringWithShadow(label, textX, textY, 0x666677);
                 return;
             }
-            // keep the caret in view by dropping characters from the left when the text is too wide
+
             int start = 0;
             while (start < model.caret() && fr.getStringWidth(shown.substring(start, model.caret())) > bounds.width() - 10) {
                 start++;

@@ -35,19 +35,16 @@ import com.levviata.reflibquests.model.QuestBook;
 import com.levviata.reflibquests.model.QuestRules;
 import com.levviata.reflibquests.model.TeamProgress;
 
-/** Client-only wiring: the key to open the book, the {@code /rqbook} command, and cleanup on disconnect. */
 @SideOnly(Side.CLIENT)
 public final class ClientBootstrap {
 
     private static final KeyBinding OPEN = new KeyBinding("Open quest book", Keyboard.KEY_J, "Reflib Quests");
 
-    /** The current key of the "open quest book" binding, for the key reference. */
     static String openKeyName() {
         return Keyboard.getKeyName(OPEN.getKeyCode());
     }
     private static volatile boolean openNextTick;
 
-    /** How long a just-completed pinned quest stays on the tracker, and the colour it is shown in. */
     private static final long CELEBRATE_MS = 2000;
     private static final int DONE_GREEN = 0x55FF55;
     private static final Map<String, Boolean> WAS_DONE = new HashMap<>();
@@ -81,7 +78,7 @@ public final class ClientBootstrap {
 
             @Override
             public void execute(MinecraftServer server, ICommandSender sender, String[] args) {
-                // opened a tick later: the chat screen closes itself right after sending a command
+
                 openNextTick = true;
             }
         });
@@ -121,7 +118,6 @@ public final class ClientBootstrap {
         }
     }
 
-    // ---- corner pop-ups for completed quests and collected rewards (first look after joining is silent)
     private static final java.util.Set<String> DONE_SEEN = new java.util.HashSet<>();
     private static final java.util.Set<String> CHAPTERS_SEEN = new java.util.HashSet<>();
     private static final java.util.Set<String> CLAIMED_SEEN = new java.util.HashSet<>();
@@ -164,7 +160,7 @@ public final class ClientBootstrap {
         }
         for (com.levviata.reflibquests.model.Definitions.Chapter ch : book.chapters()) {
             if (ch.quests.isEmpty() || !com.levviata.reflibquests.model.QuestRules.chapterCompleted(p, ch)) {
-                CHAPTERS_SEEN.remove(ch.id); // reset: it can be finished again
+                CHAPTERS_SEEN.remove(ch.id);
             } else if (CHAPTERS_SEEN.add(ch.id) && !quiet && !ch.disableToast && !book.settings.getBool("disable_toast", false)) {
                 net.minecraft.item.ItemStack chIcon = ch.icon.entries().isEmpty() ? null : QuestText.stackOf(ch.icon);
                 if (chIcon == null && !ch.quests.isEmpty()) {
@@ -181,7 +177,7 @@ public final class ClientBootstrap {
         for (Quest q : book.allQuests()) {
             com.levviata.reflibquests.model.Definitions.Chapter toastChapter = book.chapterOf(q.id);
             if (!p.isCompleted(q.id)) {
-                DONE_SEEN.remove(q.id); // progress was reset: completing it again pops the toast again
+                DONE_SEEN.remove(q.id);
             }
             if (p.isCompleted(q.id) && !DONE_SEEN.contains(q.id)) {
                 com.levviata.reflibquests.ReflibQuestsMod.LOGGER.info("toast check {}: quiet={} questOff={} chapterOff={} bookOff={} style={}", q.id, quiet, q.disableToast,
@@ -196,7 +192,7 @@ public final class ClientBootstrap {
             }
             for (com.levviata.reflibquests.model.Definitions.Reward rw : q.rewards) {
                 if (!p.isClaimed(rw.id(), me)) {
-                    CLAIMED_SEEN.remove(rw.id()); // un-claimed by a reset: the next claim shows its toast
+                    CLAIMED_SEEN.remove(rw.id());
                 }
                 if (p.isClaimed(rw.id(), me) && CLAIMED_SEEN.add(rw.id()) && !quiet) {
                     String text = rw.type().equals("xp") ? "XP: \u00a7a+" + Math.max(1, rw.params().getInt("xp", 1)) : QuestText.reward(rw);
@@ -216,7 +212,6 @@ public final class ClientBootstrap {
         CELEBRATE_UNTIL.clear();
     }
 
-    /** The tracker: pinned, unfinished quests and their open tasks, in the top right corner while playing. */
     @SubscribeEvent
     public void onOverlay(RenderGameOverlayEvent.Post event) {
         if (event.getType() != RenderGameOverlayEvent.ElementType.TEXT || !ClientQuests.ready()) {
@@ -241,7 +236,7 @@ public final class ClientBootstrap {
         net.minecraft.client.renderer.GlStateManager.pushMatrix();
         net.minecraft.client.renderer.GlStateManager.scale(sc, sc, 1f);
         long now = System.currentTimeMillis();
-        WAS_DONE.keySet().retainAll(pins); // forget quests that are no longer pinned
+        WAS_DONE.keySet().retainAll(pins);
         CELEBRATE_UNTIL.keySet().retainAll(pins);
         for (String id : pins) {
             Quest q = book.quest(id);
@@ -249,7 +244,7 @@ public final class ClientBootstrap {
                 continue;
             }
             boolean done = p.isCompleted(id);
-            // a quest that is seen to complete while pinned is shown for a moment as done, then dropped
+
             Boolean wasDone = WAS_DONE.put(id, done);
             if (done && wasDone != null && !wasDone) {
                 CELEBRATE_UNTIL.put(id, now + CELEBRATE_MS);
@@ -290,7 +285,6 @@ public final class ClientBootstrap {
         net.minecraft.client.renderer.GlStateManager.popMatrix();
     }
 
-    /** A check mark in light green: the supplied art if there is any, otherwise a character. */
     private static void drawCheck(FontRenderer fr, int x, int y) {
         if (QuestArt.available() && QuestArt.has("textures/gui/check_gray.png")) {
             QuestArt.quad(QuestArt.guiTexture("check_gray"), x, y, 10, 10, 0xFF55FF55);

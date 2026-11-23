@@ -64,7 +64,7 @@ class TextModelTest {
     @Test
     void caretAtPixelOffsetPicksTheNearestBoundaryAtOrBefore() {
         TextModel m = new TextModel("abcd", 10);
-        m.caretAtOffset(7, i -> i * 3); // each character is 3 px wide
+        m.caretAtOffset(7, i -> i * 3);
         assertEquals(2, m.caret());
         m.caretAtOffset(0, i -> i * 3);
         assertEquals(0, m.caret());

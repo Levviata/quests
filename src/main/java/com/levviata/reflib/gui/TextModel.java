@@ -5,10 +5,6 @@
 
 package com.levviata.reflib.gui;
 
-/**
- * Editing state of a single-line text field: the text and a caret. Pure logic (no game classes), so the
- * behaviour of the on-screen field can be tested. Only printable characters are accepted.
- */
 public final class TextModel {
 
     private final StringBuilder text = new StringBuilder();
@@ -42,7 +38,6 @@ public final class TextModel {
         return c >= 32 && c != 127 && c != '§';
     }
 
-    /** @return true if the character was inserted */
     public boolean insert(char c) {
         if (!printable(c) || text.length() >= maxLength) {
             return false;
@@ -79,7 +74,6 @@ public final class TextModel {
         caret = text.length();
     }
 
-    /** Move the caret to the character boundary nearest a pixel offset, given each character's width. */
     public void caretAtOffset(int pixels, java.util.function.IntUnaryOperator widthOfPrefix) {
         int best = 0;
         for (int i = 0; i <= text.length(); i++) {

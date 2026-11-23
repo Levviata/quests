@@ -14,24 +14,12 @@ import java.util.Locale;
 import com.levviata.reflibquests.model.Definitions.Chapter;
 import com.levviata.reflibquests.model.Definitions.Quest;
 
-/**
- * Text search over the quests a team can see. Only visible quests are searched, and quests whose details are
- * still hidden are not searchable at all (so search cannot be used to read what the book is hiding).
- */
 public final class QuestSearch {
 
-    /** One hit. */
     public record Result(String questId, String chapterId, String title, String chapterTitle) {}
 
     private QuestSearch() {}
 
-    /**
-     * Every whitespace-separated word of the query must appear (case-insensitive) in the quest's title,
-     * subtitle, description or id. Hits whose title starts with the first word come first, then hits whose
-     * title contains it, then the rest; within each group the book's chapter and quest order is kept.
-     *
-     * @return at most {@code limit} results; empty for a blank query
-     */
     public static List<Result> search(QuestBook book, TeamProgress p, String query, int limit) {
         List<String> words = new ArrayList<>();
         for (String w : query.trim().toLowerCase(Locale.ROOT).split("\\s+")) {

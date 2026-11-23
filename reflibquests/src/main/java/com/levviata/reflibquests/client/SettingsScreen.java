@@ -26,14 +26,10 @@ import org.lwjgl.opengl.GL11;
 
 import com.levviata.reflib.gui.Rect;
 
-/**
- * A window with grouped settings, coloured values, hover tooltips, and Accept / Cancel. Used by the player
- * preferences and the quest properties; subclasses add entries and say what Accept and Cancel do.
- */
 @SideOnly(Side.CLIENT)
 abstract class SettingsScreen extends GuiScreen {
 
-    private static final int ROW = 11; // FTB Quests 26.1.2: 11 GUI pixels per row (measured at GUI scale 3)
+    private static final int ROW = 11;
     private static final int GREEN = 0xFF4EA84E;
     private static final int RED = 0xFFD03A3A;
     private static final int BLUE = 0xFF2F8BFF;
@@ -49,27 +45,27 @@ abstract class SettingsScreen extends GuiScreen {
         Supplier<String> get = () -> "";
         Consumer<String> set = v -> { };
         boolean integer;
-        boolean open = true; // sections only
+        boolean open = true;
         String tip = "";
         String def = "";
-        String initial; // the value when the window was opened
-        /** False greys the row out and stops it being edited. */
+        String initial;
+
         Supplier<Boolean> enabled = () -> true;
-        /** Shown in the tooltip under the tip (FTB: "Value: ..." for texts, "Min:", "Max:"). */
+
         boolean valueLine;
         String min = "";
         String max = "";
-        /** A line such as "ID: null" for the tooltip. */
+
         Supplier<String> info;
-        /** Lists the options in the tooltip, the chosen one marked. */
+
         boolean listOptions;
-        /** Texts shown without quotes. */
+
         boolean plain;
-        /** When set, clicking the row opens a picker instead of editing: it is given what to call with the chosen value. */
+
         java.util.function.Consumer<java.util.function.Consumer<String>> pick;
-        /** How the value is displayed (for example a list as "[ 1 item ]"). */
+
         java.util.function.Function<String, String> format;
-        /** A colour swatch after the value (the value is #RRGGBB). */
+
         boolean swatch;
 
         Entry(Kind kind, String label) {
@@ -77,13 +73,11 @@ abstract class SettingsScreen extends GuiScreen {
             this.label = label;
         }
 
-        /** Text shown when the row is hovered. */
         Entry tip(String text) {
             this.tip = text;
             return this;
         }
 
-        /** The default value, shown under the tip. */
         Entry defaults(String text) {
             this.def = text;
             return this;
@@ -151,8 +145,8 @@ abstract class SettingsScreen extends GuiScreen {
     private Entry editing;
     private TextEditor edit = new TextEditor("", 120);
     private Rect fieldRect;
-    private final List<Object[]> hit = new ArrayList<>(); // {Rect, Runnable}
-    private final List<Object[]> hoverRows = new ArrayList<>(); // {info box Rect, Entry}
+    private final List<Object[]> hit = new ArrayList<>();
+    private final List<Object[]> hoverRows = new ArrayList<>();
     private record Change(Entry entry, String before, String after) {}
     private final java.util.ArrayDeque<Change> undoStack = new java.util.ArrayDeque<>();
     private final java.util.ArrayDeque<Change> redoStack = new java.util.ArrayDeque<>();
@@ -162,7 +156,6 @@ abstract class SettingsScreen extends GuiScreen {
         this.title = title;
     }
 
-    /** Only the general player settings offer a Default button; the change history covers everything else. */
     protected boolean showDefault() {
         return false;
     }
@@ -243,12 +236,10 @@ abstract class SettingsScreen extends GuiScreen {
         return w;
     }
 
-    /** Where the value column starts, relative to the list: after the widest label. */
     private int valueOffset() {
         return 15 + labelWidest() + 6;
     }
 
-    /** The widest value as it is drawn in the value column. */
     private int valueWidest() {
         int w = 0;
         for (Entry e : entries) {
@@ -272,11 +263,6 @@ abstract class SettingsScreen extends GuiScreen {
         return n;
     }
 
-    /**
-     * Size measured on FTB Quests 26.1.2 (GUI scale 3): the width follows the widest label and section title (268 at least),
-     * the height follows the rows but is never below 62% or above 86.6% of the screen's height.
-     */
-    /** How much bigger than normal this window is drawn (1 = as measured on FTB Quests; a window can ask for more). */
     protected float uiScale() {
         return 1f;
     }
@@ -290,8 +276,7 @@ abstract class SettingsScreen extends GuiScreen {
     }
 
     private Rect window() {
-        // measured: 9 rows made a window 245 wide and 171 tall; with 14 rows and 3 headings it is 268 x 297
-        // wide enough for the longest value and for the footer (Undo, Redo, Accept and Cancel side by side)
+
         int w = Math.max(Math.max(valueOffset() + 86, valueOffset() + valueWidest() + 14), Math.max(sectionWidest() + 30, 262));
         w = Math.min(w, vw() - 20);
         int rowCount = 0;
@@ -299,7 +284,7 @@ abstract class SettingsScreen extends GuiScreen {
         for (Entry e : entries) {
             if (e.kind == Kind.SECTION) {
                 openNow = e.open;
-                rowCount += 2; // a heading takes the space of two rows
+                rowCount += 2;
             } else if (openNow) {
                 rowCount++;
             }
@@ -342,11 +327,11 @@ abstract class SettingsScreen extends GuiScreen {
         Rect win = window();
         Gui.drawRect(win.x() - 1, win.y() - 1, win.x() + win.width() + 1, win.y() + win.height() + 1, 0xFF101010);
         Gui.drawRect(win.x(), win.y(), win.x() + win.width(), win.y() + win.height(), 0xFF3B4151);
-        // a window named after a reward is bold with its value coloured; the others are underlined
+
         fr.drawString(title.startsWith("§l") ? title : "§n" + title, win.x() + 8, win.y() + 8, 0xFFD8DEE9);
         Rect collapse = new Rect(win.x() + win.width() - 34, win.y() + 4, 14, 14);
         Rect expand = new Rect(win.x() + win.width() - 18, win.y() + 4, 14, 14);
-        // the pictures come from the supplied FTB Library jar, as the rest of the theme does
+
         if (!Ui.icon(Ui.LIBRARY, "textures/icons/collapse.png", collapse.x(), collapse.y(), 14, 14, 0xFFFFFFFF)) {
             fr.drawStringWithShadow("-", collapse.x() + 4, collapse.y() + 2, 0x66CCFF);
         }
@@ -432,7 +417,7 @@ abstract class SettingsScreen extends GuiScreen {
                 color = 0xFFAAAAAA;
             }
             if (!live) {
-                color = (color >> 1 & 0x7F7F7F) | 0xFF000000; // dimmed
+                color = (color >> 1 & 0x7F7F7F) | 0xFF000000;
             }
             fr.drawStringWithShadow(fr.trimStringToWidth(shown, list.x() + list.width() - valueX - (showDefault() ? 52 : 6)), valueX, line.y() + 2, color & 0xFFFFFF);
             if (e.swatch && e != editing) {
@@ -440,13 +425,13 @@ abstract class SettingsScreen extends GuiScreen {
                 try {
                     rgb = Integer.parseInt(value.startsWith("#") ? value.substring(1) : value, 16) & 0xFFFFFF;
                 } catch (NumberFormatException ex) {
-                    // shown white
+
                 }
                 int sx = valueX + fr.getStringWidth(shown) + 6;
                 Gui.drawRect(sx, line.y() + 3, sx + 6, line.y() + 9, 0xFF000000 | rgb);
             }
             if (showDefault() && e != editing && !value.equals(e.initial)) {
-                // "Default": back to what it was when this window opened
+
                 Rect back = new Rect(line.x() + line.width() - 46, line.y() + 1, 42, ROW - 1);
                 Ui.box(back, back.contains(mouseX, mouseY) ? 0xFF55607A : 0xFF3A4152);
                 fr.drawString("Default", back.x() + 21 - fr.getStringWidth("Default") / 2, back.y() + 2, 0xFFFFFF);
@@ -456,7 +441,7 @@ abstract class SettingsScreen extends GuiScreen {
             hit.add(new Object[] {line, (Runnable) () -> activate(e)});
         }
         unscissor();
-        // the footer buttons are 62 x 20 with a black outline, light top and left, dark bottom and right (measured on FTB Quests 26.1.2)
+
         Rect accept = new Rect(win.x() + win.width() - 5 - 62 - 5 - 62, win.y() + win.height() - 24, 62, 20);
         Rect cancel = new Rect(win.x() + win.width() - 5 - 62, win.y() + win.height() - 24, 62, 20);
         for (Rect b : new Rect[] {accept, cancel}) {
@@ -487,7 +472,7 @@ abstract class SettingsScreen extends GuiScreen {
         hit.add(new Object[] {cancel, (Runnable) this::cancel});
         scrollTrack = null;
         if (maxScroll > 0) {
-            // a draggable bar in the style of the book's other windows: dark framed track, bevelled thumb
+
             Rect t = new Rect(list.x() + list.width() - 11, list.y(), 11, list.height());
             scrollTrack = t;
             scrollMax = maxScroll;
@@ -503,7 +488,7 @@ abstract class SettingsScreen extends GuiScreen {
             Gui.drawRect(tx, ty, tx + 7, ty + 1, 0xFF5E6B84);
             Gui.drawRect(tx, ty + 1, tx + 6, ty + scrollThumb - 1, 0xFF434C5E);
         }
-        // hover tooltip: the setting's name, what it does, and its default
+
         if (editing == null && list.contains(mouseX, mouseY)) {
             for (Object[] h : hoverRows) {
                 Entry e = (Entry) h[1];
@@ -554,7 +539,7 @@ abstract class SettingsScreen extends GuiScreen {
         try {
             double d = Double.parseDouble(value);
             if (d == Math.rint(d) && Math.abs(d) < 1e9) {
-                return String.valueOf((long) d); // whole numbers show without decimals
+                return String.valueOf((long) d);
             }
             return String.format(java.util.Locale.getDefault(), "%.2f", d);
         } catch (NumberFormatException ex) {
@@ -572,7 +557,6 @@ abstract class SettingsScreen extends GuiScreen {
         GL11.glDisable(GL11.GL_SCISSOR_TEST);
     }
 
-    /** The default shown in a row's tooltip: the one the screen gave, else the usual one for the kind of row (never for Tags). */
     private static String defaultOf(Entry e) {
         if (!e.def.isEmpty() || e.label.equals("Tags")) {
             return e.def;
@@ -618,7 +602,6 @@ abstract class SettingsScreen extends GuiScreen {
         }
     }
 
-    /** Applies a new value and remembers the old one for Undo. */
     private void change(Entry e, String value) {
         String before = e.get.get();
         e.set.accept(value);
@@ -654,7 +637,7 @@ abstract class SettingsScreen extends GuiScreen {
         try {
             change(editing, edit.text().trim());
         } catch (RuntimeException ignored) {
-            // not a number: keep the old value
+
         }
         editing = null;
     }
@@ -702,7 +685,6 @@ abstract class SettingsScreen extends GuiScreen {
 
     private boolean draggingField;
 
-    /** The character position under an x coordinate in the open field. */
     private int caretAt(int mouseX) {
         String text = edit.text();
         int caret = Math.min(edit.caret(), text.length());

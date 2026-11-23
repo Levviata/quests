@@ -30,17 +30,11 @@ import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.QuestBook;
 import com.levviata.reflibquests.text.RichText;
 
-/**
- * The change history: one line for each edit, "time | Action Type 'name'", drawn over the bottom of the map. Lines are kept in
- * {@code config/reflibquests/changelog.json5}-style data so that the last ones are still there next time the book is opened;
- * lines from earlier sessions are drawn dimmer.
- */
 @SideOnly(Side.CLIENT)
 final class ChangeLog {
 
     private record Line(long at, String action, String type, String name, boolean session) {}
 
-    /** The three parts of a line. */
     private record Desc(String action, String type, String name) {}
 
     private static final ArrayDeque<Line> LINES = new ArrayDeque<>();
@@ -91,7 +85,7 @@ final class ChangeLog {
         Line last = LINES.peekLast();
         if (action.equals("Move") && last != null && last.session() && last.action().equals(action) && last.type().equals(type)
                 && last.name().equals(name) && now - last.at() < 2000) {
-            // repeated nudges (Ctrl + arrows) show as one line; every press is still its own undo step
+
             LINES.removeLast();
         }
         lastAdded = now;
@@ -107,7 +101,6 @@ final class ChangeLog {
         return LINES.size();
     }
 
-    /** Drop the lines added after the log had {@code size} lines (edits that were cancelled). */
     static void truncate(int size) {
         load();
         while (LINES.size() > size) {
@@ -116,7 +109,6 @@ final class ChangeLog {
         save();
     }
 
-    /** Add the line for an edit, worded from the book as it is before the edit is made. */
     static void addFor(String op, DataNode.Compound args) {
         Desc d = describe(op, args);
         if (d != null) {
@@ -127,13 +119,10 @@ final class ChangeLog {
             while (UNDO_STACK.size() > 100) {
                 UNDO_STACK.removeFirst();
             }
-            REDO_STACK.clear(); // a new edit ends what could be redone
+            REDO_STACK.clear();
         }
     }
 
-    // ------------------------------------------------------------------ what Undo and Redo would do
-
-    /** Edits that are not steps of the undo history. */
     private static final java.util.Set<String> NOT_UNDOABLE = java.util.Set.of("reset_progress", "complete_quest", "save_now", "undo", "redo", "complete_task", "reset_task", "grab_item");
     private static final ArrayDeque<Desc> UNDO_STACK = new ArrayDeque<>();
     private static final ArrayDeque<Desc> REDO_STACK = new ArrayDeque<>();
@@ -154,7 +143,6 @@ final class ChangeLog {
         return UNDO_STACK.size();
     }
 
-    /** Forget the steps noted after the stack had {@code size} entries (edits that were cancelled). */
     static void truncateUndo(int size) {
         while (UNDO_STACK.size() > size) {
             UNDO_STACK.removeLast();
@@ -183,10 +171,6 @@ final class ChangeLog {
         }
     }
 
-    /**
-     * The tooltip of the Undo or Redo button: the steps it would undo or redo, the newest first, and its key.
-     * With no steps noted (the history is older than this session) the server's own wording is used.
-     */
     static List<String> historyTip(boolean undo, String shortcut, String serverLabel) {
         List<String> out = new ArrayList<>();
         out.add("\u00a7f" + (undo ? "Undo" : "Redo"));
@@ -205,16 +189,13 @@ final class ChangeLog {
         return out;
     }
 
-    // ------------------------------------------------------------------ drawing
-
     private static final int BRIGHT_TIME = 0xFFFF55;
     private static final int BRIGHT_TEXT = 0xFFFFFF;
     private static final int DIM_TIME = 0xB9B93A;
     private static final int DIM_TEXT = 0xA8A8A8;
-    /** A line stays bright for this long after it was added; then it goes gray. */
+
     private static final long GRAY_AFTER_MS = 5000;
 
-    /** The colour of the kind of thing a line is about (bright, or the dimmer form for gray lines). */
     private static int typeColor(String type, boolean bright) {
         int c;
         String kind = type.contains(" ") ? type.substring(0, type.indexOf(' ')) : type;
@@ -235,11 +216,10 @@ final class ChangeLog {
         return r << 16 | g << 8 | b;
     }
 
-    /** The newest lines, as many as the preferences allow (at least ten), for a few seconds after each change. */
     private static List<Line> visible() {
         load();
         ClientPrefs.ensureLoaded();
-        // the panel goes away a few seconds after the last change, unless the preferences keep it on screen
+
         if (!ClientPrefs.alwaysShowHistory && System.currentTimeMillis() - lastAdded >= (long) (ClientPrefs.historySeconds * 1000)) {
             return List.of();
         }
@@ -252,7 +232,6 @@ final class ChangeLog {
         return out;
     }
 
-    /** Draws the band of lines so that its bottom edge is at {@code bottom}, from x to x + width. */
     static void draw(FontRenderer fr, int x, int bottom, int width) {
         List<Line> lines = visible();
         if (lines.isEmpty()) {
@@ -267,14 +246,14 @@ final class ChangeLog {
                     + (l.name().isEmpty() ? "" : "'" + l.name() + "'");
             widest = Math.max(widest, Math.round(fr.getStringWidth(all) * scale) + 8);
         }
-        width = Math.min(width, widest); // as wide as its text
+        width = Math.min(width, widest);
         Gui.drawRect(x, bottom - height, x + width, bottom, 0x6E000000);
         GlStateManager.enableBlend();
         int y = bottom - height + 2;
         long nowMs = System.currentTimeMillis();
         for (int i = 0; i < lines.size(); i++) {
             Line l = lines.get(i);
-            // each line goes gray five seconds after it was added, whether or not the panel was on screen meanwhile
+
             boolean now = l.session() && nowMs - l.at() < GRAY_AFTER_MS;
             GlStateManager.pushMatrix();
             GlStateManager.translate(x + 3, y, 0);
@@ -298,12 +277,9 @@ final class ChangeLog {
         }
     }
 
-    /** Tasks and rewards are written "Create Task: 'name'", the rest "Move Quest 'name'". */
     private static boolean colon(String type) {
         return type.equals("Task") || type.equals("Reward");
     }
-
-    // ------------------------------------------------------------------ what an edit says
 
     private static String quest(QuestBook book, String id) {
         Quest q = book == null ? null : book.quest(id);
@@ -315,7 +291,6 @@ final class ChangeLog {
         return c == null ? "" : RichText.stripCodes(c.title.isEmpty() ? c.id : c.title);
     }
 
-    /** Wording like upstream's history: an action, the kind of thing, and its name. Null for edits that are not recorded. */
     private static Desc describe(String op, DataNode.Compound a) {
         QuestBook book = ClientQuests.book();
         String id = a.getString("id", "");
@@ -419,7 +394,7 @@ final class ChangeLog {
             case "complete_quest":
                 return new Desc("Complete", "Quest", quest(book, id));
             default:
-                return null; // undo, redo and saving have their own lines or none
+                return null;
         }
     }
 }

@@ -19,11 +19,6 @@ import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflibquests.model.Definitions.Chapter;
 import com.levviata.reflibquests.model.Definitions.RewardTable;
 
-/**
- * A full, independent copy of a chapter or a reward table, for the edit history. It copies field by field, so a field
- * added to the model later is kept without touching this class. Values that cannot change (text, numbers, enums, data
- * trees and records of them) are shared; lists, maps and the editable model classes are copied.
- */
 public final class DeepCopy {
 
     private DeepCopy() {}
@@ -32,7 +27,6 @@ public final class DeepCopy {
         return (Chapter) copyObject(c);
     }
 
-    /** An independent copy of a quest under a new id (its tasks and rewards still carry the old ids). */
     public static Definitions.Quest quest(Definitions.Quest q, String newId) {
         return (Definitions.Quest) copyObject(q, newId);
     }

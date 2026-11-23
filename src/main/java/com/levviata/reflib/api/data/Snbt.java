@@ -10,40 +10,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Reader and writer for reflib's own human-editable text format.
- *
- * <pre>{@code
- * {
- *   title: "First steps"        // line comment (also '#')
- *   size: 3                     // int; 3L = long; 1.5 or 1.5d = double
- *   hidden: false
- *   tags: ["a", "b"]
- *   nested: { x: 1, y: 2 }      // commas are optional everywhere
- * }
- * }</pre>
- *
- * Strings must be quoted (single or double quotes; escapes: backslash followed by one of
- * {@code " ' \ n r t}, or by {@code u} and four hex digits);
- * keys may be bare ({@code [A-Za-z0-9_.+-]+}) or quoted. This is an independent format. When reading it also
- * accepts, so that JSON5 and older SNBT-style files load: block comments, {@code null} (the entry is treated
- * as absent), hexadecimal integers, and typed suffixes ({@code b} and {@code s} for small integers, {@code f}
- * for a float).
- */
 public final class Snbt {
 
     private Snbt() {}
-
-    // ------------------------------------------------------------------ parsing
 
     public static DataNode.Compound parse(String text) {
         return parse(text, false);
     }
 
-    /**
-     * Like {@link #parse} but a key that appears twice is not an error: the last value wins. Real-world files
-     * written by other programs sometimes contain such duplicates.
-     */
     public static DataNode.Compound parseLenient(String text) {
         return parse(text, true);
     }
@@ -144,7 +118,7 @@ public final class Snbt {
                         throw error("Duplicate key '" + key + "'");
                     }
                     skipComma();
-                    continue; // null means "absent"
+                    continue;
                 }
                 if (map.put(key, value) != null && !lenient) {
                     throw error("Duplicate key '" + key + "'");
@@ -174,7 +148,6 @@ public final class Snbt {
             }
         }
 
-        /** SNBT typed arrays start with a type letter and a semicolon: [I; 1, 2], [L; 1L], [B; 0b]. The letter is dropped. */
         private void skipTypedArrayPrefix() {
             skipSpace();
             if (pos < s.length() && "ILBilb".indexOf(s.charAt(pos)) >= 0) {
@@ -288,7 +261,7 @@ public final class Snbt {
                 return null;
             }
             try {
-                // hexadecimal (JSON5) and legacy typed suffixes: b/s = small integer, f = float
+
                 if (t.matches("[+-]?0[xX][0-9a-fA-F]+")) {
                     boolean neg = t.startsWith("-");
                     long v = Long.parseLong(t.replaceFirst("^[+-]?0[xX]", ""), 16);
@@ -330,16 +303,12 @@ public final class Snbt {
         }
     }
 
-    // ------------------------------------------------------------------ printing
-
-    /** Pretty-print with two-space indentation. */
     public static String print(DataNode node) {
         StringBuilder sb = new StringBuilder();
         write(sb, node, 0, true);
         return sb.toString();
     }
 
-    /** Single-line form. Parses back to an equal tree. */
     public static String printCompact(DataNode node) {
         StringBuilder sb = new StringBuilder();
         write(sb, node, 0, false);

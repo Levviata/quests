@@ -12,14 +12,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/**
- * Safe reading and writing of data files in the {@link Snbt} text format. Writes go to a temporary file first
- * and replace the target in one step, so a crash never leaves a half-written file; the previous version is
- * kept as {@code <name>.bak}. Parse errors are reported with the file name, line and column.
- */
 public final class DataFiles {
 
-    /** A data file could not be read or parsed. */
     public static final class DataFileException extends IOException {
         public DataFileException(Path file, String message, Throwable cause) {
             super(file + ": " + message, cause);
@@ -32,7 +26,6 @@ public final class DataFiles {
         writeText(file, Snbt.print(data) + "\n");
     }
 
-    /** Like {@link #write} but in {@link Json5} form (commas, quoted keys), for files other programs read. */
     public static void writeJson5(Path file, DataNode.Compound data) throws IOException {
         writeText(file, Json5.print(data) + "\n");
     }
@@ -52,7 +45,6 @@ public final class DataFiles {
         }
     }
 
-    /** Like {@link #read} but duplicate keys are tolerated (the last value wins); for files other programs wrote. */
     public static DataNode.Compound readLenient(Path file) throws IOException {
         String text = Files.readString(file, StandardCharsets.UTF_8);
         try {
@@ -62,10 +54,6 @@ public final class DataFiles {
         }
     }
 
-    /**
-     * @throws DataFileException if the text is not valid
-     * @throws IOException       if the file cannot be read
-     */
     public static DataNode.Compound read(Path file) throws IOException {
         String text = Files.readString(file, StandardCharsets.UTF_8);
         try {

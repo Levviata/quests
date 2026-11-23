@@ -11,11 +11,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A small immutable, Minecraft-independent data tree used for authored data files. It is deliberately
- * independent of NBT so the text codec ({@link Snbt}) can be tested without the game; use
- * {@link NbtBridge} to convert to and from NBT.
- */
 public sealed interface DataNode {
 
     record Str(String value) implements DataNode {}
@@ -28,14 +23,12 @@ public sealed interface DataNode {
 
     record Bool(boolean value) implements DataNode {}
 
-    /** Ordered list; elements may have any type in text form (NBT conversion requires one type). */
     record Lst(List<DataNode> items) implements DataNode {
         public Lst {
             items = Collections.unmodifiableList(new ArrayList<>(items));
         }
     }
 
-    /** Insertion-ordered string-keyed map. Immutable: {@code with} returns a copy. */
     record Compound(Map<String, DataNode> entries) implements DataNode {
         public Compound {
             entries = Collections.unmodifiableMap(new LinkedHashMap<>(entries));
@@ -89,7 +82,6 @@ public sealed interface DataNode {
             return get(key) instanceof Str s ? s.value() : fallback;
         }
 
-        /** Accepts {@code Int}; also {@code Lng} if it fits. */
         public int getInt(String key, int fallback) {
             DataNode n = get(key);
             if (n instanceof Int i) {
@@ -109,7 +101,6 @@ public sealed interface DataNode {
             return n instanceof Int i ? i.value() : fallback;
         }
 
-        /** Accepts {@code Dbl}, and integer values widened to double. */
         public double getDouble(String key, double fallback) {
             DataNode n = get(key);
             if (n instanceof Dbl d) {
@@ -121,7 +112,6 @@ public sealed interface DataNode {
             return n instanceof Lng l ? l.value() : fallback;
         }
 
-        /** Accepts {@code Bool}, and the integers 0 and 1 (older files write booleans as bytes). */
         public boolean getBool(String key, boolean fallback) {
             DataNode n = get(key);
             if (n instanceof Bool b) {

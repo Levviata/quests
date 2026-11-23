@@ -25,7 +25,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.levviata.reflib.api.net.ReflibChannel;
 
-/** Client-only half of the example: network round trip test, and a command that opens the GUI demo. */
 @SideOnly(Side.CLIENT)
 final class ClientSide {
 
@@ -60,8 +59,7 @@ final class ClientSide {
 
             @Override
             public void execute(MinecraftServer server, ICommandSender sender, String[] args) {
-                // The chat screen closes itself right after sending a command, which would close a screen
-                // opened here (addScheduledTask runs immediately on the client thread). Open it next tick.
+
                 openNextTick = true;
             }
         };
@@ -89,7 +87,6 @@ final class ClientSide {
         channel.sendToServer(new PingMessage(42));
     }
 
-    /** Verifies that the supplied test jar is visible through the normal resource and language systems. */
     private static void checkSuppliedAssets() {
         Minecraft mc = Minecraft.getMinecraft();
         String hello = net.minecraft.client.resources.I18n.format("reflibtest.hello");
@@ -114,7 +111,6 @@ final class ClientSide {
                 ok ? "PASS" : "FAIL", hello, multi, textureOk, leak);
     }
 
-    /** Called when the server's reply arrives on the client thread. */
     static void onPong(String text) {
         boolean ok = "pong 42".equals(text);
         LOGGER.info(ok ? "REFLIB-NET: PASS (round trip, got '{}')" : "REFLIB-NET: FAIL (got '{}')", text);

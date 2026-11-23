@@ -12,11 +12,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-/**
- * Internal: converts a flat JSON language file (as written for newer game versions) to the {@code key=value}
- * {@code .lang} text that 1.12.2 reads. Non-string values and nested objects are skipped; line breaks inside a
- * value become spaces because the old format is line based.
- */
 public final class LangJson {
 
     private LangJson() {}

@@ -5,7 +5,6 @@
 
 package com.levviata.reflibquests.model;
 
-/** What changed as a result of a progress operation; the game layer turns these into Forge events and sync. */
 public sealed interface ProgressEvent {
 
     record TaskProgressed(String taskId, long oldValue, long newValue) implements ProgressEvent {}

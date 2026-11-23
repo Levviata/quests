@@ -9,12 +9,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-/**
- * Internal: puts the fragments of a large message back together. Pure logic (no network types) so it can be
- * unit-tested. All limits exist to stop a misbehaving peer from using unbounded memory.
- *
- * @param <K> identifies the sender (player id on the server, a constant on the client)
- */
 public final class Reassembler<K> {
 
     public static final int MAX_PENDING_PER_SENDER = 4;
@@ -43,12 +37,6 @@ public final class Reassembler<K> {
         this.maxTotalBytes = maxTotalBytes;
     }
 
-    /**
-     * Offer one fragment.
-     *
-     * @return the complete payload once the last fragment arrives, otherwise {@code null}
-     * @throws IllegalArgumentException if the fragment violates a limit or contradicts earlier fragments
-     */
     public synchronized byte[] accept(K sender, int transfer, int index, int count, byte[] fragment, long nowMillis) {
         if (count < 1 || count > maxFragments) {
             throw new IllegalArgumentException("Fragment count " + count + " outside 1.." + maxFragments);
@@ -102,7 +90,6 @@ public final class Reassembler<K> {
         return whole;
     }
 
-    /** Drop everything pending from a sender (e.g. on disconnect). */
     public synchronized void clear(K sender) {
         bySender.remove(sender);
     }

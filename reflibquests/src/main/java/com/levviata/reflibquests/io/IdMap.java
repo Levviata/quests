@@ -10,28 +10,13 @@ import java.util.Map;
 
 import com.levviata.reflib.api.data.DataNode;
 
-/**
- * Maps names written by newer game versions to 1.12.2 names. File form ({@code id_map.snbt}):
- *
- * <pre>{@code
- * {
- *   items: { "minecraft:oak_log": "minecraft:log@0", "minecraft:red_wool": "minecraft:wool@14" }
- *   entities: { "minecraft:zombified_piglin": "minecraft:zombie_pigman" }
- * }
- * }</pre>
- *
- * A target may carry {@code @meta} (item damage). Names without an entry are returned unchanged, so ids that
- * did not change between versions need no entry.
- */
 public final class IdMap {
 
-    /** A mapped item name and its metadata value (0 if none given). */
     public record ItemTarget(String name, int meta, boolean hasMeta) {}
 
     private final Map<String, String> items = new HashMap<>();
     private final Map<String, String> entities = new HashMap<>();
 
-    /** Only the entries in {@code data}. */
     public static IdMap from(DataNode.Compound data) {
         IdMap m = new IdMap();
         fill(m.items, data.getCompound("items"));
@@ -39,7 +24,6 @@ public final class IdMap {
         return m;
     }
 
-    /** The built-in table ({@link BuiltinIdMap}) with the entries of {@code overrides} on top; overrides win. */
     public static IdMap withBuiltin(DataNode.Compound overrides) {
         IdMap m = new IdMap();
         m.items.putAll(BuiltinIdMap.items());

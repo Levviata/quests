@@ -19,17 +19,10 @@ import net.minecraftforge.fml.relauncher.Side;
 import com.levviata.reflib.api.net.ReflibChannel;
 import com.levviata.reflib.api.net.ReflibMessage;
 
-/**
- * Internal: the transport-independent half of a channel. Maps message classes to one-byte ids, encodes and
- * decodes payloads, splits large payloads into fragments, and enforces direction and size rules. It has no
- * dependency on the network stack so it can be unit-tested.
- */
 public final class MessageRegistry {
 
-    /** Largest message (after encoding) a channel will send or accept. Larger data must be split by the caller. */
     public static final int MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
 
-    /** Payload bytes per network frame (vanilla limits custom payloads to 32 KiB; leave room for headers). */
     public static final int MAX_FRAGMENT_BYTES = 28_000;
 
     public static final int MAX_FRAGMENTS = (MAX_MESSAGE_BYTES + MAX_FRAGMENT_BYTES - 1) / MAX_FRAGMENT_BYTES;
@@ -72,10 +65,6 @@ public final class MessageRegistry {
         entries.add(new Entry(type, receiver, (ReflibChannel.Handler<ReflibMessage>) handler, ctor));
     }
 
-    /**
-     * A hash of the protocol version and the ordered registered message types and directions. Both ends must
-     * agree; frames carrying a different value are dropped with a clear log line. Freezes the registry.
-     */
     public synchronized int signature() {
         if (!frozen) {
             frozen = true;
@@ -101,7 +90,6 @@ public final class MessageRegistry {
         return entries.get(id).receiver;
     }
 
-    /** @return the encoded payload of a message */
     public byte[] encode(ReflibMessage message) {
         ByteBuf raw = Unpooled.buffer();
         try {
@@ -118,7 +106,6 @@ public final class MessageRegistry {
         }
     }
 
-    /** Split an encoded payload into network-sized fragments (one fragment if it already fits). */
     public static List<byte[]> split(byte[] payload) {
         List<byte[]> out = new ArrayList<>();
         if (payload.length <= MAX_FRAGMENT_BYTES) {
@@ -131,11 +118,6 @@ public final class MessageRegistry {
         return out;
     }
 
-    /**
-     * Decode a payload.
-     *
-     * @throws IllegalArgumentException on unknown id, wrong direction, oversize payload, or malformed data
-     */
     public ReflibMessage decode(int id, byte[] payload, Side arrivedOn) {
         Entry entry;
         synchronized (this) {

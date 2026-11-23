@@ -7,7 +7,6 @@ package com.levviata.reflibteams;
 
 import net.minecraftforge.common.config.Config;
 
-/** Settings file {@code config/reflibteams.cfg}. */
 @Config(modid = "reflibteams")
 public class TeamsConfig {
 

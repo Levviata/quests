@@ -23,11 +23,9 @@ import org.lwjgl.opengl.GL11;
 import com.levviata.reflib.gui.Rect;
 import com.levviata.reflibquests.net.QuestNet;
 
-/** "Valid items for ...": the items a collection task accepts, with Back and Submit. Click an item to see how it is made. */
 @SideOnly(Side.CLIENT)
 final class ValidItemsScreen extends GuiScreen {
 
-    // measured from the upstream panel at the same GUI size (hotbar slot = 20 units): 157 x 213, cells 36, icons 24, buttons 20 tall
     private static final int CELL = 36;
     private static final int COLUMNS = 4;
     private static final int PAD = 5;
@@ -39,7 +37,7 @@ final class ValidItemsScreen extends GuiScreen {
     private final List<ItemStack> stacks;
     private final String taskId;
     private final boolean canSubmit;
-    /** Set when the panel is used to choose an item to copy: clicking an item picks it, and there is no Submit. */
+
     private final java.util.function.IntConsumer picker;
     private int scroll;
 
@@ -47,7 +45,6 @@ final class ValidItemsScreen extends GuiScreen {
         this(parent, title, stacks, taskId, canSubmit, null);
     }
 
-    /** "Grab Copy of Item" on a collection: the same panel, where clicking an item takes a copy of it. */
     static ValidItemsScreen forCopying(GuiScreen parent, String title, List<ItemStack> stacks, java.util.function.IntConsumer picker) {
         return new ValidItemsScreen(parent, title, stacks, "", false, picker);
     }
@@ -94,7 +91,7 @@ final class ValidItemsScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         if (parent != null) {
-            parent.drawScreen(-1000, -1000, partialTicks); // the screen underneath stays visible
+            parent.drawScreen(-1000, -1000, partialTicks);
         }
         drawDefaultBackground();
         Rect win = window();
@@ -122,7 +119,7 @@ final class ValidItemsScreen extends GuiScreen {
                 Gui.drawRect(x + 1, y + 1, x + CELL - 1, y + CELL - 1, 0x40FFFFFF);
                 hovered = stacks.get(i);
             }
-            // the icon is drawn a little larger than a normal slot, centred in its cell
+
             GlStateManager.pushMatrix();
             float s = 2.0f;
             GlStateManager.translate(x + (CELL - 16 * s) / 2f, y + (CELL - 16 * s) / 2f, 0);
@@ -137,7 +134,7 @@ final class ValidItemsScreen extends GuiScreen {
             int ky = grid.y() + (grid.height() - knob) * scroll / maxScroll;
             Gui.drawRect(grid.x() + grid.width() - 2, ky, grid.x() + grid.width(), ky + knob, 0xFF808080);
         }
-        // buttons
+
         Rect back = back(win);
         Rect submit = submit(win);
         Ui.vanillaButton(back, back.contains(mouseX, mouseY));
@@ -174,9 +171,9 @@ final class ValidItemsScreen extends GuiScreen {
             if (col >= 0 && col < COLUMNS && index >= 0 && index < stacks.size()) {
                 if (picker != null) {
                     mc.displayGuiScreen(parent);
-                    picker.accept(index); // the chosen item is copied
+                    picker.accept(index);
                 } else {
-                    JeiBridge.showRecipes(stacks.get(index)); // JEI returns to this screen when it is closed
+                    JeiBridge.showRecipes(stacks.get(index));
                 }
             }
         }
@@ -198,7 +195,6 @@ final class ValidItemsScreen extends GuiScreen {
         }
     }
 
-    /** Minimal scissor helper in GUI coordinates. */
     private static final class ScaledScissor {
         static void on(Rect r) {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();

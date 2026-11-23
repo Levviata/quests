@@ -1,0 +1,347 @@
+{
+ "hbm:battery_pack@9": {
+  "to": "hbm:capacitor_tantalum",
+  "status": "by-name",
+  "note": "\"Tantalum Capacitor\"; the 26.1.2 mod lists capacitor_tantalum (and a misspelt capacitor_tantalium)"
+ },
+ "hbm:block_copper@0": {
+  "to": "minecraft:copper_block",
+  "status": "substitute",
+  "note": "26.1.2 Nuclear Tech has no copper block; it uses the vanilla one (its c:ingots/copper tag lists minecraft:copper_ingot)"
+ },
+ "hbm:ore_copper@0": {
+  "to": "minecraft:copper_ore",
+  "status": "substitute",
+  "note": "26.1.2 Nuclear Tech has no plain copper ore; vanilla copper ore is the equivalent"
+ },
+ "hbm:ingot_copper@0": {
+  "to": "minecraft:copper_ingot",
+  "status": "substitute",
+  "note": "the 1.12.2 \"Industrial Grade Copper Ingot\" is the vanilla copper ingot in 26.1.2 (tag c:ingots/copper); ingot_red_copper is the alloy"
+ },
+ "hbm:bolt@33": {
+  "to": "hbm:bolt_dura_steel",
+  "status": "by-name",
+  "note": "\"High-Speed Steel Bolt\"; hbmmat.dura_steel is called High-Speed Steel"
+ },
+ "hbm:book_guide_book@1": {
+  "to": "hbm:book_guide_rbmk",
+  "status": "inferred",
+  "note": "meta 1 is used by the quest \"My first RBMK Guide Book\"; the 26.1.2 mod has one guide book per topic"
+ },
+ "hbm:bottle2_fritz_special@0": {
+  "to": "hbm:bottle2_fritz",
+  "status": "substitute",
+  "note": "the 1.12.2 \"First Fritz Cola\" collectible no longer exists; the normal Fritz Cola is the closest"
+ },
+ "hbm:bottle2_korl_special@0": {
+  "to": "hbm:bottle2_korl",
+  "status": "substitute",
+  "note": "the 1.12.2 \"First Korl\" collectible no longer exists; the normal Korl is the closest"
+ },
+ "hbm:cart@0": {
+  "to": "hbm:cart_empty",
+  "status": "inferred",
+  "note": "meta 0 of the minecart item (only used in the unlisted chapter 7079924d, which is not converted)"
+ },
+ "hbm:concrete_colored_ext@5": {
+  "to": "hbm:concrete_ext_hazard",
+  "status": "by-name",
+  "note": "\"Builder's Choice Concrete - Hazard Stripe\""
+ },
+ "hbm:crashed_bomb@1": {
+  "to": "hbm:crashed_bomb_conventional",
+  "status": "derived",
+  "note": "tile.crashed_bomb.conventional"
+ },
+ "hbm:crashed_bomb@3": {
+  "to": "hbm:crashed_bomb_salted",
+  "status": "derived",
+  "note": "tile.crashed_bomb.salted"
+ },
+ "hbm:entity_elder_one@0": {
+  "to": "hbm:entity_elder_one_spawn_egg",
+  "status": "substitute",
+  "note": "used as a mob picture; the spawn egg is the matching item"
+ },
+ "hbm:entity_glyphid_nuclear@0": {
+  "to": "hbm:entity_glyphid_nuclear_spawn_egg",
+  "status": "substitute",
+  "note": "used as a mob picture; the spawn egg is the matching item"
+ },
+ "hbm:entity_mask_man@0": {
+  "to": "hbm:entity_mob_mask_man_spawn_egg",
+  "status": "substitute",
+  "note": "used as a mob picture; the spawn egg is the matching item"
+ },
+ "hbm:entity_ntm_radiation_blaze@0": {
+  "to": "hbm:entity_radiation_blaze_spawn_egg",
+  "status": "substitute",
+  "note": "used as a mob picture; the spawn egg is the matching item"
+ },
+ "hbm:entity_ntm_test_dummy@0": {
+  "to": "hbm:entity_test_dummy_spawn_egg",
+  "status": "substitute",
+  "note": "used as a mob picture; the spawn egg is the matching item"
+ },
+ "hbm:entity_nuclear_creeper@0": {
+  "to": "hbm:entity_mob_nuclear_creeper_spawn_egg",
+  "status": "substitute",
+  "note": "used as a mob picture; the spawn egg is the matching item"
+ },
+ "hbm:entity_ntm_ufo@0": {
+  "to": "hbm:spawn_ufo",
+  "status": "substitute",
+  "note": "no UFO spawn egg in 26.1.2; the UFO spawn item that sits beside it in the same quest"
+ },
+ "hbm:entity_balls_o_tron@0": {
+  "to": "hbm:spawn_worm",
+  "status": "substitute",
+  "note": "no Balls O'Tron spawn egg in 26.1.2; the worm spawn item that sits beside it in the same quest"
+ },
+ "hbm:fluid_barrel_empty@0": {
+  "to": "hbm:fluid_barrel",
+  "status": "renamed",
+  "note": "26.1.2 has one barrel item; empty means no fluid component"
+ },
+ "hbm:fluid_tank_empty@0": {
+  "to": "hbm:fluid_tank",
+  "status": "renamed",
+  "note": "26.1.2 has one universal tank item; empty means no fluid component"
+ },
+ "hbm:fluid_duct_exhaust@0": {
+  "to": "hbm:fluid_duct_exhaust_0",
+  "status": "inferred",
+  "note": "26.1.2 splits the exhaust pipe into five items; the first is used"
+ },
+ "hbm:fluid_duct_mk2@1": {
+  "to": "hbm:fluid_duct_neo",
+  "status": "inferred",
+  "note": "the Universal Fluid Duct is fluid_duct_neo in 26.1.2 (colored and silver variants exist)"
+ },
+ "hbm:furnace_combination@0": {
+  "to": "hbm:machine_furnace_combination",
+  "status": "renamed",
+  "note": "\"Combination Oven\" is now \"Combination Furnace\""
+ },
+ "hbm:lung_diagnostic@0": {
+  "to": "hbm:digamma_diagnostic",
+  "status": "substitute-weak",
+  "note": "no lung diagnostic item in 26.1.2 (the lung scanner is a GUI); the digamma diagnostic is the only diagnostic item"
+ },
+ "hbm:mp_warhead_15_thermo@0": {
+  "to": "hbm:mp_warhead_15_nuclear",
+  "status": "substitute",
+  "note": "no thermonuclear size-15 warhead in 26.1.2; the nuclear one is the closest"
+ },
+ "hbm:mp_warhead_15_mirv@0": {
+  "to": "hbm:warhead_mirv",
+  "status": "substitute",
+  "note": "no size-15 MIRV warhead in 26.1.2; the MIRV warhead item is the closest"
+ },
+ "hbm:sat_interface@0": {
+  "to": "hbm:machine_satlink",
+  "status": "substitute-weak",
+  "note": "the Satellite Control Interface item no longer exists; the ground station block replaces it"
+ },
+ "hbm:spinny_light@0": {
+  "to": "hbm:lantern",
+  "status": "substitute-weak",
+  "note": "the Spinny Light block does not exist in 26.1.2; the lantern is the closest light source"
+ },
+ "hbm:capsule_xen@0": {
+  "to": "hbm:crystal_xen",
+  "status": "substitute-weak",
+  "note": "no Xen Capsule in 26.1.2; the Artificial Xen Crystal is the closest Xen item"
+ },
+ "hbm:pile_rod@0": {
+  "to": "hbm:pile_rod_mk2_ra226be",
+  "status": "inferred",
+  "note": "order read from the quest structure: first the two neutron sources"
+ },
+ "hbm:pile_rod@1": {
+  "to": "hbm:pile_rod_mk2_po210be",
+  "status": "inferred",
+  "note": "order read from the quest structure: second neutron source"
+ },
+ "hbm:pile_rod@2": {
+  "to": "hbm:pile_rod_mk2_zr",
+  "status": "inferred",
+  "note": "the quest text speaks of zirconium rods"
+ },
+ "hbm:pile_rod@3": {
+  "to": "hbm:pile_rod_mk2_nu",
+  "status": "inferred",
+  "note": "the fuel quest pairs natural uranium and natural thorium (3 and 7)"
+ },
+ "hbm:pile_rod@4": {
+  "to": "hbm:pile_rod_mk2_pu239",
+  "status": "inferred",
+  "note": "breeding chain uranium, plutonium, RGP, waste"
+ },
+ "hbm:pile_rod@5": {
+  "to": "hbm:pile_rod_mk2_rgp",
+  "status": "inferred",
+  "note": "breeding chain uranium, plutonium, RGP, waste"
+ },
+ "hbm:pile_rod@6": {
+  "to": "hbm:pile_rod_mk2_waste",
+  "status": "inferred",
+  "note": "breeding chain uranium, plutonium, RGP, waste"
+ },
+ "hbm:pile_rod@7": {
+  "to": "hbm:pile_rod_mk2_thorium",
+  "status": "inferred",
+  "note": "the fuel quest pairs natural uranium and natural thorium (3 and 7)"
+ },
+ "hbm:pile_rod@8": {
+  "to": "hbm:pile_rod_mk2_thorium_fuel",
+  "status": "inferred",
+  "note": "depends on the natural thorium rod"
+ },
+ "hbm:pile_device@0": {
+  "to": "hbm:pile_loader",
+  "status": "derived",
+  "note": "tile.pile_device_0 = Chicago Pile Fuel Loader"
+ },
+ "hbm:pile_device@1": {
+  "to": "hbm:pile_vent",
+  "status": "derived",
+  "note": "tile.pile_device_1 = Chicago Pile Vent"
+ },
+ "hbm:pile_device@2": {
+  "to": "hbm:pile_control",
+  "status": "derived",
+  "note": "tile.pile_device_2 = Chicago Pile Control Rod"
+ },
+ "hbm:plant_dead@0": {
+  "to": "hbm:plant_dead_generic",
+  "status": "inferred",
+  "note": "26.1.2 has five dead-plant items with the same name; the generic one"
+ },
+ "hbm:plant_flower@1": {
+  "to": "hbm:plant_flower_weed",
+  "status": "by-name",
+  "note": "Hemp (flower form)"
+ },
+ "hbm:plant_flower@2": {
+  "to": "hbm:plant_flower_cd0",
+  "status": "inferred",
+  "note": "Mustard Willow, first growth stage"
+ },
+ "hbm:plant_flower@3": {
+  "to": "hbm:plant_flower_cd1",
+  "status": "inferred",
+  "note": "Mustard Willow, second growth stage"
+ },
+ "hbm:plushie@1": {
+  "to": "hbm:plushie_yomi",
+  "status": "by-name",
+  "note": "Yomi Plushie"
+ },
+ "hbm:plushie@2": {
+  "to": "hbm:plushie_numbernine",
+  "status": "by-name",
+  "note": "Number Nine Plushie"
+ },
+ "hbm:plushie@3": {
+  "to": "hbm:plushie_hundun",
+  "status": "by-name",
+  "note": "Hundun Plushie"
+ },
+ "hbm:apple_lead@1": {
+  "to": "hbm:apple_lead_ingot",
+  "status": "inferred",
+  "note": "meta 1 and 2 of the apple are the ingot and block versions; the order is assumed"
+ },
+ "hbm:apple_lead@2": {
+  "to": "hbm:apple_lead_block",
+  "status": "inferred",
+  "note": "meta 1 and 2 of the apple are the ingot and block versions; the order is assumed"
+ },
+ "hbm:apple_schrabidium@1": {
+  "to": "hbm:apple_schrabidium_ingot",
+  "status": "inferred",
+  "note": "meta 1 and 2 of the apple are the ingot and block versions; the order is assumed"
+ },
+ "hbm:apple_schrabidium@2": {
+  "to": "hbm:apple_schrabidium_block",
+  "status": "inferred",
+  "note": "meta 1 and 2 of the apple are the ingot and block versions; the order is assumed"
+ },
+ "hbm:satellite@0": {
+  "to": "hbm:satellite_spy",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 0 named it \"Spy Satellite\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@1": {
+  "to": "hbm:satellite_scanner",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 1 named it \"Depth Scanning Satellite\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@2": {
+  "to": "hbm:satellite_radar",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 2 named it \"Radar Satellite\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@3": {
+  "to": "hbm:satellite_miner_astro",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 3 named it \"Asteroid Mining Ship\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@4": {
+  "to": "hbm:satellite_miner_lunar",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 4 named it \"Lunar Mining Ship\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@5": {
+  "to": "hbm:satellite_precision_laser",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 5 named it \"Orbital Precision Laser\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@6": {
+  "to": "hbm:satellite_death_ray",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 6 named it \"Orbital Death Ray\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@7": {
+  "to": "hbm:satellite_xenium_resonator",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 7 named it \"Xenium Resonator Satellite\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@8": {
+  "to": "hbm:satellite_relay",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 8 named it \"RoR Relay Satellite\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@9": {
+  "to": "hbm:satellite_detector",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 9 named it \"Wideband Radio Emission Detector Satellite\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@10": {
+  "to": "hbm:satellite_ray_scan",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 10 named it \"Narrowband Emission Scanning Satellite\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@11": {
+  "to": "hbm:satellite_science",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 11 named it \"Space Laboratory\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@12": {
+  "to": "hbm:satellite_science_assembler",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 12 named it \"Space Laboratory - 0G Assembler\" (read in the LvNTM game)"
+ },
+ "hbm:satellite@13": {
+  "to": "hbm:satellite_science_sensor",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:satellite meta 13 named it \"Space Laboratory - Sensor Relay\" (read in the LvNTM game)"
+ },
+ "hbm:item_secret@2": {
+  "to": "hbm:item_secret_selenium_steel",
+  "status": "game-checked",
+  "note": "1.12.2 /give of hbm:item_secret meta 2 named it \"Selenium Steel\""
+ }
+}

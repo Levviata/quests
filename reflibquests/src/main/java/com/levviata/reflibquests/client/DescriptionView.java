@@ -25,17 +25,14 @@ import com.levviata.reflibquests.text.RichText.Line;
 import com.levviata.reflibquests.text.RichText.Page;
 import com.levviata.reflibquests.text.RichText.Span;
 
-/** Lays out and draws one page of a quest description (colours, wrapping, images, clickable links). */
 final class DescriptionView {
 
     static final int LINE = 10;
     private static final int LINK_COLOR = 0x7FB2FF;
     private static final int TEXT_COLOR = 0xFFFFFF;
 
-    /** {@code owner} is the span the word came from: all words of one link light up together. */
     record Op(String text, int x, int y, int width, int color, Click click, boolean rainbow, String hover, Object owner) {}
 
-    /** Receives every span that reacts to the mouse: its screen box, its click (or null) and its hover text (or empty). */
     interface LinkSink {
         void accept(int[] box, Click click, String hover);
     }
@@ -52,7 +49,6 @@ final class DescriptionView {
 
     private DescriptionView() {}
 
-    /** Layout for page {@code page} (clamped) of the description; cached while the inputs do not change. */
     static Layout layout(FontRenderer fr, List<String> entries, int page, int width) {
         if (cached != null && entries == cachedEntries && page == cachedPage && width == cachedWidth) {
             return cached;
@@ -65,7 +61,7 @@ final class DescriptionView {
         List<Line> pageLines = pages.get(index).lines();
         int lastLine = pageLines.size() - 1;
         while (lastLine >= 0 && pageLines.get(lastLine).blank()) {
-            lastLine--; // empty rows at the end of a page are not shown
+            lastLine--;
         }
         for (Line line : pageLines.subList(0, lastLine + 1)) {
             if (line.blank()) {
@@ -114,7 +110,6 @@ final class DescriptionView {
         return cached;
     }
 
-    /** Draws a layout at (x, y); every clickable span is reported through {@code links} as (screen rect, click). */
     static void draw(FontRenderer fr, Layout layout, int x, int y, int mouseX, int mouseY, LinkSink links) {
         for (Img img : layout.images()) {
             drawImage(fr, img, x + img.x(), y + img.y());
@@ -174,7 +169,6 @@ final class DescriptionView {
         });
     }
 
-    /** Forget which textures were missing, e.g. after the supplied-asset pack changed. */
     static void clearCaches() {
         TEXTURE_EXISTS.clear();
         cached = null;
@@ -200,7 +194,6 @@ final class DescriptionView {
         return sb.toString();
     }
 
-    /** Splits into words that keep their trailing spaces, so wrapping can break between them. */
     private static List<String> words(String text) {
         List<String> out = new ArrayList<>();
         int start = 0;

@@ -21,10 +21,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.levviata.reflib.api.assets.SuppliedAssets;
 
-/**
- * Internal: serves the exposed domains of one player-supplied jar as a resource pack. A request for
- * {@code lang/xx_yy.lang} that the jar only has as {@code lang/xx_yy.json} is answered with a converted copy.
- */
 @SideOnly(Side.CLIENT)
 public final class SuppliedJarPack implements IResourcePack {
 

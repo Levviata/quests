@@ -21,7 +21,6 @@ import com.levviata.reflibquests.model.Definitions.Tristate;
 import com.levviata.reflibquests.net.QuestNet;
 import com.levviata.reflibquests.text.RichText;
 
-/** "Quest Properties": the quest's settings in groups, with a hover tip for each; Accept sends only what changed. */
 @SideOnly(Side.CLIENT)
 final class QuestPropertiesScreen extends SettingsScreen {
 
@@ -46,6 +45,7 @@ final class QuestPropertiesScreen extends SettingsScreen {
         values.put("shape", SHAPE_LABELS.get(Math.max(0, SHAPE_NAMES.indexOf(q.shape.equals("default") ? "" : q.shape))));
         values.put("size", String.valueOf(q.size));
         values.put("z", String.valueOf(q.z));
+        values.put("disable_toast", String.valueOf(q.disableToast));
         values.put("hide_details", tri(q.hideDetailsUntilStartable));
         values.put("hide_deps_complete", tri(q.hideUntilDepsComplete));
         values.put("hide_deps_visible", tri(q.hideUntilDepsVisible));
@@ -78,6 +78,8 @@ final class QuestPropertiesScreen extends SettingsScreen {
                 .tip("The icon of the quest. None goes back to the icon of the first task or reward.")
                 .defaults("None"), quest.icon);
         text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Comma separated labels, e.g. for styles.").defaults("");
+        bool("Disable Completion Toast", () -> Boolean.parseBoolean(values.get("disable_toast")), v -> values.put("disable_toast", String.valueOf(v)))
+                .tip("No pop-up when this quest is completed.").defaults("False");
         section("Quest → Appearance");
         number("Icon Scaling", false, () -> values.get("icon_scale"), v -> values.put("icon_scale", String.valueOf(Math.max(0.0625, Math.min(16.0, Double.parseDouble(v))))))
                 .tip("Independent of the overall button size").defaults("1.00");
@@ -92,7 +94,7 @@ final class QuestPropertiesScreen extends SettingsScreen {
             presetNames.addAll(presetBook.settings.getCompound("presets").entries().keySet());
         }
         if (!presetNames.contains(values.get("preset"))) {
-            presetNames.add(values.get("preset")); // a preset the book no longer lists: keep it selectable
+            presetNames.add(values.get("preset"));
         }
         choice("Visual Preset", presetNames, () -> values.get("preset"), v -> values.put("preset", v))
                 .tip("Visual preset to be used by this quest").defaults("None");
@@ -202,6 +204,6 @@ final class QuestPropertiesScreen extends SettingsScreen {
 
     @Override
     protected void cancelled() {
-        // nothing was sent, so nothing to undo
+
     }
 }

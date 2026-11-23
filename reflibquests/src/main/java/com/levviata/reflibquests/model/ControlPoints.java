@@ -12,15 +12,12 @@ import java.util.Map;
 
 import com.levviata.reflib.api.data.DataNode;
 
-/** Reads and writes the Bezier control points of a quest's dependency lines ({@code dep_control_pts}). */
 public final class ControlPoints {
 
-    /** Points further out than this (in grid units) are not taken. */
     public static final double LIMIT = 100_000;
 
     private ControlPoints() {}
 
-    /** @return the four numbers of a line's points, or null if the node is not a list of four finite numbers */
     public static List<Double> parse(DataNode n) {
         if (!(n instanceof DataNode.Lst l) || l.items().size() != 4) {
             return null;

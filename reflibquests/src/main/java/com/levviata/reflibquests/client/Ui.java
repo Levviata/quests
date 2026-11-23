@@ -16,10 +16,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import com.levviata.reflib.api.assets.SuppliedAssets;
 import com.levviata.reflib.gui.Rect;
 
-/**
- * Small drawing helpers and the names of the optional icons taken from the player's supplied jars. Nothing here
- * is bundled; every helper returns false (so the caller can draw a plain fallback) when the art is missing.
- */
 @SideOnly(Side.CLIENT)
 final class Ui {
 
@@ -34,7 +30,6 @@ final class Ui {
         return QuestArt.available() && EXISTS.computeIfAbsent(domain + ":" + path, k -> SuppliedAssets.read(domain, path) != null);
     }
 
-    /** Draws a supplied texture stretched over the box; returns false if the texture is not available. */
     static boolean icon(String domain, String path, double x, double y, double w, double h, int argb) {
         if (!has(domain, path)) {
             return false;
@@ -47,27 +42,24 @@ final class Ui {
         return icon(QUESTS, "textures/gui/" + name + ".png", x, y, w, h, argb);
     }
 
-    // ---- the "completed" tick: the shape from the supplied checkmark.svg (viewBox 40 40 640 510)
     private static final double[][] TICK = {
         {158.5, 218.5}, {272.5, 332.5}, {550, 55}, {650, 155}, {272.5, 532.5}, {58.5, 318.5}};
     private static final double[][] TICK_INNER = inset(TICK, 18);
     private static final int TICK_BORDER = 0xFF468100;
     private static final int TICK_FILL = 0xFF9BC600;
 
-    /** The completed-tick badge (quests, tasks, rewards): lime body with a dark green border, as in the SVG. */
     static boolean check(double x, double y, double size, int argb) {
         double k = size / 640.0;
         double ox = x - 40 * k;
         double oy = y + (size - 510 * k) / 2 - 40 * k;
         net.minecraft.client.renderer.GlStateManager.pushMatrix();
-        net.minecraft.client.renderer.GlStateManager.translate(0, 0, 400); // in front of item pictures
+        net.minecraft.client.renderer.GlStateManager.translate(0, 0, 400);
         tick(TICK, ox, oy, k, TICK_BORDER);
         tick(TICK_INNER, ox, oy, k, TICK_FILL);
         net.minecraft.client.renderer.GlStateManager.popMatrix();
         return true;
     }
 
-    /** Two convex halves of the tick polygon, filled flat. */
     private static void tick(double[][] p, double ox, double oy, double k, int argb) {
         quad(p, new int[] {5, 0, 1, 4}, ox, oy, k, argb);
         quad(p, new int[] {1, 2, 3, 4}, ox, oy, k, argb);
@@ -90,7 +82,6 @@ final class Ui {
         net.minecraft.client.renderer.GlStateManager.enableCull();
     }
 
-    /** Moves every edge of a polygon inwards by d (mitred corners); used to make the tick's inner border. */
     private static double[][] inset(double[][] p, double d) {
         int n = p.length;
         double area = 0;
@@ -121,16 +112,14 @@ final class Ui {
         return new double[] {-dy / len * sign, dx / len * sign};
     }
 
-    // ---- the checkmark TASK icon: the pixel-art check from the supplied jar, grey until done
     private static final Map<String, ResourceLocation> GRAY = new HashMap<>();
 
-    /** The check on a quest of the map: FTB Quests draws it dark (about half as bright as in the task list), measured from its window. */
     static boolean mapCheck(double x, double y, double size, boolean done) {
         if (done) {
             return taskCheck(x, y, size, true);
         }
         if (questsGui("check_gray", x, y, size, size, 0xFFFFFFFF)) {
-            return true; // FTB Quests' own grey check for an unfinished checkmark quest
+            return true;
         }
         return grayIcon(LIBRARY, "textures/icons/check.png", x, y, size, size, 0xFF828478);
     }
@@ -142,7 +131,6 @@ final class Ui {
         return grayIcon(LIBRARY, "textures/icons/check.png", x, y, size, size, 0xFFFFFFFF);
     }
 
-    /** The picture in greys, made once in memory from the supplied file (never saved). */
     static boolean grayIcon(String domain, String path, double x, double y, double w, double h, int argb) {
         if (!has(domain, path)) {
             return false;
@@ -172,18 +160,16 @@ final class Ui {
 
     static boolean alert(double x, double y, double size) {
         net.minecraft.client.renderer.GlStateManager.pushMatrix();
-        net.minecraft.client.renderer.GlStateManager.translate(0, 0, 400); // in front of item pictures
+        net.minecraft.client.renderer.GlStateManager.translate(0, 0, 400);
         boolean drawn = questsGui("alert", x, y, size, size, 0xFFFFFFFF);
         net.minecraft.client.renderer.GlStateManager.popMatrix();
         return drawn;
     }
 
-    /** The "missing item" picture for items that do not exist in this game version. */
     static boolean missingItem(double x, double y, double size) {
         return icon(LIBRARY, "textures/item/missing_item.png", x, y, size, size, 0xFFFFFFFF);
     }
 
-    /** A small filled triangle pointing right (the "open chapters" handle). */
     static void triangleRight(double x, double y, double h, int argb) {
         net.minecraft.client.renderer.GlStateManager.disableCull();
         net.minecraft.client.renderer.GlStateManager.disableTexture2D();
@@ -203,10 +189,6 @@ final class Ui {
 
     private static final Map<String, ResourceLocation> OPAQUE = new HashMap<>();
 
-    /**
-     * A shape's background picture with every visible pixel made fully opaque (the radial shading is kept as brightness),
-     * made once in memory from the supplied file and never saved. Null when the shape art is missing.
-     */
     static ResourceLocation opaqueShape(String shape) {
         String path = "textures/shapes/" + shape + "/background.png";
         if (!has(QUESTS, path)) {
@@ -225,8 +207,7 @@ final class Ui {
                     if (a == 0) {
                         continue;
                     }
-                    // the upstream picture fades from about half opacity at the rim to full in the middle: keep that as a
-                    // clear radial shading (dark rim, light middle) while the node itself stays fully solid
+
                     double t = Math.max(0, Math.min(1, (a - 120) / 135.0));
                     int v = (int) (255 * (0.58 + 0.42 * t));
                     out.setRGB(px, py, 0xFF000000 | v << 16 | v << 8 | v);
@@ -243,10 +224,6 @@ final class Ui {
 
     private static final ResourceLocation RECIPE_BOOK = new ResourceLocation("textures/gui/recipe_book.png");
 
-    /**
-     * The game's own "next page" arrow from the recipe book (11 x 17 pixels at (1, 208); the lit version is at (1, 226)),
-     * drawn with the given opacity from 0 to 1.
-     */
     static void vanillaPageArrow(int x, int y, boolean hover, float alpha) {
         net.minecraft.client.Minecraft.getMinecraft().getTextureManager().bindTexture(RECIPE_BOOK);
         net.minecraft.client.renderer.GlStateManager.enableBlend();
@@ -262,7 +239,6 @@ final class Ui {
     private static final net.minecraft.client.gui.Gui GUI = new net.minecraft.client.gui.Gui();
     private static final ResourceLocation WIDGETS = new ResourceLocation("textures/gui/widgets.png");
 
-    /** A button drawn with the game's own button texture (the same picture as every vanilla button). */
     static void vanillaButton(Rect r, boolean hover) {
         net.minecraft.client.Minecraft.getMinecraft().getTextureManager().bindTexture(WIDGETS);
         net.minecraft.client.renderer.GlStateManager.color(1f, 1f, 1f, 1f);
@@ -272,21 +248,15 @@ final class Ui {
         GUI.drawTexturedModalRect(r.x() + half, r.y(), 200 - (r.width() - half), v, r.width() - half, r.height());
     }
 
-    /** Width of a display string, not counting rainbow markers. */
     static int width(net.minecraft.client.gui.FontRenderer fr, String text) {
         return fr.getStringWidth(text.replace(String.valueOf(com.levviata.reflibquests.text.RichText.RAINBOW_MARK), ""));
     }
 
-    /** A colour that drifts through the rainbow along the text and over time. */
     static int rainbow(int index) {
         float hue = ((System.currentTimeMillis() % 3000L) / 3000f + index * 0.045f) % 1f;
         return java.awt.Color.HSBtoRGB(hue, 0.75f, 1f) & 0xFFFFFF;
     }
 
-    /**
-     * Draws text with shadow, cut to {@code maxWidth}; after a rainbow marker every letter gets its own moving colour.
-     * Formatting codes before and inside the rainbow part still apply.
-     */
     static void drawText(net.minecraft.client.gui.FontRenderer fr, String text, int x, int y, int color, int maxWidth) {
         drawText(fr, text, x, y, color, maxWidth, true);
     }
@@ -318,7 +288,6 @@ final class Ui {
         }
     }
 
-    /** The game's tooltip look, but every line may contain a rainbow marker. */
     static void drawTooltip(net.minecraft.client.gui.FontRenderer fr, java.util.List<String> lines, int mouseX, int mouseY, int screenW, int screenH) {
         if (lines.isEmpty()) {
             return;
@@ -327,7 +296,7 @@ final class Ui {
         for (String l : lines) {
             w = Math.max(w, width(fr, l));
         }
-        int h = 8 + (lines.size() - 1) * 11 + (lines.size() > 1 ? 2 : 0); // a little looser than vanilla so an underline never touches the next line
+        int h = 8 + (lines.size() - 1) * 11 + (lines.size() > 1 ? 2 : 0);
         int x = mouseX + 12;
         int y = mouseY - 12;
         if (x + w + 4 > screenW) {
@@ -356,18 +325,15 @@ final class Ui {
         net.minecraft.client.renderer.GlStateManager.enableDepth();
     }
 
-    /** Flat widget box: one-pixel dark border around a fill. */
     static void box(Rect r, int fill) {
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF1B1D1E);
         Gui.drawRect(r.x() + 1, r.y() + 1, r.x() + r.width() - 1, r.y() + r.height() - 1, fill);
     }
 
-    /** The shadow of a panel or menu: the panel's own shape moved 3 GUI pixels down and right, 16% black (measured from FTB Quests). */
     static void shadow(Rect r) {
         Gui.drawRect(r.x() + 3, r.y() + 3, r.x() + r.width() + 3, r.y() + r.height() + 3, 0x2A000000);
     }
 
-    /** One-pixel outline only. */
     static void outline(Rect r, int argb) {
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + 1, argb);
         Gui.drawRect(r.x(), r.y() + r.height() - 1, r.x() + r.width(), r.y() + r.height(), argb);

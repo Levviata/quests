@@ -21,17 +21,6 @@ import net.minecraftforge.fml.common.versioning.DefaultArtifactVersion;
 import net.minecraftforge.fml.common.versioning.InvalidVersionSpecificationException;
 import net.minecraftforge.fml.common.versioning.VersionRange;
 
-/**
- * Optional integrations with other mods. An integration is a {@link Runnable} created lazily by a
- * {@link Supplier}, so the integration class (which imports the other mod's classes) is never loaded unless
- * the target mod is present in a matching version. Failures are logged and never crash the game.
- *
- * <pre>{@code
- * Integrations.register("jei", "[4.16,)", () -> new JeiIntegration());   // class loaded only if JEI is present
- * // later, once all mods are loaded (e.g. in post-init):
- * Integrations.activateAll();
- * }</pre>
- */
 public final class Integrations {
 
     private static final Logger LOGGER = LogManager.getLogger("reflib/integration");
@@ -42,22 +31,14 @@ public final class Integrations {
 
     private Integrations() {}
 
-    /**
-     * @param modId        the target mod's id
-     * @param versionRange Forge version range of the target mod, e.g. {@code "[4.16,)"}; {@code "*"} accepts any
-     */
     public static synchronized void register(String modId, String versionRange, Supplier<Runnable> factory) {
         PENDING.add(new Entry(modId, versionRange, factory));
     }
 
-    /** Activate every registered integration whose target mod is loaded. @return how many were activated */
     public static int activateAll() {
         return activateAll(Integrations::loadedVersion);
     }
 
-    /**
-     * Variant with an explicit lookup (mod id to version, or null when not loaded); mainly for tests.
-     */
     public static synchronized int activateAll(Function<String, String> versionLookup) {
         int activated = 0;
         for (Entry e : PENDING) {
@@ -81,7 +62,6 @@ public final class Integrations {
         return activated;
     }
 
-    /** @return true if {@code version} lies in the Forge version range {@code range} ({@code "*"} = any) */
     public static boolean versionMatches(String range, String version) {
         if (range == null || range.equals("*") || range.isEmpty()) {
             return true;

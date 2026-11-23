@@ -48,13 +48,6 @@ import com.levviata.reflibquests.model.QuestSearch;
 import com.levviata.reflibquests.model.TeamProgress;
 import com.levviata.reflibquests.net.QuestNet;
 
-/**
- * The read-mostly quest book: chapter list on the left, a pannable and zoomable map in the middle and a detail
- * panel for the selected quest on the right. Actions (claim, check, hand in) are sent to the server, which
- * decides; the screen only shows the synced state. Placeholder art only: coloured squares and item icons.
- * Limitations: all quests are drawn as squares, chapter images and quest links are not shown, and the detail
- * panel does not scroll.
- */
 @SideOnly(Side.CLIENT)
 final class QuestBookWidget extends Widget {
 
@@ -62,28 +55,26 @@ final class QuestBookWidget extends Widget {
     private static final int DETAIL_W = 205;
     private static final int HEADER = 22;
     private static final double GRID = 26.0;
-    /** Chapter pictures were drawn about 12% too large next to the quests in side-by-side checks. */
+
     private static final double IMAGE_SCALE = 0.88;
     private static final double NODE = 22.0;
-    /** Width of a dependency line relative to the width of a quest node (FTB Quests 26.1.2: about 0.156). */
+
     private static final double DEP_LINE_PER_NODE = 0.156;
-    /** How much of its square an icon fills; the icon scales with the square at every zoom level. */
+
     private static final float ICON_FRACTION = 0.72f;
 
-    // state survives screen rebuilds (window resize) and re-opening
     private static String chapterId = "";
     private static String selectedQuest = "";
-    /** Quests picked with Ctrl + click (edit mode), and the ones last copied. */
+
     private static final java.util.Set<String> SELECTION = new java.util.LinkedHashSet<>();
     private static final List<String> COPIED = new ArrayList<>();
     private static String selectionChapter = "";
-    /** Ctrl + R: lines through the grid spot under the mouse, out to the edges of the map. */
+
     private static boolean crosshairs;
-    /** Quests viewed, oldest first; Backspace goes back through them. */
+
     private static final List<String> VIEWED = new ArrayList<>();
     private static String viewedTop = "";
 
-    /** The picked quests belong to one chapter: switching chapters drops them. */
     private static void syncSelection(Chapter chapter) {
         if (!chapter.id.equals(selectionChapter)) {
             SELECTION.clear();
@@ -118,7 +109,6 @@ final class QuestBookWidget extends Widget {
     private static TeamProgress cachedProgress;
     private static List<QuestSearch.Result> results = List.of();
 
-    // ---- editing (only usable when the server says this player may edit)
     private static boolean editing;
     private static String linkFrom = "";
     private static boolean confirmDelete;
@@ -128,12 +118,11 @@ final class QuestBookWidget extends Widget {
     private static int detailContentHeight;
     private static String lastDetailQuest = "";
     private static final String[] SHAPE_CYCLE = {"", "circle", "square", "diamond", "hexagon", "octagon", "pentagon", "heart", "gear", "rsquare"};
-    /** The quest being moved (a middle click or the menu starts it) and where it would land, in grid units. */
+
     private Quest movingQuest;
     private double ghostX;
     private double ghostY;
 
-    /** The quests that travel with the one being moved (when it is one of several picked ones). */
     private final List<Quest> moveGroup = new ArrayList<>();
 
     private void startQuestMove(Quest q) {
@@ -154,7 +143,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** Drop the quest at the highlighted place, or leave it where it was. */
     private void endQuestMove(boolean keep) {
         Quest q = movingQuest;
         movingQuest = null;
@@ -164,7 +152,7 @@ final class QuestBookWidget extends Widget {
             return;
         }
         if (keep) {
-            playClick(); // the quest is dropped
+            playClick();
         }
         if (keep && (ghostX != q.x || ghostY != q.y)) {
             double dx = ghostX - q.x;
@@ -181,13 +169,12 @@ final class QuestBookWidget extends Widget {
                 send("move_quest", args("id", q.id, "x", q.x, "y", q.y));
             } else {
                 moves.add(DataNode.Compound.empty().with("id", q.id).with("x", q.x).with("y", q.y));
-                send("move_quests", DataNode.Compound.empty().with("moves", new DataNode.Lst(moves))); // one step in the history
+                send("move_quests", DataNode.Compound.empty().with("moves", new DataNode.Lst(moves)));
             }
-            SELECTION.clear(); // the quests are unpicked once they have landed
+            SELECTION.clear();
         }
     }
 
-    /** A box being dragged with the middle button to pick quests: where it started, in screen pixels. */
     private boolean boxing;
     private int boxButton = 2;
     private int boxX0;
@@ -226,18 +213,14 @@ final class QuestBookWidget extends Widget {
         super(bounds);
     }
 
-    // ------------------------------------------------------------------ helpers
-
     private static Minecraft mc() {
         return Minecraft.getMinecraft();
     }
 
-    /** The chapter panel floats over the left edge of the map; it can be folded away with the arrow tab. */
     private int listWidth() {
         return (int) Math.round(listFull * listAnim);
     }
 
-    /** The panel is as wide as its longest chapter name (FTB Quests puts no limit on it), never narrower than the base width. */
     private int listFull = LIST_W;
 
     private void updateListFull(FontRenderer fr, QuestBook book) {
@@ -245,30 +228,28 @@ final class QuestBookWidget extends Widget {
         for (Chapter c : visibleChapters(book)) {
             boolean inGroup = !c.groupId.isEmpty() && book.groups().stream().anyMatch(g -> g.id.equals(c.groupId));
             if (inGroup && !EXPANDED_GROUPS.contains(c.groupId)) {
-                continue; // a chapter folded away inside a closed group takes no width
+                continue;
             }
             String name = RichText.stripCodes(c.title.isEmpty() ? c.id : c.title);
-            // measured on FTB Quests 26.1.2: the name starts 15 units in (22 in a group) and 14 units of room follow it, 20 with an alert badge
+
             need = Math.max(need, 15 + (inGroup ? 7 : 0) + fr.getStringWidth(name) + (CHAPTER_ALERT.getOrDefault(c.id, false) ? 20 : 14));
         }
         for (Definitions.ChapterGroup g : book.groups()) {
             Chapter parent = g.raw.getString("chapter", "").isEmpty() ? null : book.chapter(g.raw.getString("chapter", ""));
             String gname = RichText.stripCodes(parent != null ? parent.title : g.title.isEmpty() ? g.id : g.title);
-            need = Math.max(need, 14 + fr.getStringWidth(gname) + 22); // the group's own row, with its + button
+            need = Math.max(need, 14 + fr.getStringWidth(gname) + 22);
         }
-        listFull = Math.min(need, Math.max(LIST_W, bounds.width() - 60)); // the map keeps some room
+        listFull = Math.min(need, Math.max(LIST_W, bounds.width() - 60));
     }
 
     private Rect listRect() {
         return new Rect(bounds.x(), bounds.y(), listWidth(), bounds.height());
     }
 
-    /** The map fills the whole screen, like the upstream questbook. */
     private Rect mapRect() {
         return bounds;
     }
 
-    /** Normal mode: a small window centred over the map. Edit mode keeps a tall side panel for the many controls. */
     private Rect propsRect() {
         return new Rect(bounds.x() + bounds.width() - DETAIL_W, bounds.y(), DETAIL_W, bounds.height());
     }
@@ -290,7 +271,6 @@ final class QuestBookWidget extends Widget {
 
     private static final int TITLE_MARGIN = 25;
 
-    /** A position in grid units snapped to the book's Grid Scale (the editor places quests and images on it). */
     private static double gridStep() {
         QuestBook b = ClientQuests.book();
         return b == null ? 0.5 : com.levviata.reflibquests.model.BookEditor.gridStep(b.settings);
@@ -307,9 +287,9 @@ final class QuestBookWidget extends Widget {
         int cx = bounds.x() + bounds.width() / 2;
         QuestBook rb = ClientQuests.book();
         Chapter shownIn = rb == null || selectedQuest.isEmpty() ? null : rb.chapterOf(selectedQuest);
-        int w = shownIn == null ? DETAIL_W : Math.min(bounds.width() - 20, Math.max(DETAIL_W, shownIn.minWindowWidth)); // the chapter's minimum width
+        int w = shownIn == null ? DETAIL_W : Math.min(bounds.width() - 20, Math.max(DETAIL_W, shownIn.minWindowWidth));
         if (rb != null && !selectedQuest.isEmpty() && rb.quest(selectedQuest) != null) {
-            // FTB Quests widens the window when the title does not fit: the title keeps about 25 pixels clear on each side (icon, pin and close)
+
             int titleNeed = Ui.width(mc().fontRenderer, QuestText.titleRainbow(rb.quest(selectedQuest))) + 2 * TITLE_MARGIN;
             w = Math.min(bounds.width() - 20, Math.max(w, titleNeed));
         }
@@ -324,7 +304,7 @@ final class QuestBookWidget extends Widget {
         List<Chapter> out = new ArrayList<>();
         for (Chapter c : book.chapters()) {
             if (!c.alwaysInvisible || isEditing()) {
-                out.add(c); // an invisible chapter is listed while editing
+                out.add(c);
             }
         }
         return out;
@@ -345,15 +325,13 @@ final class QuestBookWidget extends Widget {
         Gui.drawRect(x, y, x + w, y + h, argb);
     }
 
-    /** One zoom level for every chapter: zooming in one chapter zooms them all. */
     private static double sharedZoom = 1.0;
 
-    /** Where the middle of the map was when each chapter's view was made or last looked at, to follow a changing window size. */
     private static final Map<String, double[]> VIEW_MIDDLE = new HashMap<>();
 
     private ViewTransform viewFor(Chapter c, Rect map) {
         ViewTransform view = viewForUnsynced(c, map);
-        // the window can be another size than when the view was made (the game starts small and is then enlarged): keep what the player sees in the middle
+
         double midX = map.x() + map.width() / 2.0;
         double midY = map.y() + map.height() / 2.0;
         double[] before = VIEW_MIDDLE.put(c.id, new double[] {midX, midY});
@@ -422,8 +400,6 @@ final class QuestBookWidget extends Widget {
         return c != null && (!c.alwaysInvisible || isEditing()) ? c : null;
     }
 
-    // ------------------------------------------------------------------ drawing
-
     @Override
     protected void drawSelf(int mouseX, int mouseY, float partialTicks) {
         hits.clear();
@@ -446,7 +422,7 @@ final class QuestBookWidget extends Widget {
                 selectedQuest = "";
                 listScroll = 0;
             } else {
-                // an edit or a reload changed the book: stay in the same chapter, on the same quest, with the same camera
+
                 if (book.chapter(chapterId) == null) {
                     chapterId = "";
                 }
@@ -462,7 +438,7 @@ final class QuestBookWidget extends Widget {
         }
         Chapter chapter = currentChapter(book);
         if (!selectedQuest.isEmpty() && !selectedQuest.equals(viewedTop)) {
-            viewedTop = selectedQuest; // every quest opened goes on the Backspace list
+            viewedTop = selectedQuest;
             VIEWED.add(selectedQuest);
             if (VIEWED.size() > 500) {
                 VIEWED.remove(0);
@@ -472,7 +448,7 @@ final class QuestBookWidget extends Widget {
         if (chapter == null) {
             fr.drawStringWithShadow("This quest book has no chapters.", map.x() + 140, map.y() + 10, 0xAAAAAA);
         } else {
-            // in edit mode the tall side panel hides the right edge of the map; otherwise the map is full screen
+
             Rect visibleMap = propsOpen() ? new Rect(map.x(), map.y(), map.width() - DETAIL_W, map.height()) : map;
             applyDragFromMouse();
             followMovingImage(chapter);
@@ -484,12 +460,12 @@ final class QuestBookWidget extends Widget {
         drawChapterList(fr, book, p, chapters, mouseX, mouseY);
         drawHeader(fr, book, engine, p, mouseX, mouseY);
         GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
-        drawBottomBar(fr, mouseX, mouseY); // before the dimming below: an open quest greys the status line and the change log too
+        drawBottomBar(fr, mouseX, mouseY);
         if (chapter != null && detailOpen()) {
-            // item icons write depth values; clear them so later 2D drawing is never hidden behind an icon
+
             GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
             ScaledResolution whole = new ScaledResolution(mc());
-            // FTB Quests greys the whole screen behind an open quest: the chapter list, the buttons at the side and the status line as well
+
             Gui.drawRect(0, 0, whole.getScaledWidth(), whole.getScaledHeight(), 0x78000000);
             scissor(detailRect());
             drawQuestWindow(fr, book, engine, p);
@@ -510,26 +486,22 @@ final class QuestBookWidget extends Widget {
         GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
         List<String> tip = computeTooltip(mouseX, mouseY);
         boolean overMenu = !menu.isEmpty() && menuRect(menu).contains(mouseX, mouseY);
-        if (tip != null && !tip.isEmpty() && !overMenu) { // nothing explains what is behind an open menu
+        if (tip != null && !tip.isEmpty() && !overMenu) {
             ScaledResolution res = new ScaledResolution(mc());
             Ui.drawTooltip(fr, tip, mouseX, mouseY, res.getScaledWidth(), res.getScaledHeight());
         }
     }
 
-    /**
-     * Pans while the button is held, from the mouse position read once per rendered frame, in real pixels.
-     * Mouse <em>events</em> are only handled once per game tick (20 per second), which made dragging choppy.
-     */
     private void applyDragFromMouse() {
         if (movingQuest != null) {
-            updateGhost(); // the new place follows the mouse until a click drops the quest there
+            updateGhost();
             return;
         }
         if (!pressedOnMap) {
             return;
         }
         if (!Mouse.isButtonDown(0)) {
-            return; // the release event ends the press
+            return;
         }
         double factor = new ScaledResolution(mc()).getScaleFactor();
         int rawX = Mouse.getX();
@@ -570,7 +542,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** Jump to a search result: open its chapter, centre the map on it and select it. */
     private void pickResult(QuestSearch.Result r) {
         QuestBook book = ClientQuests.book();
         Chapter c = book == null ? null : book.chapter(r.chapterId());
@@ -664,7 +635,6 @@ final class QuestBookWidget extends Widget {
         return true;
     }
 
-    /** Jump to a search row: a chapter opens that chapter; a quest opens it and centres the map on it. */
     private void pickRow(SearchRow row) {
         QuestBook book = ClientQuests.book();
         if (book == null) {
@@ -685,7 +655,6 @@ final class QuestBookWidget extends Widget {
         return new Rect(bounds.x() + (bounds.width() - w) / 2, bounds.y() + (bounds.height() - h) / 2, w, h);
     }
 
-    /** "Select Quest Object": a window with a text field and an alphabetical list of chapters, then quests. */
     private void drawSearchResults(FontRenderer fr, QuestBook book, TeamProgress p, int mouseX, int mouseY) {
         buildRows(book, p);
         Rect win = searchWindow();
@@ -724,7 +693,7 @@ final class QuestBookWidget extends Widget {
         if (searchRows.isEmpty() && QUERY.text().length() > 0) {
             fr.drawStringWithShadow("Nothing found", list.x() + 5, list.y() + 5, 0x888888);
         }
-        // scroll bar
+
         Rect bar = new Rect(list.x() + list.width() + 3, list.y(), 8, list.height());
         Gui.drawRect(bar.x(), bar.y(), bar.x() + bar.width(), bar.y() + bar.height(), 0xFF181A20);
         if (maxScroll > 0) {
@@ -734,7 +703,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** True if the player has a reward that can be claimed right now (choice rewards included). */
     private static boolean anyClaimable(QuestBook book, ProgressEngine engine, TeamProgress p, UUID me) {
         for (Quest q : book.allQuests()) {
             if (claimable(engine, p, me, q)) {
@@ -757,7 +725,6 @@ final class QuestBookWidget extends Widget {
         return false;
     }
 
-    /** A small square button showing a texture from the supplied jar, or a text label when the art is missing. */
     private int iconButton(int x, int y, String texture, String fallback, String tip, Runnable action, int mouseX, int mouseY) {
         FontRenderer fr = mc().fontRenderer;
         boolean art = QuestArt.available() && QuestArt.has("textures/gui/" + texture + ".png");
@@ -772,7 +739,6 @@ final class QuestBookWidget extends Widget {
         return y + 22;
     }
 
-    /** Upstream-style flat widget: translucent fill inside a one-pixel dark border. */
     private static void panelBox(Rect r, int fill) {
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF1B1D1E);
         Gui.drawRect(r.x() + 1, r.y() + 1, r.x() + r.width() - 1, r.y() + r.height() - 1, 0xFF2B2D31);
@@ -782,12 +748,12 @@ final class QuestBookWidget extends Widget {
     private void drawHeader(FontRenderer fr, QuestBook book, ProgressEngine engine, TeamProgress p, int mouseX, int mouseY) {
         int left = bounds.x() + listWidth();
         if (searching) {
-            // the search window draws its own text field
+
         } else if (isEditing() && !linkFrom.isEmpty()) {
             String text = "Click the quest that has to be completed first (Esc cancels)";
             fr.drawStringWithShadow(fr.trimStringToWidth(text, bounds.width() - LIST_W - 80), left + 10, bounds.y() + 8, 0xFFB050);
         }
-        // button column on the right edge, like the upstream questbook
+
         int x = bounds.x() + bounds.width() - 26 - (propsOpen() ? DETAIL_W : 0);
         int y = bounds.y() + 6;
         UUID me = mc().player == null ? null : mc().player.getUniqueID();
@@ -802,7 +768,7 @@ final class QuestBookWidget extends Widget {
         if (claimable) {
             Ui.alert(x + 12, bagY - 3, 9);
         }
-        // auto-pin switch (its behaviour comes later; for now it only remembers the setting)
+
         ClientPrefs.ensureLoaded();
         Rect autoPin = new Rect(x, y, 20, 20);
         Ui.vanillaButton(autoPin, autoPin.contains(mouseX, mouseY));
@@ -822,14 +788,14 @@ final class QuestBookWidget extends Widget {
             fr.drawStringWithShadow(note, box.x() + 5, box.y() + 4, 0xFFFFFF);
         }
         y += 22;
-        // key reference
+
         Rect keys = new Rect(x, y, 20, 20);
         Ui.vanillaButton(keys, keys.contains(mouseX, mouseY));
         if (!Ui.icon(Ui.LIBRARY, "textures/icons/keyboard.png", x + 2, y + 2, 16, 16, 0xFFFFFFFF)) {
             fr.drawStringWithShadow("K", x + 7, y + 6, 0xFFFFFF);
         }
         hits.add(new Hit(keys, () -> mc().displayGuiScreen(new KeyReferenceScreen(mc().currentScreen)), "Key Reference"));
-        // the wiki button below it, as in FTB Quests 26.1.2: asks before it opens the documentation page
+
         Rect wiki = new Rect(x, y + 22, 20, 20);
         Ui.vanillaButton(wiki, wiki.contains(mouseX, mouseY));
         if (!Ui.icon(Ui.LIBRARY, "textures/icons/info.png", x + 2, y + 24, 16, 16, 0xFFFFFFFF)) {
@@ -837,7 +803,7 @@ final class QuestBookWidget extends Widget {
         }
         final QuestBook wikiBook = book;
         hits.add(new Hit(wiki, () -> onLink(wikiBook, new RichText.Click("open_url", "https://go.ftb.team/docs-quests")), "Open Wiki"));
-        // bottom of the column: the editing pen sits above the player preferences button
+
         int by = bounds.y() + bounds.height() - 26;
         Rect prefs = new Rect(x, by, 20, 20);
         Ui.vanillaButton(prefs, prefs.contains(mouseX, mouseY));
@@ -884,12 +850,12 @@ final class QuestBookWidget extends Widget {
                         new MenuItem("Complete Instantly", "", "lib:check", false, () -> confirmBook("Complete this task instantly?", "complete_quest")),
                         new MenuItem("Edit Reward Tables", "", "collect_rewards", false,
                                 () -> mc().displayGuiScreen(new RewardTablesScreen(mc().currentScreen))),
-                        new MenuItem("Save on Server now", "", "", false, () -> send("save_now", DataNode.Compound.empty()))), "Settings"));
+                        new MenuItem("Save on Server now", "", "", false, () -> send("save_now", DataNode.Compound.empty())),
+                        new MenuItem("Open Wiki", "", "", false, () -> onLink(wikiBook, new RichText.Click("open_url", "https://go.ftb.team/docs-quests")))), "Settings"));
             }
         }
     }
 
-    /** The vanilla Yes/No screen FTB Quests asks before changing the whole book's progress. */
     private void confirmBook(String question, String op) {
         final GuiScreen back = mc().currentScreen;
         mc().displayGuiScreen(new net.minecraft.client.gui.GuiYesNo((result, id) -> {
@@ -901,7 +867,7 @@ final class QuestBookWidget extends Widget {
     }
 
     private void drawChapterList(FontRenderer fr, QuestBook book, TeamProgress p, List<Chapter> chapters, int mouseX, int mouseY) {
-        // the panel slides out while the mouse is at the left edge (or over it) and folds away again, linearly
+
         ClientPrefs.ensureLoaded();
         listPinned = ClientPrefs.chapterPanelPinned;
         long now = System.nanoTime();
@@ -911,8 +877,7 @@ final class QuestBookWidget extends Widget {
         boolean want = listPinned || !focusTaken && (mouseX < bounds.x() + 8 || listAnim > 0 && mouseX < bounds.x() + listWidth() + 6);
         listAnim = Math.max(0, Math.min(1, listAnim + (want ? 1 : -1) * dtMs / 210.0));
         if (listAnim < 1) {
-            // fixed handle under the panel; its opacity is the panel's closed-ness (opaque when closed, gone when open)
-            // the game's own page arrow from the recipe book (the lit one while the mouse is at the edge)
+
             Ui.vanillaPageArrow(bounds.x() + 4, bounds.y() + bounds.height() / 2 - 8, mouseX < bounds.x() + 8, (float) (1 - listAnim));
         }
         if (listWidth() <= 0) {
@@ -920,12 +885,12 @@ final class QuestBookWidget extends Widget {
         }
         updateListFull(fr, book);
         Rect r = new Rect(bounds.x() - (listFull - listWidth()), bounds.y(), listFull, bounds.height());
-        QuestArt.tile(QuestArt.DIRT_BLOCK, r.x(), r.y(), r.width(), r.height(), 32, 0xFF7A7A7A); // dirt behind the chapters
-        QuestArt.tile(QuestArt.GRASS, r.x(), r.y(), r.width(), 18, 32, 0xFF5A8A3C); // grass behind the title
+        QuestArt.tile(QuestArt.DIRT_BLOCK, r.x(), r.y(), r.width(), r.height(), 32, 0xFF7A7A7A);
+        QuestArt.tile(QuestArt.GRASS, r.x(), r.y(), r.width(), 18, 32, 0xFF5A8A3C);
         Gui.drawRect(r.x() + r.width() - 1, r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF000000);
         Gui.drawRect(r.x() + r.width() - 2, r.y(), r.x() + r.width() - 1, r.y() + r.height(), 0xFF555555);
-        // title row: book icon, title, + (editing), pin; set apart from the list by a frame
-        hotbarRim(new Rect(r.x() + 2, r.y() + 2, r.width() - 6, 15), 0.55f); // layout measured on FTB Quests 26.1.2: an 18 unit title row
+
+        hotbarRim(new Rect(r.x() + 2, r.y() + 2, r.width() - 6, 15), 0.55f);
         ItemStack bookIcon = QuestText.stackOf(book.settings.get("icon"));
         int titleX = r.x() + 16;
         if (bookIcon != null) {
@@ -955,12 +920,12 @@ final class QuestBookWidget extends Widget {
         int y = body.y() - listScroll;
         final int top = y;
         Chapter current = currentChapter(book);
-        // auto-open the group of the chapter being looked at, once per chapter change
+
         if (current != null && !current.groupId.isEmpty() && !current.id.equals(lastListChapter)) {
             EXPANDED_GROUPS.add(current.groupId);
         }
         lastListChapter = current == null ? "" : current.id;
-        // a group made from a chapter is drawn as that chapter's own row, with the others nested below it
+
         java.util.Set<String> parentChapters = new java.util.HashSet<>();
         for (Definitions.ChapterGroup g : book.groups()) {
             String parent = g.raw.getString("chapter", "");
@@ -1000,7 +965,7 @@ final class QuestBookWidget extends Widget {
             } else if (row.contains(mouseX, mouseY)) {
                 Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF4C5055);
             }
-            // drawn after the selection, so the arrow stays while the chapter that holds the group is open
+
             if (!Ui.questsGui(open ? "arrow_expanded" : "arrow_collapsed", row.x() + 3, row.y() + 4, 8, 8, 0xFFDDDDDD)) {
                 fr.drawString(open ? "v" : ">", row.x() + 3, row.y() + 4, 0xBBBBBB);
             }
@@ -1010,7 +975,7 @@ final class QuestBookWidget extends Widget {
             final String gid = g.id;
             final String parentId = parentChapter == null ? "" : parentChapter.id;
             final Definitions.ChapterGroup group = g;
-            // FTB Quests' group menu, in its order: Move, Move, Edit, Quick Edit Properties..., Delete, Complete Instantly, Copy ID
+
             Runnable groupMenu = !isEditing() ? null : () -> openMenu(lastMouseX, lastMouseY,
                     new MenuItem("\"" + RichText.stripCodes(group.title) + "\"", "", "", false, null),
                     new MenuItem("Move", "", "lib:up", true, () -> send("move_group", args("id", gid, "by", -1))),
@@ -1036,7 +1001,7 @@ final class QuestBookWidget extends Widget {
                     new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(gid)));
             hits.add(new Hit(row, () -> {
                 if (!parentId.isEmpty()) {
-                    chapterId = parentId; // the row is a chapter too: open it
+                    chapterId = parentId;
                     selectedQuest = "";
                 }
                 if (!EXPANDED_GROUPS.remove(gid)) {
@@ -1062,10 +1027,10 @@ final class QuestBookWidget extends Widget {
         }
         listContentHeight = y - top + 4;
         int viewH = body.height();
-        listScroll = Math.max(0, Math.min(listScroll, Math.max(0, listContentHeight - viewH))); // snaps back to what is there
+        listScroll = Math.max(0, Math.min(listScroll, Math.max(0, listContentHeight - viewH)));
         listBar = null;
         if (listContentHeight > viewH) {
-            // the game's own list scroll bar, thin; click or drag it to scroll
+
             int bx = r.x() + r.width() - 6;
             Gui.drawRect(bx, body.y(), bx + 4, body.y() + viewH, 0xFF000000);
             int th = Math.max(14, viewH * viewH / listContentHeight);
@@ -1078,8 +1043,6 @@ final class QuestBookWidget extends Widget {
         unscissor();
     }
 
-
-    /** The game's button click, for what the player presses in the quest book. */
     private static void playClick() {
         mc().getSoundHandler().playSound(net.minecraft.client.audio.PositionedSoundRecord.getMasterRecord(
                 net.minecraft.init.SoundEvents.UI_BUTTON_CLICK, 1.0f));
@@ -1087,7 +1050,6 @@ final class QuestBookWidget extends Widget {
 
     private static final net.minecraft.util.ResourceLocation WIDGETS = new net.minecraft.util.ResourceLocation("textures/gui/widgets.png");
 
-    /** The bottom edge of the hotbar's selected-slot border, stretched under a row; alpha makes it see-through. */
     private static void hotbarRim(Rect r, float alpha) {
         mc().getTextureManager().bindTexture(WIDGETS);
         GlStateManager.enableBlend();
@@ -1097,7 +1059,6 @@ final class QuestBookWidget extends Widget {
         GlStateManager.color(1f, 1f, 1f, 1f);
     }
 
-    /** The + in the title row: a chapter or a chapter group, each asking for its name in a small box. */
     private void addMenu(int x, int y) {
         GuiScreen screen = mc().currentScreen;
         openMenu(x, y,
@@ -1107,7 +1068,6 @@ final class QuestBookWidget extends Widget {
                         name -> send("create_group", args("title", name, "id", RewardTablesScreen.newId()))))));
     }
 
-    /** A menu of the chapters that can hold a group, and "no chapter" to let it go. */
     private void chooseHoldingChapter(String groupId) {
         QuestBook book = ClientQuests.book();
         if (book == null) {
@@ -1117,7 +1077,7 @@ final class QuestBookWidget extends Widget {
         items.add(new MenuItem("(no chapter)", "", "", false, () -> send("set_group_chapter", args("id", groupId, "chapter", ""))));
         for (Chapter c : book.chapters()) {
             if (c.groupId.equals(groupId)) {
-                continue; // a chapter cannot hold the group it is in
+                continue;
             }
             final String cid = c.id;
             items.add(new MenuItem(RichText.stripCodes(c.title.isEmpty() ? c.id : c.title), "", "", false,
@@ -1128,7 +1088,6 @@ final class QuestBookWidget extends Widget {
         menuY = lastMouseY;
     }
 
-    /** A menu with every group (and "no group") to put a chapter into. */
     private void chooseGroup(String chapterId) {
         QuestBook book = ClientQuests.book();
         if (book == null) {
@@ -1147,7 +1106,6 @@ final class QuestBookWidget extends Widget {
         menuY = lastMouseY;
     }
 
-    /** Icons per row in a quest window's Tasks or Rewards column: at most 4, spread evenly over the rows needed. */
     private static int balancedPerRow(int slots) {
         int rows = Math.max(1, (slots + 3) / 4);
         return Math.max(1, (slots + rows - 1) / rows);
@@ -1161,14 +1119,14 @@ final class QuestBookWidget extends Widget {
             Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF4C5055);
         }
         if (selected) {
-            // FTB Quests 26.1.2: a grey frame around a lighter fill
+
             Gui.drawRect(row.x(), row.y(), row.x() + row.width(), row.y() + row.height(), 0xFF88898B);
             Gui.drawRect(row.x() + 1, row.y() + 1, row.x() + row.width() - 1, row.y() + row.height() - 1, 0xFF4C4F55);
         }
-        // FTB Quests 26.1.2: the picture takes a slot of its own, the name starts 15 units from the panel edge (22 inside a group)
+
         int tx = row.x() + 15 + indent;
         boolean chapterDone = p != null && QuestRules.chapterCompleted(p, c);
-        // the chapter's own icon; without one, the icon of its only quest, or the quests' icons one after the other
+
         boolean ownIcon = !c.icon.entries().isEmpty();
         ItemStack icon = ownIcon ? QuestText.stackOf(c.icon) : null;
         if (chapterDone) {
@@ -1180,7 +1138,7 @@ final class QuestBookWidget extends Widget {
                 drawItem(icon, row.x() + 1 + indent, row.y() + 2, 0.67f);
             }
         } else if (!c.quests.isEmpty()) {
-            // no icon of its own: the icons of its quests in turn (a checkmark quest shows its check), two seconds each
+
             drawQuestIcon(c.quests.get((int) ((System.currentTimeMillis() / 2000) % c.quests.size())), row.x() + 1 + indent, row.y() + 2, 16 * 0.67f, false);
         }
         UUID me = mc().player == null ? null : mc().player.getUniqueID();
@@ -1194,9 +1152,9 @@ final class QuestBookWidget extends Widget {
         int nameColour = 0xFFFFFF;
         if (p != null) {
             if (QuestRules.chapterCompleted(p, c)) {
-                nameColour = 0x00AA00; // completed: dark green
+                nameColour = 0x00AA00;
             } else if (c.quests.stream().anyMatch(cq -> p.isStarted(cq.id) || p.isCompleted(cq.id))) {
-                nameColour = 0x00AAAA; // started: teal
+                nameColour = 0x00AAAA;
             }
         }
         Ui.drawText(fr, c.title.isEmpty() ? c.id : RichText.toRainbowAware(c.title), tx, row.y() + 3, hover ? 0xFFFFA0 : nameColour, textRight - tx);
@@ -1214,7 +1172,7 @@ final class QuestBookWidget extends Widget {
             if (!Ui.questsGui("close", cross.x(), cross.y(), 10, 10, 0xFFFFFFFF)) {
                 fr.drawStringWithShadow("x", cross.x() + 2, cross.y() + 1, 0xFF5555);
             }
-            // the cross only shows that the chapter has no quests; clicking it does nothing
+
         }
         return y + 14;
     }
@@ -1234,7 +1192,7 @@ final class QuestBookWidget extends Widget {
         if (movingQuest != null) {
             drawMoveGrid(v, map);
         }
-        // dependency lines first, then nodes on top
+
         for (Quest q : chapter.quests) {
             double sx = v.screenX(q.x * GRID);
             double sy = v.screenY(q.y * GRID);
@@ -1249,7 +1207,7 @@ final class QuestBookWidget extends Widget {
                 String focus = !hoverQuest.isEmpty() ? hoverQuest : selectedQuest;
                 boolean touchesFocus = q.id.equals(focus) || depId.equals(focus);
                 if ((q.hideDependencyLines.resolve(chapter.defaultHideDependencyLines) || dep.hideDependentLines.resolve(false)) && !touchesFocus) {
-                    continue; // a hidden line only shows while one of its two quests is hovered or open
+                    continue;
                 }
                 double dx = v.screenX(dep.x * GRID);
                 double dy = v.screenY(dep.y * GRID);
@@ -1257,21 +1215,21 @@ final class QuestBookWidget extends Widget {
                         || Math.max(sy, dy) < map.y() || Math.min(sy, dy) > map.y() + map.height()) {
                     continue;
                 }
-                // straight line from node to node; green while the hovered or opened quest is one of its ends
-                int tint = 0xFF7A6B71; // calm by default (measured from FTB Quests)
-                int flow = 0;          // lines are still, unless a quest is hovered
+
+                int tint = 0xFF7A6B71;
+                int flow = 0;
                 if (q.id.equals(focus)) {
-                    tint = 0xFF00C4C4; // a dependency of the focused quest: cyan, moving forward towards the focused quest
+                    tint = 0xFF00C4C4;
                     flow = 1;
                 } else if (depId.equals(focus)) {
-                    tint = 0xFFC4C400; // a dependant of the focused quest: yellow, moving on to the dependant
+                    tint = 0xFFC4C400;
                     flow = 1;
                 }
-                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(1.0, Math.min(9.0, zoom * NODE * DEP_LINE_PER_NODE)), tint, flow); // a fixed share of the quest rim's width (measured on FTB Quests 26.1.2: 8.3 of 53 pixels), so it scales with zoom and UI scale
+                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(1.0, Math.min(9.0, zoom * NODE * DEP_LINE_PER_NODE)), tint, flow);
             }
         }
         if (movingQuest != null && chapter.quests.contains(movingQuest)) {
-            drawMoveTarget(book, chapter, v); // under the quests, so the one being moved is never covered by it
+            drawMoveTarget(book, chapter, v);
         }
         for (Quest q : drawOrder(chapter)) {
             double size = NODE * com.levviata.reflibquests.model.Presets.size(book, q) * zoom;
@@ -1281,29 +1239,29 @@ final class QuestBookWidget extends Widget {
                     || !shown(book, p, q)) {
                 continue;
             }
-            GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT); // whatever was drawn before must not poke through this quest
+            GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
             State state = stateOf(book, engine, p, q);
             int x = (int) Math.round(sx);
             int y = (int) Math.round(sy);
             int s = Math.max(4, (int) Math.round(size));
             boolean selected = q.id.equals(selectedQuest);
             String shape = QuestArt.shapeName(book, chapter, q);
-            // upstream look: grey body, light outline; completed = green outline; locked = dark with a lock
+
             boolean lockedByDeps = state != State.DONE && !QuestRules.dependenciesMet(book, p, q);
             int body = lockedByDeps ? 0xFF4A4C52 : 0xFF9C9EA6;
             int edge = selected ? 0xFFFFFFFF : state == State.DONE ? 0xFF6BD36B : lockedByDeps ? 0xFF5E6066 : 0xFFC9CBD2;
-            // hovering lights the node up a little; the opened quest slides back and forth between its plain and lit colours
+
             boolean beingMoved = movingQuest != null && (movingQuest.id.equals(q.id) || moveGroup.contains(q));
-            boolean picked = isEditing() && SELECTION.contains(q.id); // picked in the editor: pulses like an opened quest
+            boolean picked = isEditing() && SELECTION.contains(q.id);
             float glow = beingMoved ? questPulse() : q.id.equals(hoverQuest) ? 1f : selected || picked ? questPulse() : 0f;
             if (glow > 0f) {
-                float strength = q.id.equals(hoverQuest) && !selected && !picked && !beingMoved ? 0.24f : 0.7f; // a pick pulses plain to bright
+                float strength = q.id.equals(hoverQuest) && !selected && !picked && !beingMoved ? 0.24f : 0.7f;
                 body = lighten(body, strength * glow);
                 edge = lighten(edge, strength * glow);
             }
 
             if (QuestArt.hasShape(shape)) {
-                // art from the player's own FTB Quests jar: the shape tinted by state, with its outline on top
+
                 net.minecraft.util.ResourceLocation solid = Ui.opaqueShape(shape);
                 QuestArt.quad(solid != null ? solid : QuestArt.shapeTexture(shape, "background"), x, y, s, s, body);
                 QuestArt.quad(QuestArt.shapeTexture(shape, "outline"), x, y, s, s, edge);
@@ -1312,11 +1270,11 @@ final class QuestBookWidget extends Widget {
                 rect(x, y, s, s, body);
             }
             if (s >= 6) {
-                // the icon is always the same fraction of its square, so it grows and shrinks with the zoom
-                float iconSize = (float) (s * ICON_FRACTION * q.iconScale); // FTB 'Icon Scaling', independent of the quest's size
+
+                float iconSize = (float) (s * ICON_FRACTION * q.iconScale);
                 drawQuestIcon(q, x + (s - iconSize) / 2f, y + (s - iconSize) / 2f, iconSize, state == State.DONE);
             }
-            // the small lock sits on top of the icon: a quest whose dependencies are not all completed yet
+
             if (lockedByDeps && s >= 14 && book.settings.getBool("show_lock_icons", ClientPrefs.showLockIcon) && !q.hideLockIcon) {
                 int lock = Math.max(7, s / 3);
                 GlStateManager.pushMatrix();
@@ -1327,13 +1285,13 @@ final class QuestBookWidget extends Widget {
             if (s >= 14) {
                 UUID me = mc().player == null ? null : mc().player.getUniqueID();
                 double badge = Math.max(7, s * 0.33);
-                // top-right: the badge's centre sits about a sixth of the node inside the corner
+
                 if (claimable(engine, p, me, q)) {
                     Ui.alert(x + s * 0.83 - badge / 2, y + s * 0.17 - badge / 2, badge);
                 } else if (state == State.DONE) {
                     Ui.check(x + s * 0.83 - badge / 2, y + s * 0.17 - badge / 2, badge, 0xFFFFFFFF);
                 }
-                // while editing, a quest players cannot see yet carries a small eye in its top left corner
+
                 if (isEditing() && !QuestRules.isVisible(book, p, q)) {
                     Ui.questsGui("hidden", x + s * 0.20 - badge / 2, y + s * 0.19 - badge / 2, badge, badge, 0xFFFFFFFF);
                 }
@@ -1376,7 +1334,7 @@ final class QuestBookWidget extends Widget {
             rect(map.x(), cyl, map.width(), 1, 0x88FFFFFF);
         }
         if (isEditing() && movingQuest == null && !boxing && mouseOnMap && hoverQuest.isEmpty() && hoverImage.isEmpty() && menu.isEmpty()) {
-            // hovering free space in edit mode: the rim of the quest a click would create, snapped to the grid
+
             Quest sample = new Quest("_");
             String rimShape = QuestArt.shapeName(book, chapter, sample);
             double rsize = NODE * sample.size * zoom;
@@ -1394,16 +1352,15 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** While a quest is being moved: the grid it snaps to (every half unit, whole units a little stronger). */
     private void drawMoveGrid(ViewTransform v, Rect map) {
         double u0 = v.worldX(map.x()) / GRID;
         double u1 = v.worldX(map.x() + map.width()) / GRID;
         double w0 = v.worldY(map.y()) / GRID;
         double w1 = v.worldY(map.y() + map.height()) / GRID;
         if ((u1 - u0) > 150 || (w1 - w0) > 150) {
-            return; // zoomed so far out that the lines would only be a haze
+            return;
         }
-        // a line at every step of the book's Grid Scale; the whole units a little stronger; none when they would be closer than 3 pixels
+
         double step = gridStep();
         if (step * GRID * v.zoom() < 3) {
             return;
@@ -1420,7 +1377,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** The place a quest being moved will land on: its shape, pale, with no border; drawn under the quests. */
     private void drawMoveTarget(QuestBook book, Chapter chapter, ViewTransform v) {
         List<Quest> all = new ArrayList<>();
         all.add(movingQuest);
@@ -1440,8 +1396,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** 0 to 1 and back to 0 in a straight line, once every two seconds. */
-
     private static int mixColour(int a, int b, float t) {
         int r = Math.round((a >> 16 & 255) * (1 - t) + (b >> 16 & 255) * t);
         int g = Math.round((a >> 8 & 255) * (1 - t) + (b >> 8 & 255) * t);
@@ -1449,7 +1403,6 @@ final class QuestBookWidget extends Widget {
         return 0xFF000000 | r << 16 | g << 8 | bl;
     }
 
-    /** The control points of a line in grid units: the working ones while they are being edited, else the saved ones. */
     private double[] controlPoints(Quest q, String depId) {
         if (bezierQuest.equals(q.id) && bezierPts.containsKey(depId)) {
             return bezierPts.get(depId);
@@ -1458,7 +1411,6 @@ final class QuestBookWidget extends Widget {
         return saved == null || saved.size() != 4 ? null : new double[] {saved.get(0), saved.get(1), saved.get(2), saved.get(3)};
     }
 
-    /** One dependency line: straight, or along its Bezier curve from the dependency (dx, dy) to the quest (sx, sy). */
     private void drawDependency(Quest q, String depId, double dx, double dy, double sx, double sy, ViewTransform v, double thick, int tint, int flow) {
         double[] c = controlPoints(q, depId);
         if (c == null) {
@@ -1481,7 +1433,6 @@ final class QuestBookWidget extends Widget {
         ladderPath(xs, ys, n + 1, thick, tint, flow);
     }
 
-    /** As {@link #ladderLine}, along a bent path; the texture runs on without a break from one piece to the next. */
     private static void ladderPath(double[] xs, double[] ys, int count, double thickness, int argb, int flow) {
         if (count < 2) {
             return;
@@ -1536,12 +1487,9 @@ final class QuestBookWidget extends Widget {
         GlStateManager.enableCull();
     }
 
-    // ------------------------------------------------------------------ Bezier editing
-
-    /** The quest whose dependency lines are being bent, and the working control points of each ({@code x1, y1, x2, y2}, grid units). */
     private String bezierQuest = "";
     private final java.util.Map<String, double[]> bezierPts = new java.util.LinkedHashMap<>();
-    /** The handle being dragged: the dependency id and 0 (by the dependency) or 1 (by the quest), or empty. */
+
     private String bezierGrabDep = "";
     private int bezierGrabIndex;
 
@@ -1563,7 +1511,7 @@ final class QuestBookWidget extends Widget {
             List<Double> saved = q.depControlPts.get(depId);
             bezierPts.put(depId, saved != null && saved.size() == 4
                     ? new double[] {saved.get(0), saved.get(1), saved.get(2), saved.get(3)}
-                    : new double[] {dep.x, dep.y, q.x, q.y}); // untouched handles sit on their quests: a straight line
+                    : new double[] {dep.x, dep.y, q.x, q.y});
         }
     }
 
@@ -1577,7 +1525,7 @@ final class QuestBookWidget extends Widget {
                 double[] c = e.getValue();
                 boolean straight = dep != null && c[0] == dep.x && c[1] == dep.y && c[2] == q.x && c[3] == q.y;
                 if (straight) {
-                    continue; // both handles still on their quests
+                    continue;
                 }
                 List<DataNode> nums = new ArrayList<>();
                 for (double d : c) {
@@ -1592,7 +1540,6 @@ final class QuestBookWidget extends Widget {
         bezierGrabDep = "";
     }
 
-    /** The handle under a point: {dependency id, index} or null. */
     private Object[] handleAt(ViewTransform v, int mouseX, int mouseY) {
         for (java.util.Map.Entry<String, double[]> e : bezierPts.entrySet()) {
             double[] c = e.getValue();
@@ -1607,7 +1554,6 @@ final class QuestBookWidget extends Widget {
         return null;
     }
 
-    /** Handles and their thin lines on top of the quests, and the hint at the top right. */
     private void drawBezierHandles(FontRenderer fr, QuestBook book, ViewTransform v) {
         Quest q = book.quest(bezierQuest);
         if (q == null) {
@@ -1642,7 +1588,6 @@ final class QuestBookWidget extends Widget {
         fr.drawStringWithShadow(hint, bounds.x() + bounds.width() - fr.getStringWidth(hint) - 34, bounds.y() + 6, 0xFFFFFF);
     }
 
-    /** A thin line, one pixel wide, between two screen points. */
     private static void lineBetween(double x1, double y1, double x2, double y2, int argb) {
         GlStateManager.disableTexture2D();
         GlStateManager.enableBlend();
@@ -1658,10 +1603,6 @@ final class QuestBookWidget extends Widget {
         GlStateManager.enableTexture2D();
     }
 
-
-    // ------------------------------------------------------------------ resizing a quest
-
-    /** The quest being resized (a dot at its corner is dragged), its size before, and whether the dot is held. */
     private String resizeQuest = "";
     private double resizeBefore;
     private boolean resizeGrab;
@@ -1692,7 +1633,6 @@ final class QuestBookWidget extends Widget {
         resizeGrab = false;
     }
 
-    /** The dot at the lower right corner of the quest, and the box at the top right that says what the size is. */
     private void drawResize(FontRenderer fr, QuestBook book, ViewTransform v, double zoom) {
         Quest q = book.quest(resizeQuest);
         if (q == null) {
@@ -1705,7 +1645,7 @@ final class QuestBookWidget extends Widget {
             double base = NODE * zoom;
             double size = 2 * Math.max(lastMouseX - cx, lastMouseY - cy) / base;
             if (!GuiScreen.isCtrlKeyDown()) {
-                size = Math.round(size * 16.0) / 16.0; // snaps to sixteenths unless Ctrl is held
+                size = Math.round(size * 16.0) / 16.0;
             }
             q.size = Math.max(0.0625, Math.min(64.0, size));
         }
@@ -1717,7 +1657,7 @@ final class QuestBookWidget extends Widget {
         String l2 = "Ctrl: disable snapping (1/16 steps)";
         String l3 = "Esc: cancel";
         int w = Math.max(fr.getStringWidth(l1), Math.max(fr.getStringWidth(l2), fr.getStringWidth(l3))) + 12;
-        int bx = bounds.x() + bounds.width() - w - 34; // left of the column of buttons
+        int bx = bounds.x() + bounds.width() - w - 34;
         int by = bounds.y() + 6;
         Gui.drawRect(bx, by, bx + w, by + 38, 0xE0101010);
         fr.drawStringWithShadow(l1, bx + 6, by + 4, 0xFFFFFF);
@@ -1742,7 +1682,6 @@ final class QuestBookWidget extends Widget {
         return t < 0.5f ? t * 2f : 2f - t * 2f;
     }
 
-    /** Mix a colour towards white by {@code amount} (0 keeps it, 1 is white); alpha is kept. */
     private static int lighten(int argb, float amount) {
         int r = (argb >> 16 & 255) + Math.round((255 - (argb >> 16 & 255)) * amount);
         int g = (argb >> 8 & 255) + Math.round((255 - (argb >> 8 & 255)) * amount);
@@ -1757,7 +1696,6 @@ final class QuestBookWidget extends Widget {
     private static double movingOrigX;
     private static double movingOrigY;
 
-    /** Screen geometry of a picture: centre x, centre y, width, height, rotation; null if it is not drawn. */
     private double[] imageGeo(Definitions.ChapterImage img, ViewTransform v) {
         DataNode.Compound raw = img.raw();
         String tex = raw.getString("image", "");
@@ -1778,10 +1716,6 @@ final class QuestBookWidget extends Widget {
             raw.getDouble("rotation", 0)};
     }
 
-    /**
-     * FTB Quests 26.1.2 can name a vanilla painting as a chapter picture ({@code minecraft:backyard}). This game keeps
-     * its paintings in one sheet, so the name is looked up among the painting types of the sheet.
-     */
     @javax.annotation.Nullable
     private static net.minecraft.entity.item.EntityPainting.EnumArt paintingArt(String tex) {
         int colon = tex.indexOf(':');
@@ -1800,7 +1734,6 @@ final class QuestBookWidget extends Widget {
     private static final net.minecraft.util.ResourceLocation PAINTING_SHEET =
             new net.minecraft.util.ResourceLocation("textures/painting/paintings_kristoffer_zetterstrand.png");
 
-    /** The topmost picture under the mouse, or null. */
     private Definitions.ChapterImage imageAt(Chapter chapter, ViewTransform v, int mx, int my) {
         List<Definitions.ChapterImage> list = new ArrayList<>(chapter.images);
         list.sort(java.util.Comparator.comparingInt(i -> i.raw().getInt("order", 0)));
@@ -1821,9 +1754,6 @@ final class QuestBookWidget extends Widget {
         return null;
     }
 
-    // ------------------------------------------------------------------ pictures: the menu, resizing and rotating
-
-    /** What a right click on a picture offers in edit mode. */
     private void imageMenu(Definitions.ChapterImage target) {
         List<MenuItem> items = new ArrayList<>();
         items.add(new MenuItem(target.raw().getString("image", "?"), "", "", false, null));
@@ -1907,7 +1837,6 @@ final class QuestBookWidget extends Widget {
         return new java.math.BigDecimal(d).setScale(2, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
     }
 
-    /** The handle of the mode: the lower right corner when resizing, a point above the picture when rotating. */
     private double[] imageHandle(Definitions.ChapterImage img, ViewTransform v) {
         DataNode.Compound raw = img.raw();
         double cx = v.screenX(raw.getDouble("x", 0) * GRID);
@@ -1922,7 +1851,6 @@ final class QuestBookWidget extends Widget {
         return new double[] {cx + Math.sin(a) * r, cy - Math.cos(a) * r};
     }
 
-    /** Updates the picture while the handle is held, draws the handle and the hint box. */
     private void drawImageMode(FontRenderer fr, QuestBook book, ViewTransform v, Chapter chapter) {
         Definitions.ChapterImage img = imageById(chapter, imgModeId);
         if (img == null) {
@@ -1946,7 +1874,7 @@ final class QuestBookWidget extends Widget {
             } else {
                 double angle = Math.toDegrees(Math.atan2(lastMouseY - cy, lastMouseX - cx)) + 90;
                 if (!ctrl) {
-                    angle = Math.round(angle / 15.0) * 15.0; // snaps to 15 degree steps
+                    angle = Math.round(angle / 15.0) * 15.0;
                 }
                 angle = ((angle % 360) + 360) % 360;
                 replaceImageRaw(chapter, imgModeId, raw.with("rotation", angle));
@@ -1981,7 +1909,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** While a picture is being moved it follows the mouse (in steps of a quarter map unit). */
     private void followMovingImage(Chapter chapter) {
         if (movingImage.isEmpty()) {
             return;
@@ -2047,7 +1974,6 @@ final class QuestBookWidget extends Widget {
     }
     private static final net.minecraft.util.ResourceLocation LADDER = new net.minecraft.util.ResourceLocation("textures/blocks/ladder.png");
 
-    /** A line drawn with the side rail of the game's ladder texture, repeated along the line. */
     private static void ladderLine(double x1, double y1, double x2, double y2, double thickness, int argb, int flow) {
         double dx = x2 - x1;
         double dy = y2 - y1;
@@ -2057,9 +1983,9 @@ final class QuestBookWidget extends Widget {
         }
         double nx = -dy / len * thickness / 2;
         double ny = dx / len * thickness / 2;
-        boolean chevrons = QuestArt.hasGui("dependency"); // FTB Quests' own line: a band of chevrons pointing at the quest
+        boolean chevrons = QuestArt.hasGui("dependency");
         double repeats = len / (chevrons ? thickness : thickness * 8);
-        double phase = (System.currentTimeMillis() % 20000L) / 20000.0 * 8.0; // slow drift: 0.4 tile per second
+        double phase = (System.currentTimeMillis() % 20000L) / 20000.0 * 8.0;
         double v0 = -flow * phase;
         double v1 = repeats - flow * phase;
         mc().getTextureManager().bindTexture(chevrons ? QuestArt.guiTexture("dependency") : LADDER);
@@ -2086,7 +2012,6 @@ final class QuestBookWidget extends Widget {
         GlStateManager.enableCull();
     }
 
-    /** The pictures placed on a chapter's map (frames, title art): centred on x/y, sized and rotated as the pack says. */
     private void drawChapterImages(ViewTransform v, Chapter chapter, Rect map) {
         if (chapter.images.isEmpty()) {
             return;
@@ -2145,7 +2070,7 @@ final class QuestBookWidget extends Widget {
             GlStateManager.pushMatrix();
             GlStateManager.translate(cx, cy, 0);
             GlStateManager.rotate((float) raw.getDouble("rotation", 0), 0, 0, 1);
-            // large pictures are scaled smoothly; small ones (sprites) stay sharp
+
             mc.getTextureManager().bindTexture(loc);
             boolean sprite = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH) <= 128
                     && GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT) <= 128;
@@ -2156,7 +2081,7 @@ final class QuestBookWidget extends Widget {
             QuestArt.quad(loc, -w / 2, -h / 2, w, h, alpha << 24 | 0xFFFFFF, !sprite);
             GlStateManager.popMatrix();
             if (isEditing() && (img.id().equals(hoverImage) || img.id().equals(movingImage))) {
-                // outline of the picture being pointed at or moved
+
                 double a = Math.toRadians(raw.getDouble("rotation", 0));
                 double cs = Math.cos(a);
                 double sn = Math.sin(a);
@@ -2171,7 +2096,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** A line of any angle, drawn as one rotated rectangle. */
     private static void slantedLine(double x1, double y1, double x2, double y2, double thickness, int argb) {
         double dx = x2 - x1;
         double dy = y2 - y1;
@@ -2215,7 +2139,7 @@ final class QuestBookWidget extends Widget {
         }
         GlStateManager.pushMatrix();
         GlStateManager.translate(x, y, 0);
-        // the model sits 200 units deep, scaled: a big icon would leave the depth range and be cut, so it is never scaled in depth
+
         GlStateManager.scale(scale, scale, Math.min(scale, 1f));
         RenderHelper.enableGUIStandardItemLighting();
         mc().getRenderItem().zLevel = 100f;
@@ -2225,12 +2149,10 @@ final class QuestBookWidget extends Widget {
         GlStateManager.popMatrix();
     }
 
-    // ------------------------------------------------------------------ detail panel
-
     private void drawDetail(FontRenderer fr, QuestBook book, ProgressEngine engine, TeamProgress p) {
         Quest q = book.quest(selectedQuest);
         Rect r = detailRect();
-        // everything behind an open quest is dimmed (measured from FTB Quests: about 63% of a dark grey)
+
         ScaledResolution whole = new ScaledResolution(mc());
         Gui.drawRect(0, 0, whole.getScaledWidth(), whole.getScaledHeight(), 0xA0202426);
         Ui.shadow(r);
@@ -2336,8 +2258,6 @@ final class QuestBookWidget extends Widget {
         clip = null;
     }
 
-    // ------------------------------------------------------------------ quest window (normal mode)
-
     private static String depPopup = "";
     private static String choiceFor = "";
 
@@ -2361,9 +2281,8 @@ final class QuestBookWidget extends Widget {
         return out;
     }
 
-    /** Draws a quest's icon at a given pixel size: its item, else the "missing item" art, else a check for checkmark quests. */
     private void drawQuestIcon(Quest q, float x, float y, float size, boolean done) {
-        // upstream rule: the quest's own icon, else the icon of its first task
+
         if (!q.icon.entries().isEmpty()) {
             ItemStack s = QuestText.stackOf(q.icon);
             if (s != null && !s.isEmpty()) {
@@ -2376,11 +2295,11 @@ final class QuestBookWidget extends Widget {
         if (q.tasks.isEmpty()) {
             return;
         }
-        // no icon of its own: the icons of its tasks, one after the other, two seconds each
+
         Task first = q.tasks.get((int) ((System.currentTimeMillis() / 2000) % q.tasks.size()));
         ItemStack named = QuestText.taskIcon(first);
         if (named != null && !first.type().equals("item")) {
-            drawItem(named, x, y, size / 16f); // a task with an icon of its own, or a kill task's spawn egg
+            drawItem(named, x, y, size / 16f);
         } else if (first.type().equals("custom")) {
             Ui.icon(Ui.LIBRARY, "textures/icons/color_hsb.png", x, y, size, size, 0xFFFFFFFF);
         } else if (first.type().equals("observation")) {
@@ -2404,7 +2323,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** Stack size in the game's own style: white, with shadow, in the bottom-right corner of the 16x16 item at (x, y). */
     private static void countText(FontRenderer fr, String text, int x, int y) {
         GlStateManager.pushMatrix();
         GlStateManager.translate(x + 17 - fr.getStringWidth(text) * 0.62f, y + 17 - 8 * 0.62f, 300);
@@ -2423,7 +2341,7 @@ final class QuestBookWidget extends Widget {
         if (named != null) {
             drawItem(named, x + 1, y + 1, 1f);
             if (t.type().equals("kill") && t.maxProgress() > 1) {
-                countText(fr, String.valueOf(t.maxProgress()), x + 1, y + 1); // FTB Quests puts the number under the egg
+                countText(fr, String.valueOf(t.maxProgress()), x + 1, y + 1);
             } else if (t.type().equals("fluid")) {
                 long mb = t.params().get("fluid") instanceof DataNode.Compound fc ? fc.getLong("amount", 1000) : 1000;
                 countText(fr, mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB", x + 1, y + 1);
@@ -2455,7 +2373,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** The box FTB Quests draws behind a hovered task or reward: 20 pixels, a 1 pixel dark edge, 26% black inside. */
     private void slotHover(int x, int y) {
         if (lastMouseX >= x - 1 && lastMouseX < x + 19 && lastMouseY >= y - 1 && lastMouseY < y + 19 && !(!menu.isEmpty() && menuRect(menu).contains(lastMouseX, lastMouseY))) {
             Gui.drawRect(x - 1, y - 1, x + 19, y + 19, 0xFF1B1D1E);
@@ -2490,13 +2407,13 @@ final class QuestBookWidget extends Widget {
             case "random":
             case "loot":
             case "all_table": {
-                // FTB Quests shows the picture of the table's first entry
+
                 QuestBook qb = ClientQuests.book();
                 com.levviata.reflibquests.model.Definitions.RewardTable table = qb == null ? null : qb.tables().get(com.levviata.reflibquests.io.Ids.tableId(pm));
                 if (table != null && !table.entries.isEmpty() && !table.entries.get(0).reward().type().equals(rw.type())) {
                     Reward first = table.entries.get(0).reward();
                     if (first.type().equals("xp") || first.type().equals("xp_levels")) {
-                        drawItem(new ItemStack(net.minecraft.init.Items.EXPERIENCE_BOTTLE), x + 1, y + 1, 1f); // no amount on a table's picture
+                        drawItem(new ItemStack(net.minecraft.init.Items.EXPERIENCE_BOTTLE), x + 1, y + 1, 1f);
                     } else {
                         drawRewardIcon(fr, first, x, y);
                     }
@@ -2518,9 +2435,9 @@ final class QuestBookWidget extends Widget {
                 } else if (rw.type().equals("command")) {
                     drawItem(new ItemStack(net.minecraft.init.Blocks.COMMAND_BLOCK), x + 1, y + 1, 1f);
                 } else if (rw.type().equals("gamestage") && Ui.icon(Ui.LIBRARY, "textures/icons/controller.png", x + 1, y + 1, 16, 16, 0xFFFFFFFF)) {
-                    // the game controller, as FTB Quests draws a Stage reward (and as the Stage task)
+
                 } else if (rw.type().equals("custom") && Ui.icon(Ui.LIBRARY, "textures/icons/color_hsb.png", x + 1, y + 1, 16, 16, 0xFFFFFFFF)) {
-                    // the colour wheel, as FTB Quests draws a custom reward (and as the custom task above)
+
                 } else {
                     iconBox(fr, rw.type().isEmpty() ? "?" : rw.type().substring(0, 1).toUpperCase(java.util.Locale.ROOT), x, y);
                 }
@@ -2528,17 +2445,14 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** The item's own tooltip (so tooltips added by other mods show), its mod's name, and the recipe hint when JEI is there. */
     private static String itemTip(ItemStack stack, boolean recipeHint) {
         return itemTip(stack, recipeHint, 1);
     }
 
-    /** The item's tooltip; with a count above one the name line starts with it ("32x Sulfurous Stone"). */
     private static String itemTip(ItemStack stack, boolean recipeHint, int count) {
         return itemTip(stack, recipeHint, count, "");
     }
 
-    /** As above, with {@code underName} (for example "0 / 32") on its own line right below the name. */
     private static String itemTip(ItemStack stack, boolean recipeHint, int count, String underName) {
         StringBuilder sb = new StringBuilder();
         List<String> lines = stack.getTooltip(mc().player, mc().gameSettings.advancedItemTooltips
@@ -2564,7 +2478,6 @@ final class QuestBookWidget extends Widget {
         return sb.toString();
     }
 
-    /** The contents of a reward table with each entry's chance, for the tooltip of choice / random / loot rewards. */
     private static String tableTip(QuestBook book, Reward rw) {
         RewardTable table = book.tables().get(QuestText.tableId(rw));
         if (table == null) {
@@ -2583,7 +2496,7 @@ final class QuestBookWidget extends Widget {
                 sb.append("\n§7+ ").append(table.entries.size() - 14).append(" more");
                 break;
             }
-            // "- XP: +100 [12,50%]": the text in grey with its values coloured, the chance in dark grey and in the player's number format
+
             sb.append("\n§7- ").append(rewardLine(wr.reward())).append(" §8[")
                     .append(String.format(java.util.Locale.getDefault(), "%.2f", total <= 0 ? 0 : wr.weight() * 100.0 / total)).append("%]");
         }
@@ -2593,19 +2506,16 @@ final class QuestBookWidget extends Widget {
         return sb.toString();
     }
 
-    /** One reward as a line: "4-8x Nether Quartz" for items (with their random bonus), the usual text otherwise. */
     private static String rewardLine(Reward rw) {
         if (rw.type().equals("item")) {
             int count = (int) Math.min(Integer.MAX_VALUE, Task.itemCount(rw.params()));
             int bonus = Math.max(0, rw.params().getInt("random_bonus", 0));
             String amount = bonus > 0 ? count + "-" + (count + bonus) + "x " : count > 1 ? count + "x " : "";
             ItemStack named = QuestText.stackOf(rw.params().get("item"));
-            return amount + (named == null ? QuestText.itemName(rw.params().get("item")) : named.getDisplayName()); // "Oak Button", not "Button"
+            return amount + (named == null ? QuestText.itemName(rw.params().get("item")) : named.getDisplayName());
         }
         return QuestText.reward(rw);
     }
-
-    // ---- the Edit menu and in-place editing of title, subtitle and text lines
 
     private static String inlineKind = "";
     private static String inlineQuest = "";
@@ -2632,7 +2542,6 @@ final class QuestBookWidget extends Widget {
         INLINE = new TextEditor(codesAsTyped(kind.equals("title") ? q.title : kind.equals("subtitle") ? q.subtitle : ""), 4000);
     }
 
-    /** Legacy files write colour codes with the section sign, which the font would draw as colour and hide; the editor shows them as &6. */
     static String codesAsTyped(String text) {
         return text.replace('§', '&');
     }
@@ -2653,7 +2562,7 @@ final class QuestBookWidget extends Widget {
     private static void addLocalLines(Quest q, List<String> add) {
         List<String> lines = new ArrayList<>(q.description);
         lines.addAll(add);
-        q.description = lines; // the screen shows it at once; the server's copy arrives a moment later
+        q.description = lines;
         List<DataNode> out = new ArrayList<>();
         for (String l : add) {
             out.add(new DataNode.Str(l));
@@ -2685,13 +2594,12 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** A highlighted one-line text box drawn in place of the text it edits. */
     private void drawInlineField(FontRenderer fr, int x, int y, int w) {
         Gui.drawRect(x, y, x + w, y + 13, 0xFF4C7BC4);
         String text = INLINE.text();
         int caretX = fr.getStringWidth(text.substring(0, INLINE.caret()));
         int room = w - 10;
-        // the text only moves when the caret would leave the box
+
         if (caretX - inlineScroll > room) {
             inlineScroll = caretX - room;
         } else if (caretX < inlineScroll) {
@@ -2735,7 +2643,6 @@ final class QuestBookWidget extends Widget {
         boolean details = QuestRules.detailsVisible(book, p, q);
         UUID me = mc().player == null ? null : mc().player.getUniqueID();
 
-        // ---- title bar: icon, centred title, pin, close
         final int bar = 20;
         Gui.drawRect(r.x() + 1, r.y() + 1, right - 1, r.y() + bar, 0xFF2A2D35);
         Gui.drawRect(r.x() + 1, r.y() + bar, right - 1, r.y() + bar + 1, 0xFF0E0F12);
@@ -2747,13 +2654,13 @@ final class QuestBookWidget extends Widget {
             int maxTitle = r.width() - 2 * TITLE_MARGIN;
             int fullWidth = Ui.width(fr, title);
             if (fullWidth <= maxTitle) {
-                Ui.drawText(fr, title, r.x() + r.width() / 2 - fullWidth / 2, r.y() + 7, 0xBBBBBB, maxTitle, false); // no shadow, like upstream
+                Ui.drawText(fr, title, r.x() + r.width() / 2 - fullWidth / 2, r.y() + 7, 0xBBBBBB, maxTitle, false);
             } else {
                 int diff = fullWidth - maxTitle;
-                double travel = diff / 18.0;                       // seconds to cross at 18 px/s
+                double travel = diff / 18.0;
                 double cycle = 2 * (travel + 1.6);
                 double t = (System.currentTimeMillis() / 1000.0) % cycle;
-                double leg = t < travel + 1.6 ? t : cycle - t;     // there and back
+                double leg = t < travel + 1.6 ? t : cycle - t;
                 double frac = Math.max(0, Math.min(1, (leg - 0.8) / travel));
                 scissor(new Rect(r.x() + TITLE_MARGIN, r.y() + 1, maxTitle, 18));
                 Ui.drawText(fr, title, r.x() + TITLE_MARGIN - (int) Math.round(diff * frac), r.y() + 7, 0xBBBBBB, Integer.MAX_VALUE, false);
@@ -2773,17 +2680,15 @@ final class QuestBookWidget extends Widget {
         }
         hits.add(new Hit(closeBox, () -> selectedQuest = "", "Close"));
 
-        // ---- scrolling content below the bar
         Rect content = new Rect(r.x() + 1, r.y() + bar + 1, r.width() - 2, r.height() - bar - 2);
         scissor(content);
         clip = content;
         final int top = content.y() - detailScroll;
         int y = top;
 
-        // ---- Tasks | Rewards section
         int taskSlots = q.tasks.size() + (isEditing() ? 1 : 0);
         int rewardSlots = q.rewards.size() + (isEditing() ? 1 : 0);
-        // FTB Quests 26.1.2 fills a column with at most 4 icons a row and balances the rows: 4 stay in one row, 5 become 3 + 2
+
         int taskPer = balancedPerRow(taskSlots);
         int rewardPer = balancedPerRow(rewardSlots);
         int taskRows = (taskSlots + taskPer - 1) / taskPer;
@@ -2797,13 +2702,12 @@ final class QuestBookWidget extends Widget {
         boolean hasDeps = !q.dependencies.isEmpty();
         List<Quest> dependants = dependantsOf(book, q);
         Rect left = new Rect(r.x() + 1, y + 3, 16, 16);
-        // the arrows as FTB Quests 26.1.2 draws them (measured at GUI scale 3: the 16 px texture shows at about 13 GUI px);
-        // the click area fits the arrow with 4 px to spare
+
         double arrow = 13;
         int leeway = 4;
         double leftX = left.x() + (16 - arrow) / 2;
         double leftY = left.y() + (16 - arrow) / 2;
-        // a locked quest: the dependencies arrow slides between white and dark red; with nothing to show an arrow is dark
+
         int leftTint = !hasDeps ? 0xFF1B1D1E : 0xFFFFFFFF;
         if (hasDeps && !ClientQuests.progress().isCompleted(q.id) && !QuestRules.dependenciesMet(book, ClientQuests.progress(), q)) {
             leftTint = mixColour(0xFFFFFFFF, 0xFFAA0000, (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 400.0)));
@@ -2840,7 +2744,7 @@ final class QuestBookWidget extends Widget {
             }
             StringBuilder tip = new StringBuilder();
             Runnable act = () -> { };
-            // "0 / 32" in green under the name of an item task that needs several
+
             String progressLine = t.maxProgress() > 1 ? "§2" + Math.min(p.taskProgress(t.id()), t.maxProgress()) + " / " + t.maxProgress() : "";
             if (t.type().equals("item")) {
                 DataNode spec = t.params().get("item");
@@ -2904,7 +2808,7 @@ final class QuestBookWidget extends Widget {
                     act = () -> QuestNet.submit(t.id());
                 }
             } else if (t.type().equals("dimension")) {
-                tip.append("§fVisit Dimension: §2").append(t.params().getString("dimension", "?")); // FTB: the dimension's id in green
+                tip.append("§fVisit Dimension: §2").append(t.params().getString("dimension", "?"));
             } else {
                 tip.append(QuestText.task(t));
                 if (!done && canWork && t.type().equals("checkmark")) {
@@ -2918,7 +2822,7 @@ final class QuestBookWidget extends Widget {
             if (t.type().equals("item") && t.params().getBool("task_screen_only", false)) {
                 tip.append("\n\n§e§nItems can ONLY be submitted via a Task Screen!");
             }
-            if (t.maxProgress() > 1 && !t.type().equals("item") && !t.type().equals("fluid") && !t.type().equals("xp")) { // item and fluid tasks already have it, in green under the name
+            if (t.maxProgress() > 1 && !t.type().equals("item") && !t.type().equals("fluid") && !t.type().equals("xp")) {
                 tip.append("\n§7").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
             }
             final String taskId = t.id();
@@ -2991,8 +2895,7 @@ final class QuestBookWidget extends Widget {
         }
         y += secH + 1;
 
-        // ---- body: subtitle, description, choices
-        final int bodyTop = y; // the eye of a hidden text sits in the top left corner of this section
+        final int bodyTop = y;
         int pages = 1;
         if (!details) {
             fr.drawStringWithShadow("Details are hidden until this quest is available.", r.x() + 6, y + 6, 0x888888);
@@ -3010,10 +2913,10 @@ final class QuestBookWidget extends Widget {
                 y += 16;
             }
             boolean textHidden = !isEditing() && !p.isCompleted(q.id) && textHiddenRule(book, q);
-            // a quest whose text waits for completion shows an eye at the left of the description, with a tooltip saying why
-            boolean eye = isEditing() && !p.isCompleted(q.id) && textHiddenRule(book, q); // only in edit mode, as in FTB Quests
+
+            boolean eye = isEditing() && !p.isCompleted(q.id) && textHiddenRule(book, q);
             if (eye) {
-                // 10.7 pixels square (the eye fills the picture's width, measured on FTB Quests 26.1.2), grey, in the top left corner of the text section
+
                 Rect eyeBox = new Rect(r.x() + 3, bodyTop + 2, 11, 11);
                 if (!Ui.questsGui("hidden", eyeBox.x(), eyeBox.y(), 10.7, 10.7, 0xFFA0A0A0)) {
                     Ui.icon(Ui.LIBRARY, "textures/icons/visibility_show.png", eyeBox.x(), eyeBox.y(), 11, 11, 0xFFA0A0A0);
@@ -3058,13 +2961,13 @@ final class QuestBookWidget extends Widget {
             }
         }
         if (details && !q.guidePage.isEmpty()) {
-            // the guide-page line: a book and "Click here to read more...", centred; no tooltip, it glows yellow when hovered
+
             String readMore = "Click here to read more...";
             int lw = 14 + fr.getStringWidth(readMore);
             int lx = mid - lw / 2;
             Rect lineBox = new Rect(lx, y + 4, lw, 12);
             boolean over = lineBox.contains(lastMouseX, lastMouseY);
-            drawItem(new ItemStack(net.minecraft.init.Items.BOOK), lx, y + 3, 0.65f); // the game's own book, not the mod's purple one
+            drawItem(new ItemStack(net.minecraft.init.Items.BOOK), lx, y + 3, 0.65f);
             fr.drawStringWithShadow(readMore, lx + 14, y + 6, over ? 0xFFFF55 : 0xFFFFFF);
             addHit(lineBox, () -> { }, null);
             y += 20;
@@ -3072,7 +2975,7 @@ final class QuestBookWidget extends Widget {
         if (details && (isEditing() || pages > 1)) {
             int rowY = y + 2;
             if (isEditing()) {
-                // 56 x 14, edge #1B1D1E, as measured from FTB Quests
+
                 Rect btn = new Rect(mid - 28, rowY, 56, 14);
                 Ui.box(btn, btn.contains(lastMouseX, lastMouseY) ? 0xFF3A404B : 0xFF2C3138);
                 Ui.questsGui("settings", btn.x() + 5, btn.y() + 3, 8, 8, 0xFFFFFFFF);
@@ -3082,7 +2985,7 @@ final class QuestBookWidget extends Widget {
                 addHit(btn, () -> openMenu(btn.x(), btn.y() + 18, editMenu(edited)), "Edit this quest");
             }
             if (pages > 1) {
-                // bottom-right group: "<- 2/3 ->", each arrow only where there is a page to go to
+
                 int last = pages - 1;
                 String counter = (descPage + 1) + "/" + pages;
                 int cw = fr.getStringWidth(counter);
@@ -3104,17 +3007,16 @@ final class QuestBookWidget extends Widget {
             }
             y = rowY + 20;
         }
-        // a quest with nothing to read (no subtitle, text or choices) has no body below its tasks and rewards
+
         boolean bare = details && q.subtitle.isEmpty() && !q.optional
                 && (q.description.isEmpty() || !isEditing() && !p.isCompleted(q.id) && textHiddenRule(ClientQuests.book(), q)) && choiceFor.isEmpty()
                 && !isEditing() && !inlineOn("line", q);
         detailContentHeight = bare ? y - top + bar + 1 : y + 4 - top + bar + 1;
         clip = null;
 
-        // ---- dependency / dependant list popup (over everything)
         unscissor();
         if (!depPopup.isEmpty()) {
-            GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT); // the list goes over the item pictures below it
+            GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
             drawDependencyPopup(fr, book, p, q, r, y, dependants);
         }
         scissor(detailRect());
@@ -3127,12 +3029,10 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** Edit menu: adds a page break and a placeholder page to the description. */
     private static void appendPage(Quest q) {
         addLocalLines(q, List.of(RichText.PAGE_BREAK, "(new page placeholder text)"));
     }
 
-    /** Opens a quest and moves the camera onto it (switching chapter if it is in another one). */
     private void focusQuest(String questId) {
         QuestBook book = ClientQuests.book();
         Quest q = book == null ? null : book.quest(questId);
@@ -3146,7 +3046,6 @@ final class QuestBookWidget extends Widget {
         viewFor(c, map).centerOn(q.x * GRID, q.y * GRID, map.x() + map.width() / 2.0, map.y() + map.height() / 2.0);
     }
 
-    /** A quest's title with its own formatting; plain titles are white. On hover plain text turns yellow and colours get stronger. */
     private static void drawRichTitle(FontRenderer fr, String raw, int x, int y, int maxWidth, boolean hover) {
         List<RichText.Line> lines = RichText.parseEntry(raw);
         int cx = x;
@@ -3174,7 +3073,7 @@ final class QuestBookWidget extends Widget {
 
     private static int saturate(int rgb) {
         float[] hsb = java.awt.Color.RGBtoHSB(rgb >> 16 & 255, rgb >> 8 & 255, rgb & 255, null);
-        float s = hsb[1] >= 0.6f ? hsb[1] * 0.78f : Math.min(1f, hsb[1] * 1.35f + 0.1f); // very saturated: calmer; weak: stronger
+        float s = hsb[1] >= 0.6f ? hsb[1] * 0.78f : Math.min(1f, hsb[1] * 1.35f + 0.1f);
         return java.awt.Color.HSBtoRGB(hsb[0], s, Math.min(1f, hsb[2] * 1.05f)) & 0xFFFFFF;
     }
 
@@ -3228,7 +3127,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** "< Page 2/3 >" row above a paged description; returns the y below it. */
     private int pageControls(FontRenderer fr, int x, int y, int pages) {
         String label = "Page " + (descPage + 1) + "/" + pages;
         int bw = 14;
@@ -3247,12 +3145,6 @@ final class QuestBookWidget extends Widget {
         return y + 16;
     }
 
-    /**
-     * The click action of a chapter image. Open a URI (asks first, http and https only), Jump to a Quest and Show Recipes
-     * for Item work; Run a Command, Post Custom Event and Show a Docs Page belong to the newer game and say so.
-     *
-     * @return whether the image had an action (the click is used up)
-     */
     private boolean runImageAction(QuestBook book, Definitions.ChapterImage image) {
         DataNode.Compound click = image.raw().getCompound("click_action");
         String type = click.getString("type", "");
@@ -3275,7 +3167,6 @@ final class QuestBookWidget extends Widget {
         return true;
     }
 
-    /** Click on a description link: web links ask first (http/https only); quest links open that quest. */
     private void onLink(QuestBook book, RichText.Click click) {
         String value = click.value() == null ? "" : click.value().trim();
         if (click.action().equals("change_page")) {
@@ -3298,7 +3189,7 @@ final class QuestBookWidget extends Widget {
                     try {
                         java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
                     } catch (Exception ignored) {
-                        // no desktop available: the player can still use Copy to Clipboard
+
                     }
                 }
                 mc().displayGuiScreen(back);
@@ -3328,15 +3219,10 @@ final class QuestBookWidget extends Widget {
         hits.add(new Hit(r, () -> QuestNet.togglePin(id), pinned ? "Stop tracking" : "Track this quest on screen"));
     }
 
-
-    // ------------------------------------------------------------------ editing
-
-
     private static boolean isEditing() {
         return editing && ClientQuests.canEdit();
     }
 
-    /** In edit mode every quest is shown, including hidden ones, so they can be edited. */
     private static boolean shown(QuestBook book, TeamProgress p, Quest q) {
         return isEditing() || QuestRules.isVisible(book, p, q);
     }
@@ -3347,7 +3233,6 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    /** The change history and, below it, the strip with the cursor, the selection, the language and the view centre (edit mode). */
     private void drawBottomBar(FontRenderer fr, int mouseX, int mouseY) {
         if (!isEditing()) {
             return;
@@ -3355,7 +3240,7 @@ final class QuestBookWidget extends Widget {
         QuestBook book = ClientQuests.book();
         Chapter chapter = book == null ? null : currentChapter(book);
         int right = bounds.x() + bounds.width();
-        int numbersRight = right - 30; // the numbers stop before the player preferences button
+        int numbersRight = right - 30;
         int left = bounds.x() + listWidth();
         int stripH = 12;
         int stripY = bounds.y() + bounds.height() - stripH;
@@ -3382,14 +3267,14 @@ final class QuestBookWidget extends Widget {
         int x = 0;
         String[] parts = {
             String.format(java.util.Locale.ROOT, "Cursor: [%+.2f, %+.2f]", mx, my),
-            "Selected: " + selected + "/" + chapter.quests.size(),
+            "Selected: " + selected + "/" + (chapter.quests.size() + chapter.images.size()),
             "Lang: " + lang,
         };
         String center = String.format(java.util.Locale.ROOT, "Center: [%.2f, %.2f]", cx, cy);
-        int room = Math.round((numbersRight - 6 - (left + 6)) / 0.5f) - fr.getStringWidth(center) - 40; // what the left side may use
+        int room = Math.round((numbersRight - 6 - (left + 6)) / 0.5f) - fr.getStringWidth(center) - 40;
         for (String part : parts) {
             if (x + fr.getStringWidth(part) > room) {
-                break; // never runs into the centre numbers
+                break;
             }
             fr.drawStringWithShadow(part, x, 0, 0xFFFFFF);
             x += fr.getStringWidth(part) + 40;
@@ -3401,12 +3286,10 @@ final class QuestBookWidget extends Widget {
         GlStateManager.popMatrix();
     }
 
-    /** Whether clicking an item of this quest shows its recipes (JEI present, and not switched off for the quest or the book). */
     private static boolean jeiEnabled(QuestBook book, Quest q) {
         return JeiBridge.available() && !q.disableJei.resolve(book.settings.getBool("default_quest_disable_jei", false));
     }
 
-    /** Undo the last edit (edits that were not sent yet go first, so the server undoes the very last one). */
     private void undoEdit() {
         if (ClientQuests.undoCount() > 0 || TableEdits.hasPending()) {
             ChangeLog.add("Undo", "", TableEdits.hasPending() ? "" : ClientQuests.undoLabel());
@@ -3423,20 +3306,16 @@ final class QuestBookWidget extends Widget {
         }
     }
 
-    // ------------------------------------------------------------------ quick edit properties
-
     private static final List<String> SHAPE_LABELS_Q = List.of("Default", "Circle", "Square", "Diamond", "Rounded Square", "Pentagon", "Hexagon", "Octagon", "Heart", "Gear", "<None>");
     private static final List<String> SHAPE_VALUES_Q = List.of("", "circle", "square", "diamond", "rsquare", "pentagon", "hexagon", "octagon", "heart", "gear", "none");
     private static final List<String> TRI_LABELS = List.of("Default", "True", "False");
     private static final List<String> TRI_VALUES = List.of("default", "true", "false");
 
-    /** A switch in the quick menu: a check mark that is lit while it is on; clicking flips it. */
     private MenuItem quickSwitch(Quest q, String label, String key, boolean on) {
         return new MenuItem(label, "", on ? "lib:check" : "lib:check@dim", false,
                 () -> send("set_prop", args("id", q.id, "key", key, "value", String.valueOf(!on))));
     }
 
-    /** A setting with several values: a gear; clicking opens the values where it was clicked. */
     private MenuItem quickChoice(Quest q, String label, String key, List<String> labels, List<String> values, String current) {
         return new MenuItem(label, "", "settings", false, () -> {
             List<MenuItem> options = new ArrayList<>();
@@ -3456,7 +3335,6 @@ final class QuestBookWidget extends Widget {
         return quickChoice(q, label, key, TRI_LABELS, TRI_VALUES, now.name().toLowerCase(java.util.Locale.ROOT));
     }
 
-    /** "Quick Edit Properties...": the quest's main settings as a menu, in FTB's order, opened where the entry was clicked. */
     private void quickProperties(Quest q, int x, int y) {
         List<MenuItem> items = new ArrayList<>();
         items.add(new MenuItem(RichText.stripCodes(QuestText.titlePlain(q)), "", "", false, null));
@@ -3493,14 +3371,10 @@ final class QuestBookWidget extends Widget {
         menuY = y;
     }
 
-
-    // ------------------------------------------------------------------ right-click menus of tasks and rewards
-
     private static MenuItem menuHeader(String text) {
         return new MenuItem("\"" + text + "\"", "", "", false, null);
     }
 
-    /** What a right click on a task offers in edit mode, in FTB's order. */
     private void taskMenu(Quest q, Task t) {
         TeamProgress p = ClientQuests.progress();
         boolean done = p != null && QuestRules.taskDone(p, t);
@@ -3536,7 +3410,6 @@ final class QuestBookWidget extends Widget {
         menuY = lastMouseY;
     }
 
-    /** Takes a copy of the task's item; a collection or ore dictionary entry first asks which of its items. */
     private void grabCopy(Quest q, Task t) {
         DataNode spec = t.params().get("item");
         List<com.levviata.reflibquests.game.ItemResolver.Resolved> set = com.levviata.reflibquests.game.ItemSet.resolveAll(spec, ClientQuests.idMap());
@@ -3561,7 +3434,6 @@ final class QuestBookWidget extends Widget {
         }));
     }
 
-    /** What a right click on a reward offers in edit mode. */
     private void rewardMenu(Quest q, Reward rw) {
         int at = q.rewards.indexOf(rw);
         List<MenuItem> items = new ArrayList<>();
@@ -3589,7 +3461,6 @@ final class QuestBookWidget extends Widget {
         menuY = lastMouseY;
     }
 
-    /** A setting with several values, opened as a list where it was clicked; the current one has a check mark. */
     private MenuItem quickList(String label, String sendOp, String id, String key, List<String> labels, List<String> values, String current) {
         return new MenuItem(label, "", "settings", false, () -> {
             List<MenuItem> options = new ArrayList<>();
@@ -3657,11 +3528,8 @@ final class QuestBookWidget extends Widget {
         menuY = lastMouseY;
     }
 
-
-    /** The icons of a chapter's quests, rebuilt every couple of seconds (a chapter can have a thousand quests). */
     private static final Map<String, Object[]> CHAPTER_ICON_CACHE = new HashMap<>();
 
-    /** The only quest's icon, or the quests' icons in turn; null for an empty chapter. */
     private static ItemStack chapterIconFromQuests(Chapter c) {
         long now = System.currentTimeMillis();
         Object[] cached = CHAPTER_ICON_CACHE.get(c.id);
@@ -3682,7 +3550,6 @@ final class QuestBookWidget extends Widget {
         return icons.isEmpty() ? null : icons.get((int) ((now / 1200) % icons.size()));
     }
 
-    /** What a right click on a chapter offers in edit mode, in FTB's order. */
     private void chapterMenu(Chapter c) {
         QuestBook book = ClientQuests.book();
         TeamProgress p = ClientQuests.progress();
@@ -3737,7 +3604,6 @@ final class QuestBookWidget extends Widget {
                 () -> send("set_chapter_prop", args("id", c.id, "key", key, "value", String.valueOf(!on))));
     }
 
-    /** "Quick Edit Properties..." of a chapter, in FTB's order: its switches, and the settings with several values as lists. */
     private void quickChapter(Chapter c) {
         List<MenuItem> items = new ArrayList<>();
         items.add(menuHeader(RichText.stripCodes(c.title.isEmpty() ? c.id : c.title)));
@@ -3762,7 +3628,6 @@ final class QuestBookWidget extends Widget {
         menuY = lastMouseY;
     }
 
-    /** A chapter setting with several values: a gear that opens the values where it was clicked. */
     private MenuItem chapterList(Chapter c, String label, String key, List<String> labels, List<String> values, String current) {
         return new MenuItem(label, "", "settings", false, () -> {
             List<MenuItem> options = new ArrayList<>();
@@ -3778,7 +3643,6 @@ final class QuestBookWidget extends Widget {
         });
     }
 
-    /** The right-click menu of a quest in edit mode: a title, then what can be done with it. */
     private void questMenu(Quest target, int x, int y) {
         TeamProgress p = ClientQuests.progress();
         boolean done = p != null && p.isCompleted(target.id);
@@ -3786,7 +3650,7 @@ final class QuestBookWidget extends Widget {
         items.add(new MenuItem("\"" + QuestText.titlePlain(target) + "\"", "", "", false, null));
         items.add(new MenuItem("Edit", "", "settings", true, () -> mc().displayGuiScreen(new QuestPropertiesScreen(mc().currentScreen, target))));
         items.add(new MenuItem("Move", "", "lib:up", false, () -> startQuestMove(target)));
-        if (target.preset.isEmpty()) { // FTB offers no Resize while a preset decides the size (measured in 26.1.2)
+        if (target.preset.isEmpty()) {
             items.add(new MenuItem("Resize", "", "lib:resize", false, () -> startResize(target)));
         }
         items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickProperties(target, lastMouseX, lastMouseY)));
@@ -3830,15 +3694,10 @@ final class QuestBookWidget extends Widget {
         menuY = y;
     }
 
-
     private static MenuItem typeItem(String label, String icon, Runnable action) {
         return new MenuItem(label, "", icon, false, action);
     }
 
-    /**
-     * The small box FTB Quests 26.1.2 shows when an XP task or reward is created: a heading, the amount (selected, so
-     * typing replaces it) and a check mark and a cross. It opens where the mouse is; nothing is created on cancel.
-     */
     private static void askNumber(String title, int initial, java.util.function.IntConsumer created) {
         ScaledResolution res = new ScaledResolution(mc());
         int px = Mouse.getX() / res.getScaleFactor();
@@ -3850,12 +3709,11 @@ final class QuestBookWidget extends Widget {
                     created.accept(n);
                 }
             } catch (NumberFormatException ignored) {
-                // not a number: nothing is created
+
             }
         }));
     }
 
-    /** FTB Quests opens an item picker when an item task or reward is made; the book screen is shown again once an item is chosen. */
     private static void pickItem(java.util.function.Consumer<ItemStack> chosen) {
         mc().displayGuiScreen(SelectorScreen.items(mc().currentScreen, chosen));
     }
@@ -3866,7 +3724,6 @@ final class QuestBookWidget extends Widget {
         return data == null || data.entries().isEmpty() ? spec : spec.with("nbt", data);
     }
 
-    /** What the server needs to know about a picked item: its registry name and variant. */
     private static DataNode.Compound itemSpec(ItemStack stack) {
         DataNode.Compound spec = DataNode.Compound.empty().with("id", String.valueOf(stack.getItem().getRegistryName()));
         if (stack.getMetadata() != 0) {
@@ -3882,7 +3739,6 @@ final class QuestBookWidget extends Widget {
         return new MenuItem(label, "", icon + "@off", false, () -> { });
     }
 
-    /** FTB's "Select Task Type" list, in its order. Types without support yet are listed greyed out. */
     private static MenuItem[] taskTypeMenu(java.util.function.Consumer<DataNode.Compound> add) {
         return new MenuItem[] {
             typeItem("Item", "item:diamond", () -> mc().displayGuiScreen(SelectorScreen.items(mc().currentScreen, true,
@@ -3891,7 +3747,7 @@ final class QuestBookWidget extends Widget {
             typeItem("XP Levels", "item:experience_bottle", () -> askNumber("XP Levels", 1,
                     n -> add.accept(args("type", "xp", "params", args("value", n, "points", false))))),
             typeItem("Visit Dimension", "item:ender_eye", () -> add.accept(args("type", "dimension", "params", args("dimension", "minecraft:the_nether")))),
-            typeItem("Stat", "item:iron_sword", () -> add.accept(args("type", "stat", "params", args("stat", "minecraft:mob_kills", "value", 1)))), // FTB's defaults: Mob Kills, 1
+            typeItem("Stat", "item:iron_sword", () -> add.accept(args("type", "stat", "params", args("stat", "minecraft:mob_kills", "value", 1)))),
             typeItem("Kill Entity", "item:diamond_sword", () -> add.accept(args("type", "kill", "params", args("entity", "minecraft:zombie", "value", 100)))),
             typeItem("Location", "item:stone_pressure_plate", () -> add.accept(args("type", "location"))),
             typeItem("Checkmark", "check_gray", () -> add.accept(args("type", "checkmark"))),
@@ -3908,7 +3764,6 @@ final class QuestBookWidget extends Widget {
         };
     }
 
-    /** FTB's "Select Reward Type" list, in its order. Table rewards ask which table to use. */
     private MenuItem[] rewardTypeMenu(String owner) {
         return new MenuItem[] {
             typeItem("Item", "item:diamond", () -> pickItem(stack -> send("add_reward", args("id", owner, "type", "item", "item", itemSpec(stack))))),
@@ -3929,7 +3784,6 @@ final class QuestBookWidget extends Widget {
         };
     }
 
-    /** The same small box as askNumber, for a name; nothing is created when it is empty or cancelled. */
     private static void askText(String title, String initial, java.util.function.Consumer<String> created) {
         ScaledResolution res = new ScaledResolution(mc());
         int px = Mouse.getX() / res.getScaleFactor();
@@ -3941,7 +3795,6 @@ final class QuestBookWidget extends Widget {
         }));
     }
 
-    /** The "Select Reward Table" panel (with a search box) for a Choice, All Table, Random or Loot reward. */
     private void chooseTable(String owner, String type) {
         mc().displayGuiScreen(new SelectRewardTableScreen(mc().currentScreen,
                 tid -> send("add_reward", args("id", owner, "type", type, "params", args("table_id", tid)))));
@@ -3984,8 +3837,8 @@ final class QuestBookWidget extends Widget {
                 y += 6;
             }
             Rect row = new Rect(box.x() + 1, y, box.width() - 2, MENU_ROW);
-            boolean off = m.icon().endsWith("@off"); // listed for completeness, not available yet
-            boolean hover = m.action() != null && !off && row.contains(mouseX, mouseY); // a header (no action) is only a title
+            boolean off = m.icon().endsWith("@off");
+            boolean hover = m.action() != null && !off && row.contains(mouseX, mouseY);
             int tx = box.x() + 6;
             if (m.action() == null) {
                 tx += 16;
@@ -3994,7 +3847,7 @@ final class QuestBookWidget extends Widget {
                 int iconColor = 0xFFFFFFFF;
                 if (iconName.endsWith("@dim")) {
                     iconName = iconName.substring(0, iconName.length() - 4);
-                    iconColor = 0x66FFFFFF; // switched off
+                    iconColor = 0x66FFFFFF;
                 } else if (off) {
                     iconName = iconName.substring(0, iconName.length() - 4);
                     iconColor = 0x66FFFFFF;
@@ -4067,10 +3920,6 @@ final class QuestBookWidget extends Widget {
         ghostY = snapUnits(v.worldY(py) / GRID);
     }
 
-    /**
-     * "Image" of the map menu (FTB Quests 26.1.2 ends its list with it): choose a picture, and it is put where the menu was
-     * opened. The window lists every picture this game has (SelectorScreen).
-     */
     private void pickImageAt(int mouseX, int mouseY) {
         QuestBook book = ClientQuests.book();
         Chapter chapter = book == null ? null : currentChapter(book);
@@ -4084,7 +3933,6 @@ final class QuestBookWidget extends Widget {
         mc().displayGuiScreen(SelectorScreen.images(mc().currentScreen, chosen -> sendNewImage(chapterId, chosen, wx, wy)));
     }
 
-    /** The size a new picture starts with: a painting keeps its shape (blocks / 4, as FTB sized the 3 x 4 backyard 0.75 x 1), others are 1 x 1. */
     private void sendNewImage(String chapterId, String image, double x, double y) {
         double w = 1;
         double h = 1;
@@ -4103,7 +3951,7 @@ final class QuestBookWidget extends Widget {
             return;
         }
         ViewTransform v = viewFor(chapter, mapRect());
-        // FTB Quests opens the new task's options first: the quest is made when Accept is pressed, and not at all on Cancel
+
         mc().displayGuiScreen(TaskRewardScreen.forDraft(mc().currentScreen,
                 new TaskRewardScreen.Draft(chapter.id, v.worldX(mouseX) / GRID, v.worldY(mouseY) / GRID, task)));
     }
@@ -4238,7 +4086,6 @@ final class QuestBookWidget extends Widget {
         return in == null ? fallback : in.defaultConsumeItems.resolve(fallback);
     }
 
-    /** Whether the quest's text stays hidden until it is completed: its own setting, then the chapter's. */
     private static boolean textHiddenRule(QuestBook book, Quest q) {
         Chapter in = book.chapterOf(q.id);
         return q.hideTextUntilComplete.resolve(in != null && in.hideTextUntilComplete);
@@ -4264,9 +4111,6 @@ final class QuestBookWidget extends Widget {
         super.draw(mouseX, mouseY, partialTicks);
     }
 
-    // ------------------------------------------------------------------ input
-
-    /** The quests from the bottom of the stack to the top: by Z, and at the same Z the smaller ones first. */
     private List<Quest> drawOrder(Chapter chapter) {
         List<Quest> order = new ArrayList<>(chapter.quests);
         order.addAll(linkNodes);
@@ -4274,7 +4118,6 @@ final class QuestBookWidget extends Widget {
         return order;
     }
 
-    /** The quest links of the chapter on show, as copies of their quests standing where the links are. Rebuilt every frame. */
     private final List<Quest> linkNodes = new ArrayList<>();
     private final java.util.Map<Quest, String> linkIds = new java.util.IdentityHashMap<>();
 
@@ -4292,14 +4135,13 @@ final class QuestBookWidget extends Widget {
             copy.y = l.y();
             double own = l.raw().getDouble("size", 0);
             copy.size = own > 0 ? own : orig.size;
-            copy.dependencies.clear(); // no lines run to a link
+            copy.dependencies.clear();
             copy.depControlPts = new java.util.LinkedHashMap<>();
             linkNodes.add(copy);
             linkIds.put(copy, l.id());
         }
     }
 
-    /** What a right click on a quest link offers in edit mode. */
     private void linkMenu(Quest link) {
         final String linkId = linkIds.get(link);
         List<MenuItem> items = new ArrayList<>();
@@ -4337,7 +4179,6 @@ final class QuestBookWidget extends Widget {
         return null;
     }
 
-    /** Whether a point (relative to the node's centre) is inside the node's shape, leaning outwards by 1 px (small) or 4 px (big). */
     private static boolean shapeContains(String shape, double dx, double dy, double size) {
         double lean = size >= 30 ? 4 : 1;
         double half = size / 2 + lean;
@@ -4353,7 +4194,7 @@ final class QuestBookWidget extends Widget {
             case "rsquare":
             case "none":
                 return ax <= half && ay <= half;
-            default: // circle, gear, heart, octagon, pentagon: a circle is close enough
+            default:
                 return ax * ax + ay * ay <= half * half;
         }
     }
@@ -4370,7 +4211,7 @@ final class QuestBookWidget extends Widget {
                     imgGrab = true;
                 }
             }
-            return true; // nothing else is clicked meanwhile
+            return true;
         }
         if (!resizeQuest.isEmpty()) {
             QuestBook rb = ClientQuests.book();
@@ -4378,7 +4219,7 @@ final class QuestBookWidget extends Widget {
             if (button == 0 && rc != null && overResizeDot(viewFor(rc, mapRect()), mouseX, mouseY)) {
                 resizeGrab = true;
             }
-            return true; // nothing else is clicked while a quest is being resized
+            return true;
         }
         if (!bezierQuest.isEmpty()) {
             QuestBook bk = ClientQuests.book();
@@ -4390,14 +4231,14 @@ final class QuestBookWidget extends Widget {
                     bezierGrabIndex = (Integer) h[1];
                 }
             }
-            return true; // nothing else is clicked while a curve is being bent
+            return true;
         }
         if (!inlineKind.isEmpty()) {
-            inlineKind = ""; // clicking elsewhere leaves the in-place field without saving
+            inlineKind = "";
             return true;
         }
         if (movingQuest != null) {
-            // left or middle click drops the quest at the highlighted place; right click cancels and leaves nothing selected
+
             endQuestMove(button == 0 || button == 2);
             if (button == 1) {
                 selectedQuest = "";
@@ -4440,7 +4281,7 @@ final class QuestBookWidget extends Widget {
             return true;
         }
         if (detailOpen() && !searching && !insideFocusWindow(mouseX, mouseY)) {
-            // the open quest has the focus: a click anywhere else only closes it
+
             selectedQuest = "";
             depPopup = "";
             return true;
@@ -4458,11 +4299,11 @@ final class QuestBookWidget extends Widget {
             }
         }
         if (searching) {
-            return true; // the search window is modal: clicks outside its rows do nothing
+            return true;
         }
         if (button == 0 && !isEditing() && mapRect().contains(mouseX, mouseY) && !listRect().contains(mouseX, mouseY)
                 && !overPanel(mouseX, mouseY) && questAt(mouseX, mouseY) == null) {
-            // a click on a chapter image runs its click action (FTB Quests 26.1.2 "Click Action")
+
             Chapter onChapter = currentChapter(ClientQuests.book());
             Definitions.ChapterImage clicked = onChapter == null ? null : imageAt(onChapter, viewFor(onChapter, mapRect()), mouseX, mouseY);
             if (clicked != null && runImageAction(ClientQuests.book(), clicked)) {
@@ -4480,7 +4321,7 @@ final class QuestBookWidget extends Widget {
                 } else if (hit == null) {
                     final int cx = mouseX;
                     final int cy = mouseY;
-                    // FTB Quests 26.1.2: the task types, each making a quest that starts with that task, then Image
+
                     MenuItem[] types = taskTypeMenu(task -> createQuestAt(cx, cy, task));
                     MenuItem[] all = java.util.Arrays.copyOf(types, types.length + 1);
                     all[types.length] = new MenuItem("Image", "", "lib:art", false, () -> pickImageAt(cx, cy));
@@ -4499,7 +4340,7 @@ final class QuestBookWidget extends Widget {
                 linkFrom = "";
                 return true;
             }
-            // like upstream: a middle click on a quest starts moving it; the left button opens it or pans the map
+
             if (button == 2 && hit != null) {
                 if (!linkIds.containsKey(hit)) {
                     startQuestMove(hit);
@@ -4507,7 +4348,7 @@ final class QuestBookWidget extends Widget {
                 return true;
             }
             if (button == 2) {
-                boxing = true; // middle drag on free space picks the quests inside the box
+                boxing = true;
                 boxButton = 2;
                 boxX0 = mouseX;
                 boxY0 = mouseY;
@@ -4515,28 +4356,28 @@ final class QuestBookWidget extends Widget {
             }
             boolean alt = org.lwjgl.input.Keyboard.isKeyDown(Keyboard.KEY_LMENU) || org.lwjgl.input.Keyboard.isKeyDown(Keyboard.KEY_RMENU);
             if (button == 0 && alt && hit == null) {
-                boxing = true; // Alt + left drag that starts on free space does the same
+                boxing = true;
                 boxButton = 0;
                 boxX0 = mouseX;
                 boxY0 = mouseY;
                 return true;
             }
             if (button == 0 && Keyboard.isKeyDown(Keyboard.KEY_RMENU) && hit != null) {
-                // Right Alt + click: the quest goes on the clipboard, Ctrl + V puts a copy where the mouse is
+
                 COPIED.clear();
                 COPIED.add(hit.id);
                 mc().getToastGui().add(new QuestToast("Copied object:", QuestText.titlePlain(hit), null, true));
                 return true;
             }
             if (button == 0 && Keyboard.isKeyDown(Keyboard.KEY_LMENU) && hit != null) {
-                mc().displayGuiScreen(new QuestPropertiesScreen(mc().currentScreen, hit)); // Left Alt + click: properties editor
+                mc().displayGuiScreen(new QuestPropertiesScreen(mc().currentScreen, hit));
                 return true;
             }
         }
         if (mapRect().contains(mouseX, mouseY) && !listRect().contains(mouseX, mouseY)
                 && !overPanel(mouseX, mouseY)) {
             if (button != 0) {
-                return true; // only the left button pans the map or opens a quest
+                return true;
             }
             pressedOnMap = true;
             moved = false;
@@ -4554,7 +4395,7 @@ final class QuestBookWidget extends Widget {
             scrollListTo(mouseY);
             return true;
         }
-        return pressedOnMap; // panning is done per frame in applyDragFromMouse(), not per tick here
+        return pressedOnMap;
     }
 
     @Override
@@ -4593,13 +4434,13 @@ final class QuestBookWidget extends Widget {
         }
         if (!imgMode.isEmpty()) {
             if (imgGrab && button == 0) {
-                endImageMode(true); // letting go of the handle sets it
+                endImageMode(true);
             }
             return true;
         }
         if (!resizeQuest.isEmpty()) {
             if (resizeGrab && button == 0) {
-                endResize(true); // letting go of the dot sets the size
+                endResize(true);
             }
             return true;
         }
@@ -4608,7 +4449,7 @@ final class QuestBookWidget extends Widget {
             return true;
         }
         if (!pressedOnMap || button != 0) {
-            return false; // only a left press opens a quest; a middle or right release never does
+            return false;
         }
         pressedOnMap = false;
         if (!moved) {
@@ -4618,7 +4459,7 @@ final class QuestBookWidget extends Widget {
             }
             if (isEditing() && GuiScreen.isCtrlKeyDown() && q != null) {
                 if (!SELECTION.remove(q.id)) {
-                    SELECTION.add(q.id); // Ctrl + click picks or drops a quest without opening it
+                    SELECTION.add(q.id);
                 }
                 return true;
             }
@@ -4626,7 +4467,7 @@ final class QuestBookWidget extends Widget {
             if (q != null) {
                 Chapter owner = ClientQuests.book() == null ? null : ClientQuests.book().chapterOf(q.id);
                 if (owner != null && !owner.id.equals(chapterId)) {
-                    focusQuest(q.id); // a quest link opens its quest in the chapter that quest is in
+                    focusQuest(q.id);
                 }
             }
         }
@@ -4654,7 +4495,7 @@ final class QuestBookWidget extends Widget {
             return true;
         }
         if (detailOpen()) {
-            return true; // the open quest has the focus: nothing below it scrolls or zooms
+            return true;
         }
         if (listRect().contains(mouseX, mouseY)) {
             int max = Math.max(0, listContentHeight - listRect().height() + 30);
@@ -4664,12 +4505,12 @@ final class QuestBookWidget extends Widget {
         Chapter chapter = currentChapter(book);
         if (chapter != null && mapRect().contains(mouseX, mouseY)) {
             ViewTransform zv = viewFor(chapter, mapRect());
-            // FTB Quests: the wheel scrolls up and down, Shift scrolls left and right, Ctrl zooms; the old style (a preference) only zooms
+
             if (ClientPrefs.oldScrollWheel || GuiScreen.isCtrlKeyDown()) {
                 zv.zoomAt(mouseX, mouseY, delta > 0 ? 1.15 : 1 / 1.15);
                 sharedZoom = zv.zoom();
             } else {
-                double stepPx = GRID * zv.zoom(); // one grid unit per notch
+                double stepPx = GRID * zv.zoom();
                 double move = delta > 0 ? stepPx : -stepPx;
                 if (GuiScreen.isShiftKeyDown()) {
                     zv.panBy(move, 0);
@@ -4684,7 +4525,7 @@ final class QuestBookWidget extends Widget {
 
     @Override
     protected List<String> tooltip(int mouseX, int mouseY) {
-        return null; // drawn by the widget itself, at the very end of its drawing
+        return null;
     }
 
     private List<String> computeTooltip(int mouseX, int mouseY) {
@@ -4732,7 +4573,7 @@ final class QuestBookWidget extends Widget {
                         out.add(RichText.toRainbowAware(file.contains(".") ? file.substring(0, file.lastIndexOf('.')) : file));
                     }
                     if (isEditing()) {
-                        out.add("§7" + location); // where the picture comes from is only of interest to an editor
+                        out.add("§7" + location);
                     }
                     return out;
                 }
@@ -4742,7 +4583,7 @@ final class QuestBookWidget extends Widget {
         List<String> lines = new ArrayList<>();
         boolean details = QuestRules.detailsVisible(book, p, q);
         if (Keyboard.isKeyDown(Keyboard.KEY_F1)) {
-            // F1 held: extended quest info: the id, when the quest was started and when it was completed
+
             String idShown = linkIds.containsKey(q) ? (isEditing() ? linkIds.get(q) : null) : q.id;
             if (idShown != null) {
                 lines.add("\u00a78" + idShown);
@@ -4757,9 +4598,9 @@ final class QuestBookWidget extends Widget {
                 lines.add("\u00a7fCompleted: \u00a77" + when.format(new java.util.Date(completedAt)));
             }
         }
-        lines.add("§f" + (details ? QuestText.title(q) : "???")); // white unless the title has colours of its own
+        lines.add("§f" + (details ? QuestText.title(q) : "???"));
         if (details && !q.subtitle.isEmpty()) {
-            lines.add("§7" + RichText.toRainbowAware(q.subtitle)); // gray unless the subtitle has colours of its own
+            lines.add("§7" + RichText.toRainbowAware(q.subtitle));
         }
         if (q.optional) {
             lines.add("\u00a77[Optional Quest]");
@@ -4774,8 +4615,6 @@ final class QuestBookWidget extends Widget {
         return lines;
     }
 
-
-    /** Keys for everyone: Tab and Shift + Tab change chapter, Space centres the map again. */
     private boolean generalKey(int keyCode) {
         QuestBook book = ClientQuests.book();
         if (book == null) {
@@ -4783,7 +4622,7 @@ final class QuestBookWidget extends Widget {
         }
         if (!detailOpen() && !searching && (keyCode == Keyboard.KEY_MINUS || keyCode == Keyboard.KEY_SUBTRACT || keyCode == Keyboard.KEY_EQUALS
                 || keyCode == Keyboard.KEY_ADD || keyCode == Keyboard.KEY_0 || keyCode == Keyboard.KEY_NUMPAD0)) {
-            // Zoom Out, Zoom In and Reset Zoom (the keys beside 0 on the number row, and the keypad)
+
             Chapter zoomed = currentChapter(book);
             if (zoomed != null) {
                 Rect zm = mapRect();
@@ -4819,7 +4658,7 @@ final class QuestBookWidget extends Widget {
                 || keyCode == Keyboard.KEY_UP || keyCode == Keyboard.KEY_DOWN)) {
             Chapter chapter = currentChapter(book);
             if (chapter != null) {
-                // the camera moves one grid step (half a unit); the rim under the mouse follows because it snaps to the grid
+
                 Rect map = mapRect();
                 ViewTransform v = viewFor(chapter, map);
                 double mx = map.x() + map.width() / 2.0;
@@ -4831,13 +4670,12 @@ final class QuestBookWidget extends Widget {
             return true;
         }
         if (keyCode == Keyboard.KEY_SPACE && !chapterId.isEmpty()) {
-            VIEWS.remove(chapterId); // the chapter is centred again as when it was first opened
+            VIEWS.remove(chapterId);
             return true;
         }
         return false;
     }
 
-    /** Editor keys for the quests picked with Ctrl + click. @return true if the key was used */
     private boolean selectionKey(int keyCode) {
         QuestBook book = ClientQuests.book();
         Chapter chapter = book == null ? null : currentChapter(book);
@@ -4857,7 +4695,7 @@ final class QuestBookWidget extends Widget {
         }
         if (!SELECTION.isEmpty() && (keyCode == Keyboard.KEY_LEFT || keyCode == Keyboard.KEY_RIGHT
                 || keyCode == Keyboard.KEY_UP || keyCode == Keyboard.KEY_DOWN)) {
-            // Ctrl + arrows: the picked quests move one grid step (half a unit, as when they snap)
+
             double stepX = keyCode == Keyboard.KEY_LEFT ? -gridStep() : keyCode == Keyboard.KEY_RIGHT ? gridStep() : 0;
             double stepY = keyCode == Keyboard.KEY_UP ? -gridStep() : keyCode == Keyboard.KEY_DOWN ? gridStep() : 0;
             List<DataNode> moves = new ArrayList<>();
@@ -4882,7 +4720,7 @@ final class QuestBookWidget extends Widget {
         }
         if (ctrl && keyCode == Keyboard.KEY_V && !COPIED.isEmpty()
                 && (Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU))) {
-            // + Alt: paste as quest links
+
             ViewTransform lv = viewFor(chapter, mapRect());
             double lx = snapUnits(lv.worldX(lastMouseX) / GRID);
             double ly = snapUnits(lv.worldY(lastMouseY) / GRID);
@@ -4909,29 +4747,29 @@ final class QuestBookWidget extends Widget {
             double py = snapUnits(v.worldY(lastMouseY) / GRID);
             List<DataNode> ids = new ArrayList<>();
             COPIED.forEach(id -> ids.add(new DataNode.Str(id)));
-            // Shift: paste without the dependencies on quests that were not copied too
+
             send("paste_quests", args("chapter", chapter.id, "x", px, "y", py, "deps", !GuiScreen.isShiftKeyDown())
                     .with("ids", new DataNode.Lst(ids)));
             return true;
         }
         boolean alt = Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU);
         if (alt && !hoverQuest.isEmpty() && (keyCode == Keyboard.KEY_C || keyCode == Keyboard.KEY_R)) {
-            // Alt + C / Alt + R: force-complete or force-reset the quest under the mouse
+
             send(keyCode == Keyboard.KEY_C ? "complete_quest" : "reset_progress", args("id", hoverQuest));
             return true;
         }
         if (ctrl && keyCode == Keyboard.KEY_R) {
-            crosshairs = !crosshairs; // Toggle Crosshairs
+            crosshairs = !crosshairs;
             return true;
         }
         if (ctrl && keyCode == Keyboard.KEY_S) {
-            send("save_now", DataNode.Compound.empty()); // Save Quests Now
+            send("save_now", DataNode.Compound.empty());
             return true;
         }
         if (keyCode == Keyboard.KEY_DELETE && (!SELECTION.isEmpty() || !hoverQuest.isEmpty())) {
             final List<String> doomed = new ArrayList<>(SELECTION);
             if (doomed.isEmpty()) {
-                doomed.add(hoverQuest); // nothing picked: the quest under the mouse
+                doomed.add(hoverQuest);
             }
             Runnable doDelete = () -> {
                 List<DataNode> doomedIds = new ArrayList<>();
@@ -4941,7 +4779,7 @@ final class QuestBookWidget extends Widget {
                 selectedQuest = "";
             };
             if (GuiScreen.isShiftKeyDown()) {
-                doDelete.run(); // Shift + Delete: no question asked
+                doDelete.run();
             } else {
                 openMenu(lastMouseX, lastMouseY,
                         new MenuItem("Delete " + doomed.size() + " quest" + (doomed.size() == 1 ? "" : "s") + "?", "", "lib:remove", true, doDelete),
@@ -4955,7 +4793,7 @@ final class QuestBookWidget extends Widget {
     @Override
     protected boolean onKey(char typed, int keyCode) {
         if (keyCode == Keyboard.KEY_ESCAPE && !menu.isEmpty()) {
-            menu = List.of(); // Esc closes an open context menu first, as in FTB Quests
+            menu = List.of();
             return true;
         }
         if (!imgMode.isEmpty()) {
@@ -4979,7 +4817,7 @@ final class QuestBookWidget extends Widget {
             return true;
         }
         if (boxing && keyCode == Keyboard.KEY_ESCAPE) {
-            boxing = false; // the box is dropped
+            boxing = false;
             return true;
         }
         if (keyCode == Keyboard.KEY_ESCAPE && (!linkFrom.isEmpty() || confirmDelete || confirmDeleteChapter)) {
@@ -4997,7 +4835,7 @@ final class QuestBookWidget extends Widget {
             return true;
         }
         if (keyCode == Keyboard.KEY_ESCAPE && detailOpen() && inlineKind.isEmpty() && !searching) {
-            selectedQuest = ""; // FTB Quests 26.1.2: Esc closes the open quest window first and leaves the book open
+            selectedQuest = "";
             return true;
         }
         if (isEditing() && inlineKind.isEmpty() && movingQuest == null && !searching && GuiScreen.isCtrlKeyDown()
@@ -5017,21 +4855,21 @@ final class QuestBookWidget extends Widget {
         }
         if (keyCode == Keyboard.KEY_BACK && inlineKind.isEmpty() && !searching && menu.isEmpty()) {
             if (!ClientPrefs.backspaceHistory) {
-                // the preference is off: Backspace acts like Escape
+
                 if (detailOpen()) {
                     selectedQuest = "";
                 } else {
                     mc().displayGuiScreen(null);
                 }
             } else if (detailOpen()) {
-                // while a quest is open: back to the one viewed before it; with none, the panel closes
+
                 if (!VIEWED.isEmpty()) {
                     VIEWED.remove(VIEWED.size() - 1);
                 }
                 selectedQuest = VIEWED.isEmpty() ? "" : VIEWED.get(VIEWED.size() - 1);
                 viewedTop = selectedQuest;
             } else {
-                mc().displayGuiScreen(null); // no panel: the quest book closes, as with Escape
+                mc().displayGuiScreen(null);
             }
             return true;
         }
@@ -5110,6 +4948,6 @@ final class QuestBookWidget extends Widget {
         } else {
             RewardTablesScreen.typeInto(QUERY, typed, keyCode, false);
         }
-        return true; // typing goes to the search box, not to the game
+        return true;
     }
 }

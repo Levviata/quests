@@ -9,7 +9,6 @@ import net.minecraft.network.PacketBuffer;
 
 import com.levviata.reflib.api.net.ReflibMessage;
 
-/** Example server-to-client message. */
 public class PongMessage implements ReflibMessage {
 
     String text = "";

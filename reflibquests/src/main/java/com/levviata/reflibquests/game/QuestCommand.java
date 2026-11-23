@@ -25,10 +25,6 @@ import com.levviata.reflibquests.model.Definitions.Task;
 import com.levviata.reflibquests.model.QuestRules;
 import com.levviata.reflibquests.model.TeamProgress;
 
-/**
- * {@code /rquests}. Player commands (anyone): list, info, check, submit, claim, claimall. Admin commands
- * (permission level 2): complete, reset, reload, lock, blockrewards, problems.
- */
 public final class QuestCommand extends CommandBase {
 
     private static final List<String> PLAYER = List.of("list", "info", "check", "submit", "claim", "claimall");
@@ -206,7 +202,7 @@ public final class QuestCommand extends CommandBase {
     private void report(ICommandSender sender, RewardGranter.Result result, Reward reward) {
         switch (result) {
             case GRANTED:
-                break; // the claim already told the player
+                break;
             case NEEDS_CHOICE:
                 say(sender, "Choose one: /rquests claim " + reward.id() + " <number>");
                 break;
@@ -249,7 +245,7 @@ public final class QuestCommand extends CommandBase {
         String questId = arg(args, 1);
         com.levviata.reflibquests.model.Definitions.Chapter wholeChapter = qs.book().chapter(questId);
         if (qs.book().quest(questId) == null && wholeChapter != null) {
-            // the id of a chapter: every quest in it (the original mod's command works on chapters too)
+
             for (com.levviata.reflibquests.model.Definitions.Quest cq : new java.util.ArrayList<>(wholeChapter.quests)) {
                 if (sub.equals("complete")) {
                     qs.apply(team, qs.engine().forceComplete(team, cq.id, System.currentTimeMillis()));

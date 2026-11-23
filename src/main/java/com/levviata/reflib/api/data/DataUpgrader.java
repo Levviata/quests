@@ -9,11 +9,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 
-/**
- * Step-wise upgrader for versioned data files. The version lives in the compound under
- * {@link #VERSION_KEY}; a file without it counts as version 0. Each step upgrades from version
- * {@code n} to {@code n + 1}.
- */
 public final class DataUpgrader {
 
     public static final String VERSION_KEY = "dataVersion";
@@ -28,7 +23,6 @@ public final class DataUpgrader {
         this.currentVersion = currentVersion;
     }
 
-    /** Register the step that turns data of {@code fromVersion} into {@code fromVersion + 1}. */
     public DataUpgrader step(int fromVersion, UnaryOperator<DataNode.Compound> upgrade) {
         if (fromVersion < 0 || fromVersion >= currentVersion) {
             throw new IllegalArgumentException("step must start in [0, " + (currentVersion - 1) + "], got " + fromVersion);
@@ -43,10 +37,6 @@ public final class DataUpgrader {
         return currentVersion;
     }
 
-    /**
-     * @return the data upgraded to the current version, with {@link #VERSION_KEY} set
-     * @throws IllegalStateException if the data is newer than this build, or a step is missing
-     */
     public DataNode.Compound upgrade(DataNode.Compound data) {
         int version = data.getInt(VERSION_KEY, 0);
         if (version > currentVersion) {

@@ -18,7 +18,6 @@ import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflibquests.model.QuestBook;
 import com.levviata.reflibquests.text.RichText;
 
-/** "Edit File": the settings of the whole book. Labels and tooltips are FTB Quests' own. Accept sends only what changed. */
 @SideOnly(Side.CLIENT)
 final class BookSettingsScreen extends SettingsScreen {
 
@@ -133,7 +132,6 @@ final class BookSettingsScreen extends SettingsScreen {
         number("Passive", true, () -> values.get("loot_passive"), v -> values.put("loot_passive", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Stored in the book; Reflib Quests does not use it yet.");
     }
 
-    /** Reward type ids and their names, in FTB's alphabetical order of names (no Currency: this game has none). */
     private static final String[][] TEAM_TYPES = {
         {"advancement", "Advancement"}, {"all_table", "All Table Reward"}, {"choice", "Choice Reward"}, {"command", "Command"},
         {"custom", "Custom"}, {"item", "Item"}, {"loot", "Loot Reward"}, {"random", "Random Reward"}, {"gamestage", "Stage"},
@@ -185,6 +183,6 @@ final class BookSettingsScreen extends SettingsScreen {
 
     @Override
     protected void cancelled() {
-        // nothing was sent
+
     }
 }

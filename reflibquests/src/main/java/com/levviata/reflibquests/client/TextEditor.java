@@ -13,14 +13,9 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-/**
- * The editing model of a multi-line text box: caret, selection, undo and redo, word-wrapped layout. It knows nothing
- * about drawing; the screen asks it for the wrapped rows and where the caret is.
- */
 @SideOnly(Side.CLIENT)
 final class TextEditor {
 
-    /** One wrapped row of text: characters {@code start} (inclusive) to {@code end} (exclusive). */
     record Row(int start, int end) {}
 
     private record Snap(String text, int caret) {}
@@ -29,7 +24,7 @@ final class TextEditor {
 
     private String text;
     private int caret;
-    private int anchor; // equals caret when nothing is selected
+    private int anchor;
     private final ArrayDeque<Snap> undo = new ArrayDeque<>();
     private final ArrayDeque<Snap> redo = new ArrayDeque<>();
     private long lastTypedAt;
@@ -84,12 +79,10 @@ final class TextEditor {
         return !redo.isEmpty();
     }
 
-    // ---- editing --------------------------------------------------------------------------------------------------------
-
     private void remember(boolean typing) {
         long now = System.currentTimeMillis();
         if (typing && now - lastTypedAt < 700 && !undo.isEmpty() && !hasSelection()) {
-            lastTypedAt = now; // typing in one go is one undo step
+            lastTypedAt = now;
             return;
         }
         lastTypedAt = typing ? now : 0;
@@ -100,7 +93,6 @@ final class TextEditor {
         redo.clear();
     }
 
-    /** Replace the selection (or insert at the caret). */
     void insert(String s) {
         insert(s, s.length() <= 1);
     }
@@ -145,7 +137,6 @@ final class TextEditor {
         }
     }
 
-    /** Wrap the selection in {@code before} / {@code after}; with no selection, insert both and put the caret between. */
     void surround(String before, String after) {
         remember(false);
         int s = selStart();
@@ -155,7 +146,6 @@ final class TextEditor {
         anchor = caret;
     }
 
-    /** Replace the selected text (or all text when nothing is selected) with {@code replacement}. */
     void replaceSelectionOrAll(java.util.function.UnaryOperator<String> f) {
         remember(false);
         if (hasSelection()) {
@@ -170,7 +160,6 @@ final class TextEditor {
         anchor = caret;
     }
 
-    /** Replaces characters {@code from} to {@code to} (exclusive) with new text, as one undo step. */
     void replaceRange(int from, int to, String replacement) {
         remember(false);
         text = text.substring(0, from) + replacement + text.substring(to);
@@ -178,7 +167,6 @@ final class TextEditor {
         anchor = caret;
     }
 
-    /** Replaces the whole text, as one undo step. */
     void replaceAllText(String replacement) {
         remember(false);
         text = replacement;
@@ -208,8 +196,6 @@ final class TextEditor {
         }
     }
 
-    // ---- moving ---------------------------------------------------------------------------------------------------------
-
     void setCaret(int index, boolean extend) {
         caret = Math.max(0, Math.min(text.length(), index));
         if (!extend) {
@@ -238,9 +224,6 @@ final class TextEditor {
         }
     }
 
-    // ---- layout ---------------------------------------------------------------------------------------------------------
-
-    /** Splits the text into rows no wider than {@code width}: on newlines first, then at spaces (or anywhere for long words). */
     List<Row> layout(FontRenderer fr, int width) {
         List<Row> rows = new ArrayList<>();
         int start = 0;
@@ -258,7 +241,7 @@ final class TextEditor {
                 int cut = fit;
                 int space = rest.lastIndexOf(' ', fit);
                 if (space > 0) {
-                    cut = space + 1; // break after the space
+                    cut = space + 1;
                 }
                 cut = Math.max(1, cut);
                 rows.add(new Row(p, p + cut));
@@ -272,7 +255,6 @@ final class TextEditor {
         return rows;
     }
 
-    /** Index of the row the caret is in (a caret at the end of a wrapped row belongs to the next row). */
     int rowOf(List<Row> rows, int index) {
         for (int i = 0; i < rows.size(); i++) {
             Row r = rows.get(i);
@@ -286,7 +268,6 @@ final class TextEditor {
         return rows.size() - 1;
     }
 
-    /** Caret index for a click at pixel offset {@code x} inside row {@code row}. */
     int indexAt(FontRenderer fr, List<Row> rows, int row, int x) {
         Row r = rows.get(Math.max(0, Math.min(rows.size() - 1, row)));
         String seg = text.substring(r.start(), r.end());
@@ -296,7 +277,6 @@ final class TextEditor {
         return r.start() + fr.trimStringToWidth(seg, Math.max(0, x)).length();
     }
 
-    /** Moves the caret one row up or down, keeping its horizontal position. */
     void vertical(FontRenderer fr, List<Row> rows, int delta, boolean extend) {
         int row = rowOf(rows, caret);
         int target = row + delta;
@@ -321,7 +301,7 @@ final class TextEditor {
         Row r = rows.get(rowOf(rows, caret));
         int e = r.end();
         if (e > r.start() && e <= text.length() && e > 0 && text.charAt(e - 1) == ' ' && e < text.length()) {
-            e--; // stay before the space a wrapped row ends with
+            e--;
         }
         setCaret(e, extend);
     }

@@ -61,7 +61,7 @@ class SmallPartsTest {
             WeightedReward w = Names.pick(entries, 4, rnd);
             counts[w == null ? 2 : w.reward() == a ? 0 : 1]++;
         }
-        // weights 1 : 3 : 4 (empty) out of 8
+
         assertEquals(1250, counts[0], 200);
         assertEquals(3750, counts[1], 300);
         assertEquals(5000, counts[2], 300);

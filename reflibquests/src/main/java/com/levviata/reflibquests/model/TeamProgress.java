@@ -9,10 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Mutable progress of one team. Timestamps are epoch milliseconds. Pure data; the rules that change it live in
- * {@link ProgressEngine}.
- */
 public final class TeamProgress {
 
     private final UUID teamId;
@@ -21,7 +17,7 @@ public final class TeamProgress {
     final Map<String, Long> completed = new LinkedHashMap<>();
     final Map<String, Integer> completionCount = new LinkedHashMap<>();
     final Map<String, Long> repeatReadyAt = new LinkedHashMap<>();
-    /** key: rewardId + "@" + player uuid; value: claim time */
+
     final Map<String, Long> claimed = new LinkedHashMap<>();
     private boolean locked;
     private boolean rewardsBlocked;

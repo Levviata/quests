@@ -24,11 +24,6 @@ import com.levviata.reflibquests.model.Definitions.Chapter;
 import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.net.QuestNet;
 
-/**
- * A small form for the editor: the title, subtitle and description of a quest, or the name of a chapter.
- * Tab moves between fields, Enter saves, Escape cancels. In the description, type {@code \n} (backslash and the
- * letter n) for a line break. Saving sends the change to the server, which validates it.
- */
 @SideOnly(Side.CLIENT)
 final class TextEditScreen extends ReflibScreen {
 
@@ -76,7 +71,7 @@ final class TextEditScreen extends ReflibScreen {
     @Override
     protected Widget buildRoot(int screenWidth, int screenHeight) {
         for (int i = 0; i < fields.size(); i++) {
-            values[i] = fields.get(i).text(); // keep what was typed across a window resize
+            values[i] = fields.get(i).text();
         }
         fields.clear();
         int w = Math.min(360, screenWidth - 20);

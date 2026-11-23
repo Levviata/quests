@@ -10,10 +10,6 @@ import java.util.UUID;
 
 import com.levviata.reflib.api.data.DataNode;
 
-/**
- * Text form of a team's progress, for saving. Our own format (upstream stores progress differently and
- * importing it is not planned): maps of id to number, plus two flags and a data version.
- */
 public final class ProgressCodec {
 
     public static final int VERSION = 1;
@@ -34,9 +30,6 @@ public final class ProgressCodec {
                 .with("count", ints(p.completionCount));
     }
 
-    /**
-     * @throws IllegalArgumentException if the data is from a newer version
-     */
     public static TeamProgress read(UUID teamId, DataNode.Compound c) {
         int version = c.getInt("dataVersion", 1);
         if (version > VERSION) {

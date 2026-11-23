@@ -17,10 +17,6 @@ import org.lwjgl.input.Keyboard;
 
 import com.levviata.reflib.gui.Rect;
 
-/**
- * A small box that asks for one line of text, with a check mark to accept and a cross to cancel, where the player clicked.
- * Enter accepts and Escape cancels. The text starts selected, so typing replaces it.
- */
 @SideOnly(Side.CLIENT)
 final class NamePrompt extends GuiScreen {
 
@@ -29,7 +25,7 @@ final class NamePrompt extends GuiScreen {
     private final int anchorY;
     private final TextEditor edit;
     private final Consumer<String> accepted;
-    /** Heading of the box, as FTB Quests 26.1.2 gives its number prompts ("XP", "XP Levels"); empty for the plain name box. */
+
     private final String title;
 
     NamePrompt(GuiScreen parent, int anchorX, int anchorY, String initial, int maxLength, Consumer<String> accepted) {
@@ -82,7 +78,7 @@ final class NamePrompt extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         if (parent != null) {
-            parent.drawScreen(-1000, -1000, partialTicks); // the screen underneath stays visible
+            parent.drawScreen(-1000, -1000, partialTicks);
         }
         drawDefaultBackground();
         Rect b = box();

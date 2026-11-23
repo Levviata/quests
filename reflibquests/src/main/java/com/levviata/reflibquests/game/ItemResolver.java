@@ -20,18 +20,8 @@ import net.minecraftforge.oredict.OreDictionary;
 import com.levviata.reflib.api.data.DataNode;
 import com.levviata.reflibquests.io.IdMap;
 
-/**
- * Turns an item spec read from a quest file (a bare id string or an object with {@code id}, optional
- * {@code count} and {@code damage}/{@code meta}) into a 1.12.2 item, going through the id map. Specs that do
- * not resolve to a registered item yield null; the task or reward is then inert and reported at load time.
- */
 public final class ItemResolver {
 
-    /**
-     * A resolved item reference. {@code meta} is {@link OreDictionary#WILDCARD_VALUE} when any damage matches;
-     * {@code nbt} (null for none) is the item's extra data: it is given with the item, and a stack only matches if it has
-     * at least those entries.
-     */
     public record Resolved(Item item, int meta, int count, @Nullable NBTTagCompound nbt) {
 
         public Resolved(Item item, int meta, int count) {
@@ -50,7 +40,6 @@ public final class ItemResolver {
             return matches(have, false);
         }
 
-        /** {@code exactNbt}: the stack's data must equal the item's, not just contain it. */
         public boolean matches(ItemStack have, boolean exactNbt) {
             return !have.isEmpty() && have.getItem() == item
                     && (meta == OreDictionary.WILDCARD_VALUE || have.getMetadata() == meta)
@@ -58,7 +47,6 @@ public final class ItemResolver {
         }
     }
 
-    /** The extra data of an item spec ({@code nbt}, or {@code tag} as the older files write it), or null. */
     @Nullable
     private static NBTTagCompound nbtOf(DataNode.Compound c) {
         DataNode.Compound data = c.has("nbt") ? c.getCompound("nbt") : c.getCompound("tag");
@@ -68,7 +56,7 @@ public final class ItemResolver {
         try {
             return JsonToNBT.getTagFromJson(com.levviata.reflib.api.data.Snbt.printCompact(data));
         } catch (NBTException | RuntimeException ex) {
-            return null; // data that is not valid NBT is ignored; the item itself still works
+            return null;
         }
     }
 
@@ -95,7 +83,7 @@ public final class ItemResolver {
         }
         IdMap.ItemTarget target = map.item(id);
         if (!target.name().equals(id) && ForgeRegistries.ITEMS.containsKey(new ResourceLocation(id))) {
-            // a name this game already has wins over a newer game's meaning of it ("grass" is the grass block here)
+
             target = new IdMap.ItemTarget(id, 0, false);
         }
         ResourceLocation rl = new ResourceLocation(target.name());
@@ -106,8 +94,7 @@ public final class ItemResolver {
         if (item == null) {
             return null;
         }
-        // the id map turns a newer game's name into an item and a damage value ("diorite" is stone, damage 3); a spec that names an
-        // item of this game and gives its damage itself (a picked item) keeps that damage, or "stone, damage 3" would come out as stone
+
         boolean namedHere = ForgeRegistries.ITEMS.containsKey(new ResourceLocation(id));
         int meta = damage >= 0 && namedHere ? damage : target.hasMeta() ? target.meta() : damage >= 0 ? damage : OreDictionary.WILDCARD_VALUE;
         return new Resolved(item, meta, count, nbt);

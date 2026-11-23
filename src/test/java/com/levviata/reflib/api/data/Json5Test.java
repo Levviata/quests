@@ -32,7 +32,7 @@ class Json5Test {
 
     @Test
     void outputIsStrictJsonWithCommas() {
-        // a strict JSON parser rejects missing commas and unquoted keys, so this proves other programs can read it
+
         String text = Json5.print(sample());
         assertDoesNotThrow(() -> JsonParser.parseString(text));
         assertTrue(text.contains("\"n\": 5"));

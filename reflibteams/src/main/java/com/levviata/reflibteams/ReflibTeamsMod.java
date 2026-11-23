@@ -28,11 +28,6 @@ import com.levviata.reflib.api.data.DataFiles;
 import com.levviata.reflib.api.project.ReflibProjects;
 import com.levviata.reflib.api.team.Teams;
 
-/**
- * Party teams for reflib-based mods (such as Reflib Quests). Server side only: clients do not need this mod.
- * Players form parties with {@code /rteam}; mods that ask reflib's {@link Teams} for a player's team then see
- * the party, so progress is shared. Parties are saved in the world under {@code data/reflibteams}.
- */
 @Mod(modid = ReflibTeamsMod.ID, name = "Reflib Teams", version = ReflibTeamsMod.VERSION,
         dependencies = "required-after:reflib", acceptableRemoteVersions = "*")
 public class ReflibTeamsMod {

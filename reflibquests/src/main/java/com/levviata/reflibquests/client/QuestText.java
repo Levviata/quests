@@ -16,34 +16,29 @@ import com.levviata.reflibquests.model.Definitions.Quest;
 import com.levviata.reflibquests.model.Definitions.Reward;
 import com.levviata.reflibquests.model.Definitions.Task;
 
-/** Short English descriptions of tasks and rewards, and icon lookup, for the quest screen. */
 final class QuestText {
 
     private QuestText() {}
 
-    /** The quest's title as written (with {@code &} codes); quests without one are named after their first task. */
     static String rawTitle(Quest q) {
         if (!q.title.isEmpty()) {
             return q.title;
         }
         String auto = autoTitle(q);
         if (auto.isEmpty() && q.tasks.isEmpty()) {
-            return "Unnamed"; // no title and no task to take one from
+            return "Unnamed";
         }
         return auto.isEmpty() ? q.id : auto;
     }
 
-    /** The title for drawing: formatting codes as section signs, {@code &z} kept as a rainbow marker (draw it with {@code Ui.drawText}). */
     static String title(Quest q) {
         return com.levviata.reflibquests.text.RichText.toRainbowAware(rawTitle(q));
     }
 
-    /** The title for places that cannot show a rainbow (chat). */
     static String titlePlain(Quest q) {
         return com.levviata.reflibquests.text.RichText.toSectionCodes(rawTitle(q));
     }
 
-    /** The name of one task as FTB Quests 26.1.2 shows it in menus and window titles ("Kill: 100x Zombie"), colour codes included. */
     static String taskTitle(Task t) {
         Quest holder = new Quest("task-title");
         holder.tasks.add(t);
@@ -51,10 +46,9 @@ final class QuestText {
     }
 
     private static String autoTitle(Quest q) {
-        return autoTitle(q, true); // a quest without a title takes the title of its first task, the task's own title if it has one
+        return autoTitle(q, true);
     }
 
-    /** {@code ownTitle}: a task's own title is used (for naming the task itself); a quest is named after what its first task asks for, never after the task's title. */
     private static String autoTitle(Quest q, boolean ownTitle) {
         if (q.tasks.isEmpty()) {
             return "";
@@ -68,7 +62,7 @@ final class QuestText {
             case "item": {
                 DataNode spec = t.params().get("item");
                 java.util.List<ItemResolver.Resolved> set = setOf(spec);
-                // a quest without a title of its own is named after what it asks for, with the amount: "80x Iron Ingot"
+
                 String amount = t.maxProgress() > 1 ? t.maxProgress() + "x " : "";
                 if (!set.isEmpty()) {
                     return amount + set.get(0).toStack(1).getDisplayName();
@@ -79,17 +73,17 @@ final class QuestText {
             case "checkmark":
                 return "Checkmark";
             case "kill":
-                return "Kill: " + t.maxProgress() + "x " + titleCase(t.params().getString("entity", ""));
+                return "Kill: " + t.maxProgress() + "x " + entityName(t.params().getString("entity", ""));
             case "xp": {
                 boolean points = t.params().getBool("points", false);
                 net.minecraft.client.entity.EntityPlayerSP me = net.minecraft.client.Minecraft.getMinecraft().player;
                 long have = me == null ? Long.MAX_VALUE : points ? me.experienceTotal : me.experienceLevel;
-                return (points ? "XP: " : "XP Levels: ") + "\u00a7c" + t.maxProgress(); // the required amount is red, as in FTB Quests
+                return (points ? "XP: " : "XP Levels: ") + "\u00a7c" + t.maxProgress();
             }
             case "location":
                 return "Location";
             case "fluid": {
-                // "1 B of Water Bucket", as FTB Quests names it
+
                 long mb = t.maxProgress();
                 String fl = t.params().get("fluid") instanceof DataNode.Compound fc ? fc.getString("fluid", "") : "";
                 String name = titleCase(fl.isEmpty() ? "water" : fl);
@@ -106,7 +100,7 @@ final class QuestText {
             case "gamestage":
                 return "Stage: " + t.params().getString("stage", "");
             case "interaction":
-                return "Interaction: " + t.params().getString("to_interact", "minecraft:air"); // FTB: "Interaction: minecraft:air"
+                return "Interaction: " + t.params().getString("to_interact", "minecraft:air");
             case "forge_energy":
                 return "Forge Energy: \u00a72" + t.maxProgress() + " FE";
             case "advancement": {
@@ -119,7 +113,6 @@ final class QuestText {
         }
     }
 
-    /** "minecraft:mob_kills" becomes "Mob Kills". */
     private static String titleCase(String id) {
         String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
         StringBuilder out = new StringBuilder();
@@ -131,10 +124,6 @@ final class QuestText {
         return out.toString();
     }
 
-    /**
-     * Whether claiming the reward would actually give something in this game: items must exist, tables must exist and
-     * contain at least one reward that can be given. Rewards that cannot are not offered as claimable.
-     */
     static boolean grantable(com.levviata.reflibquests.model.QuestBook book, com.levviata.reflibquests.model.Definitions.Reward r, int depth) {
         switch (r.type()) {
             case "item":
@@ -162,7 +151,6 @@ final class QuestText {
         }
     }
 
-    /** A readable name for an item spec: the real name when the item exists, else its id made readable. */
     static String itemName(@Nullable DataNode spec) {
         ItemStack s = stackOf(spec);
         if (s != null) {
@@ -172,12 +160,10 @@ final class QuestText {
         return id.equals(com.levviata.reflibquests.game.ItemSet.SMART_FILTER) ? "Any of these items" : id.isEmpty() ? "an unknown item" : pretty(id);
     }
 
-    /** Title with a rainbow marker kept for {@code &z} (for the few places that can draw rainbow text). */
     static String titleRainbow(Quest q) {
         return com.levviata.reflibquests.text.RichText.toRainbowAware(rawTitle(q));
     }
 
-    /** {@code minecraft:stripped_oak_log} becomes "Stripped Oak Log". */
     private static String pretty(String id) {
         String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
         StringBuilder sb = new StringBuilder();
@@ -192,7 +178,6 @@ final class QuestText {
     private static final java.util.IdentityHashMap<DataNode, java.util.List<ItemResolver.Resolved>> SETS = new java.util.IdentityHashMap<>();
     private static int setsVersion = -1;
 
-    /** The items a task or reward spec accepts, remembered until the book changes. */
     static java.util.List<ItemResolver.Resolved> setOf(@Nullable DataNode spec) {
         if (spec == null) {
             return java.util.List.of();
@@ -215,12 +200,11 @@ final class QuestText {
             return null;
         }
         if (com.levviata.reflibquests.game.ItemSet.isFilter(spec)) {
-            return set.get((int) ((System.currentTimeMillis() / 2000) % set.size())).toStack(1); // a collection cycles its items, two seconds each
+            return set.get((int) ((System.currentTimeMillis() / 2000) % set.size())).toStack(1);
         }
         return set.get(0).toStack(Math.max(1, set.get(0).count()));
     }
 
-    /** An image icon travels as a painting stack tagged with the picture's id; {@code drawItem} draws the picture instead. */
     static ItemStack imageMarker(String id) {
         ItemStack marker = new ItemStack(net.minecraft.init.Items.PAINTING);
         net.minecraft.nbt.NBTTagCompound tag = new net.minecraft.nbt.NBTTagCompound();
@@ -231,7 +215,6 @@ final class QuestText {
 
     static final String IMAGE_TAG = "reflib_image";
 
-    /** The picture id of an image-icon stack, or null for an ordinary item. */
     @Nullable
     static String imageOf(ItemStack stack) {
         return stack.hasTagCompound() && stack.getTagCompound().hasKey(IMAGE_TAG) ? stack.getTagCompound().getString(IMAGE_TAG) : null;
@@ -243,7 +226,23 @@ final class QuestText {
         return r == null ? null : r.toStack(Math.max(1, r.count()));
     }
 
-    /** The spawn egg of an entity, as the icon of a kill task. */
+    static String entityName(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return "";
+        }
+        String mapped = ClientQuests.idMap().entity(raw);
+        String id = mapped == null || mapped.isEmpty() ? raw : mapped;
+        net.minecraft.util.ResourceLocation key = new net.minecraft.util.ResourceLocation(id.contains(":") ? id : "minecraft:" + id);
+        String translation = net.minecraft.entity.EntityList.getTranslationName(key);
+        if (translation != null) {
+            String lang = "entity." + translation + ".name";
+            if (net.minecraft.client.resources.I18n.hasKey(lang)) {
+                return net.minecraft.client.resources.I18n.format(lang);
+            }
+        }
+        return titleCase(raw);
+    }
+
     static ItemStack spawnEgg(String entityName) {
         String id = entityName == null ? "" : ClientQuests.idMap().entity(entityName);
         if (id.isEmpty()) {
@@ -258,7 +257,6 @@ final class QuestText {
         return egg;
     }
 
-    /** The icon a task shows: the one it names itself, the spawn egg of a kill task, or the item of an item task; else null. */
     @Nullable
     static ItemStack taskIcon(Task t) {
         DataNode own = t.params().get("icon");
@@ -274,7 +272,7 @@ final class QuestText {
         if (t.type().equals("item")) {
             return stackOf(t.params().get("item"));
         }
-        // the picture of each task type, as in FTB Quests' own list of them
+
         switch (t.type()) {
             case "xp":
                 return new ItemStack(net.minecraft.init.Items.EXPERIENCE_BOTTLE);
@@ -301,13 +299,13 @@ final class QuestText {
                 return t.params().getString("advancement", "").endsWith("/root")
                         ? new ItemStack(net.minecraft.init.Blocks.GRASS) : new ItemStack(net.minecraft.init.Items.WHEAT);
             case "observation":
-                return null; // drawn as the library's landscape picture (see the widget)
+                return null;
             case "biome":
                 return new ItemStack(net.minecraft.init.Blocks.SAPLING);
             case "structure":
                 return new ItemStack(net.minecraft.init.Items.PAPER);
             case "gamestage":
-                return null; // drawn as the library's controller picture (see the widget)
+                return null;
             case "interaction":
                 return new ItemStack(net.minecraft.init.Items.DIAMOND_PICKAXE);
             case "forge_energy":
@@ -317,7 +315,6 @@ final class QuestText {
         }
     }
 
-    /** The quest's icon: its own, else the first item task's item, else the first item reward's item. */
     @Nullable
     static ItemStack iconOf(Quest q) {
         if (!q.icon.entries().isEmpty()) {
@@ -343,7 +340,6 @@ final class QuestText {
         return null;
     }
 
-    /** What a task is called where no description of its own exists: its title ("Observation: minecraft:air"), as FTB Quests shows it. */
     static String task(Task t) {
         Quest holder = new Quest("task-title");
         holder.tasks.add(t);
@@ -391,7 +387,7 @@ final class QuestText {
     static String reward(Reward r) {
         DataNode.Compound p = r.params();
         if (!r.type().equals("item") && !p.getString("title", "").isEmpty()) {
-            return p.getString("title", ""); // the name the author gave it ("100% Complete Chapter")
+            return p.getString("title", "");
         }
         switch (r.type()) {
             case "item": {
@@ -400,11 +396,11 @@ final class QuestText {
                 return (count > 1 ? count + "x " : "") + (s == null ? itemName(p.get("item")) : s.getDisplayName());
             }
             case "xp":
-                return "XP: §a+" + Math.max(1, p.getInt("xp", 1)); // as FTB Quests names it, the amount in green
+                return "XP: §a+" + Math.max(1, p.getInt("xp", 1));
             case "xp_levels":
                 return "XP Levels: §a+" + Math.max(1, p.getInt("xp_levels", 1));
             case "command":
-                return "Command: §c" + p.getString("command", ""); // the command in red, as FTB Quests shows it
+                return "Command: §c" + p.getString("command", "");
             case "toast":
                 return "Toast";
             case "custom":
@@ -420,7 +416,7 @@ final class QuestText {
             case "random":
             case "loot":
             case "all_table": {
-                // FTB Quests names a table reward after its table
+
                 com.levviata.reflibquests.model.QuestBook qb = ClientQuests.book();
                 com.levviata.reflibquests.model.Definitions.RewardTable table = qb == null ? null : qb.tables().get(tableId(r));
                 if (table != null && !table.title.isEmpty()) {

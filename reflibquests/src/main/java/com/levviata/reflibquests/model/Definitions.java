@@ -11,17 +11,10 @@ import java.util.Locale;
 
 import com.levviata.reflib.api.data.DataNode;
 
-/**
- * The building blocks of a quest book. Tasks and rewards are data-only: their {@code type} string is
- * interpreted by the game layer (task checkers, reward granters), so this package has no Minecraft dependency
- * and can be unit-tested directly. Every object keeps its original data ({@code raw}) so that values this mod
- * does not interpret survive import and export unchanged.
- */
 public final class Definitions {
 
     private Definitions() {}
 
-    /** Three-state option: {@code DEFAULT} means "use the parent's setting" (chapter, then book). */
     public enum Tristate {
         DEFAULT, TRUE, FALSE;
 
@@ -37,7 +30,6 @@ public final class Definitions {
         }
     }
 
-    /** How a quest's dependencies are evaluated. */
     public enum DependencyMode {
         ALL_COMPLETED, ONE_COMPLETED, ALL_STARTED, ONE_STARTED;
 
@@ -58,11 +50,6 @@ public final class Definitions {
         }
     }
 
-    /**
-     * {@code LINEAR}: a quest's tasks only progress once its dependencies are met. {@code FLEXIBLE}: tasks may
-     * progress at any time, but the quest only completes once its dependencies are met. (Our reading of the
-     * documented "in order / any order"; to be confirmed against real packs.)
-     */
     public enum ProgressionMode {
         DEFAULT, LINEAR, FLEXIBLE;
 
@@ -75,10 +62,6 @@ public final class Definitions {
         }
     }
 
-    /**
-     * One thing the player must do. {@code params} holds all type-specific data exactly as read.
-     * {@link #maxProgress()} is the value at which the task counts as done.
-     */
     public record Task(String id, String type, DataNode.Compound params) {
         public Task {
             if (id == null || id.isBlank()) {
@@ -86,7 +69,6 @@ public final class Definitions {
             }
         }
 
-        /** The amount an item task asks for: FTB Quests 26.1.2 nests it in {@code item: {id, count}}, older files put it beside it. */
         public static long itemCount(DataNode.Compound params) {
             if (params.has("count")) {
                 return Math.max(1, params.getLong("count", 1));
@@ -116,7 +98,6 @@ public final class Definitions {
         }
     }
 
-    /** One thing granted on completion. */
     public record Reward(String id, String type, DataNode.Compound params) {
         public Reward {
             if (id == null || id.isBlank()) {
@@ -124,16 +105,13 @@ public final class Definitions {
             }
         }
 
-        /** @return default, disabled, enabled, no_toast or invisible */
         public String autoClaim() {
             return params.getString("auto", "default");
         }
     }
 
-    /** A reward with a relative weight inside a {@link RewardTable}. */
     public record WeightedReward(float weight, Reward reward) {}
 
-    /** A named pool of rewards, used by choice/random/all-table/loot reward types. */
     public static final class RewardTable {
         public final String id;
         public String filename = "";
@@ -142,7 +120,7 @@ public final class Definitions {
         public float emptyWeight;
         public int lootSize;
         public final List<WeightedReward> entries = new ArrayList<>();
-        /** Original table data (without the rewards array). */
+
         public DataNode.Compound raw = DataNode.Compound.empty();
 
         public RewardTable(String id) {
@@ -150,7 +128,6 @@ public final class Definitions {
         }
     }
 
-    /** A named group of chapters. */
     public static final class ChapterGroup {
         public final String id;
         public String title = "";
@@ -161,13 +138,10 @@ public final class Definitions {
         }
     }
 
-    /** A second placement of an existing quest on another chapter's map. */
     public record QuestLink(String id, String linkedQuest, double x, double y, DataNode.Compound raw) {}
 
-    /** A decorative image on a chapter's map. Data kept as read; interpretation is the client's job. */
     public record ChapterImage(String id, DataNode.Compound raw) {}
 
-    /** A quest. Mutable so that the editor can change it. */
     public static final class Quest {
         public final String id;
         public String title = "";
@@ -177,34 +151,31 @@ public final class Definitions {
         public double y;
         public String shape = "";
         public double size = 1.0;
-        /** Stacking on the map: a higher z is drawn over (and hides) a lower one; at the same z the bigger quest is on top. */
+
         public double z;
         public DataNode.Compound icon = DataNode.Compound.empty();
         public final List<Task> tasks = new ArrayList<>();
         public final List<Reward> rewards = new ArrayList<>();
         public final List<String> dependencies = new ArrayList<>();
-        /**
-         * Curved dependency lines: for a dependency id, the two Bezier control points [x1, y1, x2, y2] in grid units
-         * (the first sits by the dependency, the second by this quest). Not final, so the history copies it.
-         */
+
         public java.util.Map<String, List<Double>> depControlPts = new java.util.LinkedHashMap<>();
         public DependencyMode dependencyMode = DependencyMode.ALL_COMPLETED;
-        /** If above 0, this many dependencies suffice instead of the mode's default. */
+
         public int minRequiredDependencies;
-        /** FTB Quests 26.1.2 {@code max_completable_dependents}: if above 0, at most this many dependents can be completed; the others become unavailable. */
+
         public int maxCompletableDependents;
-        /** FTB {@code tags}: free labels (used by styles and by commands); a list of strings in the file. */
+
         public List<String> tags = new ArrayList<>();
-        /** FTB {@code icon_scale}: the icon's size independent of the quest's size (1 = as is). */
+
         public double iconScale = 1.0;
-        /** FTB {@code guide_page}: the id of a guide-book page the quest window links to (empty: none). */
+
         public String guidePage = "";
-        /** FTB {@code preset}: the name of a visual preset of the book (empty: none). */
+
         public String preset = "";
         public boolean optional;
-        /** Invisible until completed. */
+
         public boolean invisible;
-        /** If above 0, invisible until this many tasks are completed. */
+
         public int invisibleUntilTasks;
         public int repeatCooldown;
         public ProgressionMode progressionMode = ProgressionMode.DEFAULT;
@@ -214,20 +185,20 @@ public final class Definitions {
         public Tristate hideUntilDepsVisible = Tristate.DEFAULT;
         public Tristate hideUntilDepsComplete = Tristate.DEFAULT;
         public boolean ignoreRewardBlocking;
-        /** No pop-up when this quest is completed. */
+
         public boolean disableToast;
-        /** Hide the lock icon that shows while the quest waits for its dependencies. */
+
         public boolean hideLockIcon;
-        /** The description is not shown until the quest is completed (outside edit mode). */
+
         public Tristate hideTextUntilComplete = Tristate.DEFAULT;
-        /** No recipe view when a task or reward of this quest is clicked. */
+
         public Tristate disableJei = Tristate.DEFAULT;
-        /** The quest is complete as soon as any one of its tasks is done (older quest files call this "or_tasks"). */
+
         public boolean orTasks;
-        /** Hide the lines to this quest's dependencies / from this quest to its dependants. */
+
         public Tristate hideDependencyLines = Tristate.DEFAULT;
         public Tristate hideDependentLines = Tristate.DEFAULT;
-        /** Original quest data without the tasks and rewards arrays. */
+
         public DataNode.Compound raw = DataNode.Compound.empty();
 
         public Quest(String id) {
@@ -238,14 +209,13 @@ public final class Definitions {
         }
     }
 
-    /** A chapter holding quests, links and images. */
     public static final class Chapter {
         public final String id;
         public String filename = "";
         public String title = "";
         public List<String> subtitle = new ArrayList<>();
         public DataNode.Compound icon = DataNode.Compound.empty();
-        /** Id of the {@link ChapterGroup}, or empty for the default group. */
+
         public String groupId = "";
         public int order;
         public boolean alwaysInvisible;
@@ -256,22 +226,22 @@ public final class Definitions {
         public boolean hideQuestUntilDepsComplete;
         public boolean defaultRepeatable;
         public boolean defaultHideDependencyLines;
-        /** The quest the chapter opens centred on (empty: none). */
+
         public String autofocusId = "";
-        /** No pop-up when a quest of the chapter completes. */
+
         public boolean disableToast;
-        /** Quest text stays hidden until the quest is completed (quests may say otherwise). */
+
         public boolean hideTextUntilComplete;
-        /** Whether item tasks of the chapter take the items; default: the book's setting. */
+
         public Tristate defaultConsumeItems = Tristate.DEFAULT;
-        /** The size new quests of the chapter start with. */
+
         public double defaultQuestSize = 1.0;
-        /** The quest window is at least this wide (0: the usual width). */
+
         public int minWindowWidth;
         public List<String> tags = new ArrayList<>();
-        /** Shape for quests that do not name one (empty: the book's default). */
+
         public String defaultQuestShape = "";
-        /** FTB chapter {@code preset}: the visual preset of quests that name none (empty: the book's default). */
+
         public String preset = "";
         public final List<Quest> quests = new ArrayList<>();
         public final List<QuestLink> links = new ArrayList<>();

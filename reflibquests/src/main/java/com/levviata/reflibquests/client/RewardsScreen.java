@@ -33,7 +33,6 @@ import com.levviata.reflibquests.model.TeamProgress;
 import com.levviata.reflibquests.net.QuestNet;
 import com.levviata.reflibquests.text.RichText;
 
-/** "Select Rewards": the rewards waiting to be claimed, grouped by chapter, with Claim XP, Claim All and Close. */
 @SideOnly(Side.CLIENT)
 final class RewardsScreen extends GuiScreen {
 
@@ -45,7 +44,7 @@ final class RewardsScreen extends GuiScreen {
     private final List<Entry> entries = new ArrayList<>();
     private long refreshAt;
     private int scroll;
-    private final List<Object[]> hits = new ArrayList<>(); // {Rect, Runnable}
+    private final List<Object[]> hits = new ArrayList<>();
 
     RewardsScreen(GuiScreen parent) {
         this.parent = parent;
@@ -111,10 +110,10 @@ final class RewardsScreen extends GuiScreen {
         fr.drawStringWithShadow("Select Rewards", win.x() + 6, win.y() + 6, 0xFFFFFF);
         Rect list = new Rect(win.x() + 4, win.y() + 20, win.width() - 8, win.height() - 20 - 30);
         Gui.drawRect(list.x(), list.y(), list.x() + list.width(), list.y() + list.height(), 0xFF2A2E38);
-        // rows: a header per chapter, then one row per quest with rewards waiting
+
         int contentHeight = 0;
         Chapter lastChapter = null;
-        List<Object[]> rows = new ArrayList<>(); // {Entry or Chapter, y}
+        List<Object[]> rows = new ArrayList<>();
         for (Entry e : entries) {
             if (e.chapter() != lastChapter) {
                 rows.add(new Object[] {e.chapter(), contentHeight});
@@ -173,7 +172,7 @@ final class RewardsScreen extends GuiScreen {
             int ky = list.y() + (list.height() - knob) * scroll / maxScroll;
             Gui.drawRect(list.x() + list.width() - 3, ky, list.x() + list.width(), ky + knob, 0xFF808080);
         }
-        // buttons
+
         int by = win.y() + win.height() - 24;
         int bw = (win.width() - 16) / 3;
         Rect xp = new Rect(win.x() + 4, by, bw, 18);
@@ -226,7 +225,7 @@ final class RewardsScreen extends GuiScreen {
             QuestNet.claim(r.id(), -1);
         }
         if (e.needsChoice()) {
-            mc.displayGuiScreen(parent); // choices are made in the quest window
+            mc.displayGuiScreen(parent);
         }
     }
 

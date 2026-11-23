@@ -7,17 +7,10 @@ package com.levviata.reflib.api.data;
 
 import java.util.Map;
 
-/**
- * Writer for standard JSON-compatible text (which is also valid JSON5): quoted keys, commas between entries,
- * numbers without type suffixes. Use it when another program, rather than a person, will read the file.
- * {@link Snbt#parse} reads this output back (integers come back as {@code Int}/{@code Lng} by size and
- * fractional numbers as {@code Dbl}).
- */
 public final class Json5 {
 
     private Json5() {}
 
-    /** Pretty-printed with two-space indentation. */
     public static String print(DataNode node) {
         StringBuilder sb = new StringBuilder();
         write(sb, node, 0);

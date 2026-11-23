@@ -12,12 +12,10 @@ import com.levviata.reflib.api.data.DataFiles;
 import com.levviata.reflibquests.model.ProgressCodec;
 import com.levviata.reflibquests.model.TeamProgress;
 
-/** Headless self-check used by {@code -Dreflibquests.smoke=true}: load, progress, save, reload from disk. */
 public final class Smoke {
 
     private Smoke() {}
 
-    /** Applies edits to the in-memory book, exports to a temporary folder, imports that, then reloads from disk. */
     private static String checkEditing(QuestServer qs) throws java.io.IOException {
         java.nio.file.Path tmp = java.nio.file.Files.createTempDirectory("rq-smoke");
         try {
@@ -55,7 +53,7 @@ public final class Smoke {
             }
             return null;
         } finally {
-            qs.reload(); // forget the in-memory edits
+            qs.reload();
             try (java.util.stream.Stream<java.nio.file.Path> walk = java.nio.file.Files.walk(tmp)) {
                 walk.sorted(java.util.Comparator.reverseOrder()).forEach(path -> path.toFile().delete());
             }
@@ -77,7 +75,7 @@ public final class Smoke {
             if (qs.inertTasks().size() != 2) {
                 return "expected 2 inert tasks (fluid, unknown item), found " + qs.inertTasks();
             }
-            // the mapped 1.21 name must resolve through id_map.snbt
+
             if (ItemResolver.resolve(qs.book().task("t_log").params().get("item"), qs.idMap()) == null) {
                 return "oak_log did not resolve through the id map";
             }

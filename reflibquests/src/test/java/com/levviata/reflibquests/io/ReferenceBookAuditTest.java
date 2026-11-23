@@ -18,10 +18,6 @@ import com.levviata.reflibquests.model.Definitions.Reward;
 import com.levviata.reflibquests.model.Definitions.Task;
 import com.levviata.reflibquests.text.RichText;
 
-/**
- * Developer tool (run with -Ppack=): prints how the real FTB Quests 26.1.2 reference book fares in the importer,
- * property by property. It asserts nothing; it is the Phase 6 import report.
- */
 class ReferenceBookAuditTest {
 
     @Test

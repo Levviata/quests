@@ -24,10 +24,8 @@ import com.levviata.reflibquests.model.Definitions.Reward;
 import com.levviata.reflibquests.model.Definitions.RewardTable;
 import com.levviata.reflibquests.model.Definitions.WeightedReward;
 
-/** Performs rewards in the game. Supported: item, xp, xp_levels, command, toast, advancement, custom, random, all_table, choice. */
 public final class RewardGranter {
 
-    /** Outcome of a grant attempt. Only {@code GRANTED} counts as claimed. */
     public enum Result { GRANTED, NEEDS_CHOICE, UNSUPPORTED, FAILED }
 
     private static final Random RANDOM = new Random();
@@ -38,9 +36,6 @@ public final class RewardGranter {
         this.quests = quests;
     }
 
-    /**
-     * @param choice zero-based index for a {@code choice} reward, or -1 if the player has not chosen
-     */
     public Result grant(EntityPlayerMP player, Reward reward, int choice) {
         DataNode.Compound p = reward.params();
         switch (reward.type()) {
@@ -55,7 +50,7 @@ public final class RewardGranter {
                     count += RANDOM.nextInt(bonus + 1);
                 }
                 ItemStack stack = r.toStack(count);
-                // "Only One": nothing is given while the player carries that item (FTB: "ignores NBT")
+
                 if (p.getBool("only_one", false) && carries(player, stack)) {
                     return Result.GRANTED;
                 }
@@ -92,7 +87,7 @@ public final class RewardGranter {
                 return Result.GRANTED;
             }
             case "gamestage": {
-                // 1.12.2 has no game stages: a stage is a player tag (the Stage task looks for the same tag); team stages are not kept
+
                 String stage = p.getString("stage", "");
                 if (stage.isEmpty()) {
                     return Result.FAILED;
@@ -105,7 +100,7 @@ public final class RewardGranter {
                 return Result.GRANTED;
             }
             case "custom":
-                return Result.GRANTED; // nothing to do; other mods react to the claim
+                return Result.GRANTED;
             case "random":
             case "loot":
             case "all_table":
@@ -134,7 +129,7 @@ public final class RewardGranter {
                 return Result.GRANTED;
             }
             case "loot": {
-                // like random, but as many rolls as the table's loot size says (at least one); a roll may give nothing
+
                 int rolls = Math.max(1, table.lootSize);
                 for (int i = 0; i < rolls; i++) {
                     WeightedReward w = Names.pick(table.entries, table.emptyWeight, RANDOM);
@@ -149,7 +144,7 @@ public final class RewardGranter {
                     grant(player, w.reward(), -1);
                 }
                 return Result.GRANTED;
-            default: // choice
+            default:
                 if (choice < 0 || choice >= table.entries.size()) {
                     return Result.NEEDS_CHOICE;
                 }
@@ -190,7 +185,6 @@ public final class RewardGranter {
         }
     }
 
-    /** Runs reward commands as the player's position with a fixed permission level. */
     private static final class RewardSender implements ICommandSender {
         private final MinecraftServer server;
         private final EntityPlayerMP player;

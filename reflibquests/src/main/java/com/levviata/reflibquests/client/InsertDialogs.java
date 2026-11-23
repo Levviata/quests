@@ -14,13 +14,11 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import com.levviata.reflibquests.text.RichText;
 
-/** The small "insert something" dialogs of the description editor. */
 @SideOnly(Side.CLIENT)
 final class InsertDialogs {
 
     private InsertDialogs() {}
 
-    /** "Add Image": location, alignment, fit and size; Accept gives the finished image tag. */
     @SideOnly(Side.CLIENT)
     static final class ImageDialog extends SettingsScreen {
         private String texture = "";
@@ -50,11 +48,10 @@ final class InsertDialogs {
 
         @Override
         protected void cancelled() {
-            // nothing inserted
+
         }
     }
 
-    /** "Insert URL/Docs Link": address and the words shown; Accept gives the finished JSON line. */
     @SideOnly(Side.CLIENT)
     static final class LinkDialog extends SettingsScreen {
         private String url = "";
@@ -78,7 +75,7 @@ final class InsertDialogs {
 
         @Override
         protected void cancelled() {
-            // nothing inserted
+
         }
     }
 }
