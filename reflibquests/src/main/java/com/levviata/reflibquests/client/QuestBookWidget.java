@@ -65,6 +65,8 @@ final class QuestBookWidget extends Widget {
     /** Chapter pictures were drawn about 12% too large next to the quests in side-by-side checks. */
     private static final double IMAGE_SCALE = 0.88;
     private static final double NODE = 22.0;
+    /** Width of a dependency line relative to the width of a quest node (FTB Quests 26.1.2: about 0.156). */
+    private static final double DEP_LINE_PER_NODE = 0.156;
     /** How much of its square an icon fills; the icon scales with the square at every zoom level. */
     private static final float ICON_FRACTION = 0.72f;
 
@@ -286,12 +288,19 @@ final class QuestBookWidget extends Widget {
         return detailOpen() && detailRect().contains(mx, my) || propsOpen() && propsRect().contains(mx, my);
     }
 
+    private static final int TITLE_MARGIN = 25;
+
     private Rect detailRect() {
         int h = Math.max(70, Math.min(bounds.height() - 40, detailContentHeight));
         int cx = bounds.x() + bounds.width() / 2;
         QuestBook rb = ClientQuests.book();
         Chapter shownIn = rb == null || selectedQuest.isEmpty() ? null : rb.chapterOf(selectedQuest);
         int w = shownIn == null ? DETAIL_W : Math.min(bounds.width() - 20, Math.max(DETAIL_W, shownIn.minWindowWidth)); // the chapter's minimum width
+        if (rb != null && !selectedQuest.isEmpty() && rb.quest(selectedQuest) != null) {
+            // FTB Quests widens the window when the title does not fit: the title keeps about 25 pixels clear on each side (icon, pin and close)
+            int titleNeed = Ui.width(mc().fontRenderer, QuestText.titleRainbow(rb.quest(selectedQuest))) + 2 * TITLE_MARGIN;
+            w = Math.min(bounds.width() - 20, Math.max(w, titleNeed));
+        }
         return new Rect(cx - w / 2, bounds.y() + (bounds.height() - h) / 2, w, h);
     }
 
@@ -462,10 +471,14 @@ final class QuestBookWidget extends Widget {
         GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
         drawChapterList(fr, book, p, chapters, mouseX, mouseY);
         drawHeader(fr, book, engine, p, mouseX, mouseY);
+        GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
+        drawBottomBar(fr, mouseX, mouseY); // before the dimming below: an open quest greys the status line and the change log too
         if (chapter != null && detailOpen()) {
             // item icons write depth values; clear them so later 2D drawing is never hidden behind an icon
             GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
-            Gui.drawRect(bounds.x(), bounds.y(), bounds.x() + bounds.width(), bounds.y() + bounds.height(), 0x78000000);
+            ScaledResolution whole = new ScaledResolution(mc());
+            // FTB Quests greys the whole screen behind an open quest: the chapter list, the buttons at the side and the status line as well
+            Gui.drawRect(0, 0, whole.getScaledWidth(), whole.getScaledHeight(), 0x78000000);
             scissor(detailRect());
             drawQuestWindow(fr, book, engine, p);
             unscissor();
@@ -481,7 +494,6 @@ final class QuestBookWidget extends Widget {
             drawSearchResults(fr, book, p, mouseX, mouseY);
         }
         GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
-        drawBottomBar(fr, mouseX, mouseY);
         drawMenu(fr, mouseX, mouseY);
         GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
         List<String> tip = computeTooltip(mouseX, mouseY);
@@ -1145,13 +1157,19 @@ final class QuestBookWidget extends Widget {
         int tx = row.x() + 15 + indent;
         boolean chapterDone = p != null && QuestRules.chapterCompleted(p, c);
         // the chapter's own icon; without one, the icon of its only quest, or the quests' icons one after the other
-        ItemStack icon = c.icon.entries().isEmpty() ? chapterIconFromQuests(c) : QuestText.stackOf(c.icon);
+        boolean ownIcon = !c.icon.entries().isEmpty();
+        ItemStack icon = ownIcon ? QuestText.stackOf(c.icon) : null;
         if (chapterDone) {
             if (!Ui.questsGui("check_gray", row.x() + 1 + indent, row.y() + 2, 10, 10, 0xFFFFFFFF)) {
                 fr.drawString("v", row.x() + 3 + indent, row.y() + 3, 0x888888);
             }
-        } else if (icon != null && !icon.isEmpty()) {
-            drawItem(icon, row.x() + 1 + indent, row.y() + 2, 0.67f);
+        } else if (ownIcon) {
+            if (icon != null && !icon.isEmpty()) {
+                drawItem(icon, row.x() + 1 + indent, row.y() + 2, 0.67f);
+            }
+        } else if (!c.quests.isEmpty()) {
+            // no icon of its own: the icons of its quests in turn (a checkmark quest shows its check), two seconds each
+            drawQuestIcon(c.quests.get((int) ((System.currentTimeMillis() / 2000) % c.quests.size())), row.x() + 1 + indent, row.y() + 2, 16 * 0.67f, false);
         }
         UUID me = mc().player == null ? null : mc().player.getUniqueID();
         ProgressEngine engine = ClientQuests.engine();
@@ -1237,7 +1255,7 @@ final class QuestBookWidget extends Widget {
                     tint = 0xFFC4C400; // a dependant of the focused quest: yellow, moving on to the dependant
                     flow = 1;
                 }
-                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(1.0, Math.min(6.0, zoom * 2.45)), tint, flow); // 2.45 GUI pixels wide at zoom 1: the line is 4.1% of the distance between neighbouring quests, as in FTB Quests 26.1.2
+                drawDependency(q, depId, dx, dy, sx, sy, v, Math.max(1.0, Math.min(9.0, zoom * NODE * DEP_LINE_PER_NODE)), tint, flow); // a fixed share of the quest rim's width (measured on FTB Quests 26.1.2: 8.3 of 53 pixels), so it scales with zoom and UI scale
             }
         }
         if (movingQuest != null && chapter.quests.contains(movingQuest)) {
@@ -1798,7 +1816,7 @@ final class QuestBookWidget extends Widget {
             movingOrigX = target.raw().getDouble("x", 0);
             movingOrigY = target.raw().getDouble("y", 0);
         }));
-        items.add(new MenuItem("Resize", "", "lib:expand", false, () -> startImageMode("resize", target)));
+        items.add(new MenuItem("Resize", "", "lib:resize", false, () -> startImageMode("resize", target)));
         items.add(new MenuItem("Rotate", "", "lib:refresh", false, () -> startImageMode("rotate", target)));
         items.add(new MenuItem("Copy ID", "", "lib:info", false, () -> GuiScreen.setClipboardString(target.id())));
         items.add(new MenuItem("Delete", "", "lib:remove", false, () -> send("delete_image", args("id", target.id()))));
@@ -2169,6 +2187,11 @@ final class QuestBookWidget extends Widget {
     }
 
     private static void drawItem(ItemStack stack, float x, float y, float scale) {
+        String image = QuestText.imageOf(stack);
+        if (image != null) {
+            ImageCatalog.draw(mc(), image, x, y, 16 * scale);
+            return;
+        }
         GlStateManager.pushMatrix();
         GlStateManager.translate(x, y, 0);
         // the model sits 200 units deep, scaled: a big icon would leave the depth range and be cut, so it is never scaled in depth
@@ -2187,7 +2210,8 @@ final class QuestBookWidget extends Widget {
         Quest q = book.quest(selectedQuest);
         Rect r = detailRect();
         // everything behind an open quest is dimmed (measured from FTB Quests: about 63% of a dark grey)
-        Gui.drawRect(bounds.x(), bounds.y(), bounds.x() + bounds.width(), bounds.y() + bounds.height(), 0xA0202426);
+        ScaledResolution whole = new ScaledResolution(mc());
+        Gui.drawRect(0, 0, whole.getScaledWidth(), whole.getScaledHeight(), 0xA0202426);
         Ui.shadow(r);
         Gui.drawRect(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), 0xFF0E0F12);
         Gui.drawRect(r.x() + 1, r.y() + 1, r.x() + r.width() - 1, r.y() + r.height() - 1, 0xF51F2228);
@@ -2213,9 +2237,9 @@ final class QuestBookWidget extends Widget {
             fr.drawStringWithShadow(fr.trimStringToWidth(RichText.toSectionCodes(q.subtitle), w), x, y, 0xAAAAAA);
             y += 12;
         }
-        String stateText = state == State.DONE ? "Completed" : state == State.LOCKED ? "Locked: finish the quests before it"
+        String stateText = state == State.DONE ? "Completed" : state == State.LOCKED ? "Locked"
                 : state == State.ACTIVE ? "In progress " + QuestRules.percent(p, q) + "%" : "Available";
-        fr.drawStringWithShadow(stateText, x, y, colorOf(state) | 0xFF000000);
+        fr.drawStringWithShadow(stateText, x, y, state == State.LOCKED ? 0xFF555555 : colorOf(state) | 0xFF000000);
         y += 14;
         if (!details) {
             fr.drawStringWithShadow("Details are hidden until this quest is available.", x, y, 0x888888);
@@ -2241,7 +2265,7 @@ final class QuestBookWidget extends Widget {
             boolean done = QuestRules.taskDone(p, t);
             String text = QuestText.task(t) + (t.optionalTask() ? " (optional)" : "");
             for (String wrapped : fr.listFormattedStringToWidth(text, w - 4)) {
-                fr.drawString(wrapped, x + 4, y, done ? 0x55FF55 : 0xDDDDDD);
+                fr.drawString(wrapped, x + 4, y, done ? 0x00AA00 : 0xDDDDDD);
                 y += 10;
             }
             if (t.maxProgress() > 1) {
@@ -2331,7 +2355,8 @@ final class QuestBookWidget extends Widget {
         if (q.tasks.isEmpty()) {
             return;
         }
-        Task first = q.tasks.get(0);
+        // no icon of its own: the icons of its tasks, one after the other, two seconds each
+        Task first = q.tasks.get((int) ((System.currentTimeMillis() / 2000) % q.tasks.size()));
         ItemStack named = QuestText.taskIcon(first);
         if (named != null && !first.type().equals("item")) {
             drawItem(named, x, y, size / 16f); // a task with an icon of its own, or a kill task's spawn egg
@@ -2537,11 +2562,12 @@ final class QuestBookWidget extends Widget {
                 sb.append("\n§7+ ").append(table.entries.size() - 14).append(" more");
                 break;
             }
-            sb.append('\n').append(rewardLine(wr.reward())).append(" §7[")
-                    .append(String.format(java.util.Locale.ROOT, "%.2f", total <= 0 ? 0 : wr.weight() * 100.0 / total)).append("%]");
+            // "- XP: +100 [12,50%]": the text in grey with its values coloured, the chance in dark grey and in the player's number format
+            sb.append("\n§7- ").append(rewardLine(wr.reward())).append(" §8[")
+                    .append(String.format(java.util.Locale.getDefault(), "%.2f", total <= 0 ? 0 : wr.weight() * 100.0 / total)).append("%]");
         }
         if (table.emptyWeight > 0 && total > 0) {
-            sb.append("\n§7Nothing [").append(String.format(java.util.Locale.ROOT, "%.2f", table.emptyWeight * 100.0 / total)).append("%]");
+            sb.append("\n§7- Nothing §8[").append(String.format(java.util.Locale.getDefault(), "%.2f", table.emptyWeight * 100.0 / total)).append("%]");
         }
         return sb.toString();
     }
@@ -2552,10 +2578,8 @@ final class QuestBookWidget extends Widget {
             int count = (int) Math.min(Integer.MAX_VALUE, Task.itemCount(rw.params()));
             int bonus = Math.max(0, rw.params().getInt("random_bonus", 0));
             String amount = bonus > 0 ? count + "-" + (count + bonus) + "x " : count > 1 ? count + "x " : "";
-            return amount + QuestText.itemName(rw.params().get("item"));
-        }
-        if (rw.type().equals("xp") || rw.type().equals("xp_levels")) {
-            return (rw.type().equals("xp") ? "" : "Levels: ") + "+" + Math.max(1, rw.params().getInt(rw.type(), 1)) + (rw.type().equals("xp") ? " XP" : "");
+            ItemStack named = QuestText.stackOf(rw.params().get("item"));
+            return amount + (named == null ? QuestText.itemName(rw.params().get("item")) : named.getDisplayName()); // "Oak Button", not "Button"
         }
         return QuestText.reward(rw);
     }
@@ -2699,7 +2723,7 @@ final class QuestBookWidget extends Widget {
             drawInlineField(fr, r.x() + 24, r.y() + 4, r.width() - 64);
         } else {
             String title = QuestText.titleRainbow(q);
-            int maxTitle = r.width() - 64;
+            int maxTitle = r.width() - 2 * TITLE_MARGIN;
             int fullWidth = Ui.width(fr, title);
             if (fullWidth <= maxTitle) {
                 Ui.drawText(fr, title, r.x() + r.width() / 2 - fullWidth / 2, r.y() + 7, 0xBBBBBB, maxTitle, false); // no shadow, like upstream
@@ -2710,8 +2734,8 @@ final class QuestBookWidget extends Widget {
                 double t = (System.currentTimeMillis() / 1000.0) % cycle;
                 double leg = t < travel + 1.6 ? t : cycle - t;     // there and back
                 double frac = Math.max(0, Math.min(1, (leg - 0.8) / travel));
-                scissor(new Rect(r.x() + 24, r.y() + 1, maxTitle, 18));
-                Ui.drawText(fr, title, r.x() + 24 - (int) Math.round(diff * frac), r.y() + 7, 0xBBBBBB, Integer.MAX_VALUE, false);
+                scissor(new Rect(r.x() + TITLE_MARGIN, r.y() + 1, maxTitle, 18));
+                Ui.drawText(fr, title, r.x() + TITLE_MARGIN - (int) Math.round(diff * frac), r.y() + 7, 0xBBBBBB, Integer.MAX_VALUE, false);
                 scissor(detailRect());
             }
         }
@@ -2835,8 +2859,8 @@ final class QuestBookWidget extends Widget {
                 boolean points = t.params().getBool("points", false);
                 long xpLeft = t.maxProgress() - p.taskProgress(t.id());
                 long have = mc().player == null ? 0 : points ? mc().player.experienceTotal : mc().player.experienceLevel;
-                tip.append("§f").append(points ? "XP: " : "XP Levels: ").append(have >= xpLeft ? "§a" : "§c").append(t.maxProgress());
-                tip.append("\n§a").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
+                tip.append("§f").append(points ? "XP: " : "XP Levels: ").append("§c").append(t.maxProgress());
+                tip.append("\n§2").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
                 if (!done && canWork) {
                     tip.append("\n\n§e§nClick to submit");
                     act = () -> QuestNet.submit(t.id());
@@ -2847,19 +2871,19 @@ final class QuestBookWidget extends Widget {
                 String fname = com.levviata.reflibquests.game.TaskTrackerNames.fluidLabel(t.params());
                 long got = Math.min(p.taskProgress(t.id()), mb);
                 tip.append("§f").append(amount).append(" of ").append(fname);
-                tip.append("\n§a").append(got).append(" mB / ").append(amount).append(" [").append(mb == 0 ? 0 : got * 100 / mb).append("%]");
+                tip.append("\n§2").append(got).append(" mB / ").append(amount).append(" [").append(mb == 0 ? 0 : got * 100 / mb).append("%]");
                 if (!done && canWork) {
                     tip.append("\n\n§e§nClick to submit");
                     act = () -> QuestNet.submit(t.id());
                 }
             } else if (t.type().equals("forge_energy")) {
-                tip.append("§fForge Energy: §a").append(t.maxProgress()).append(" FE");
+                tip.append("§fForge Energy: §2").append(t.maxProgress()).append(" FE");
                 if (!done && canWork) {
                     tip.append("\n\n§e§nClick to submit");
                     act = () -> QuestNet.submit(t.id());
                 }
             } else if (t.type().equals("dimension")) {
-                tip.append("§fVisit Dimension: §a").append(t.params().getString("dimension", "?")); // FTB: the dimension's id in green
+                tip.append("§fVisit Dimension: §2").append(t.params().getString("dimension", "?")); // FTB: the dimension's id in green
             } else {
                 tip.append(QuestText.task(t));
                 if (!done && canWork && t.type().equals("checkmark")) {
@@ -2873,7 +2897,7 @@ final class QuestBookWidget extends Widget {
             if (t.type().equals("item") && t.params().getBool("task_screen_only", false)) {
                 tip.append("\n\n§e§nItems can ONLY be submitted via a Task Screen!");
             }
-            if (t.maxProgress() > 1 && !t.type().equals("item") && !t.type().equals("fluid")) { // item and fluid tasks already have it, in green under the name
+            if (t.maxProgress() > 1 && !t.type().equals("item") && !t.type().equals("fluid") && !t.type().equals("xp")) { // item and fluid tasks already have it, in green under the name
                 tip.append("\n§7").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
             }
             final String taskId = t.id();
@@ -2891,7 +2915,7 @@ final class QuestBookWidget extends Widget {
                 iconBox(fr, "+", sx, sy);
             }
             final String owner = q.id;
-            addHit(plus, () -> openMenu(lastMouseX, lastMouseY, taskTypeMenu(owner)),
+            addHit(plus, () -> openMenu(lastMouseX, lastMouseY, taskTypeMenu(a -> send("add_task", a.with("id", owner)))),
                     "Add a task");
         }
         for (int i = 0; i < q.rewards.size(); i++) {
@@ -2921,7 +2945,7 @@ final class QuestBookWidget extends Widget {
             } else {
                 tip = QuestText.reward(rw);
             }
-            tip += claimed ? "\n§aClaimed" : ready ? "\n§eClick to claim" : "";
+            tip += ready && !claimed ? "\n§eClick to claim" : "";
             final Reward target = rw;
             final ItemStack recipeOf = rewardStack;
             Runnable act = ready ? (rw.type().equals("choice") ? () -> choiceFor = choiceFor.equals(target.id()) ? "" : target.id()
@@ -2947,6 +2971,7 @@ final class QuestBookWidget extends Widget {
         y += secH + 1;
 
         // ---- body: subtitle, description, choices
+        final int bodyTop = y; // the eye of a hidden text sits in the top left corner of this section
         int pages = 1;
         if (!details) {
             fr.drawStringWithShadow("Details are hidden until this quest is available.", r.x() + 6, y + 6, 0x888888);
@@ -2964,14 +2989,24 @@ final class QuestBookWidget extends Widget {
                 y += 16;
             }
             boolean textHidden = !isEditing() && !p.isCompleted(q.id) && textHiddenRule(book, q);
+            // a quest whose text waits for completion shows an eye at the left of the description, with a tooltip saying why
+            boolean eye = isEditing() && !p.isCompleted(q.id) && textHiddenRule(book, q); // only in edit mode, as in FTB Quests
+            if (eye) {
+                // 10.7 pixels square (the eye fills the picture's width, measured on FTB Quests 26.1.2), grey, in the top left corner of the text section
+                Rect eyeBox = new Rect(r.x() + 3, bodyTop + 2, 11, 11);
+                if (!Ui.questsGui("hidden", eyeBox.x(), eyeBox.y(), 10.7, 10.7, 0xFFA0A0A0)) {
+                    Ui.icon(Ui.LIBRARY, "textures/icons/visibility_show.png", eyeBox.x(), eyeBox.y(), 11, 11, 0xFFA0A0A0);
+                }
+                addHit(eyeBox, () -> { }, "Description text hidden outside edit mode: quest not completed");
+            }
             if (!q.description.isEmpty() && !textHidden) {
                 y += 4;
-                int dw = r.width() - 14;
+                int dw = r.width() - 14 - (eye ? 14 : 0);
                 DescriptionView.Layout lay = DescriptionView.layout(fr, q.description, descPage, dw);
                 pages = lay.pages();
                 descPage = Math.max(0, Math.min(pages - 1, descPage));
                 final QuestBook shownBook = book;
-                DescriptionView.draw(fr, lay, r.x() + 7, y, lastMouseX, lastMouseY, (box, click, hover) ->
+                DescriptionView.draw(fr, lay, r.x() + 7 + (eye ? 14 : 0), y, lastMouseX, lastMouseY, (box, click, hover) ->
                         addHit(new Rect(box[0], box[1], box[2], box[3]), click == null ? () -> { } : () -> onLink(shownBook, click),
                                 !hover.isEmpty() ? hover : click.value()));
                 y += lay.height() + 2;
@@ -3000,6 +3035,18 @@ final class QuestBookWidget extends Widget {
                     }
                 }
             }
+        }
+        if (details && !q.guidePage.isEmpty()) {
+            // the guide-page line: a book and "Click here to read more...", centred; no tooltip, it glows yellow when hovered
+            String readMore = "Click here to read more...";
+            int lw = 14 + fr.getStringWidth(readMore);
+            int lx = mid - lw / 2;
+            Rect lineBox = new Rect(lx, y + 4, lw, 12);
+            boolean over = lineBox.contains(lastMouseX, lastMouseY);
+            drawItem(new ItemStack(net.minecraft.init.Items.BOOK), lx, y + 3, 0.65f); // the game's own book, not the mod's purple one
+            fr.drawStringWithShadow(readMore, lx + 14, y + 6, over ? 0xFFFF55 : 0xFFFFFF);
+            addHit(lineBox, () -> { }, null);
+            y += 20;
         }
         if (details && (isEditing() || pages > 1)) {
             int rowY = y + 2;
@@ -3716,10 +3763,10 @@ final class QuestBookWidget extends Widget {
         boolean done = p != null && p.isCompleted(target.id);
         List<MenuItem> items = new ArrayList<>();
         items.add(new MenuItem("\"" + QuestText.titlePlain(target) + "\"", "", "", false, null));
-        items.add(new MenuItem("Edit", "", "settings", true, () -> selectedQuest = target.id));
+        items.add(new MenuItem("Edit", "", "settings", true, () -> mc().displayGuiScreen(new QuestPropertiesScreen(mc().currentScreen, target))));
         items.add(new MenuItem("Move", "", "lib:up", false, () -> startQuestMove(target)));
         if (target.preset.isEmpty()) { // FTB offers no Resize while a preset decides the size (measured in 26.1.2)
-            items.add(new MenuItem("Resize", "", "lib:expand", false, () -> startResize(target)));
+            items.add(new MenuItem("Resize", "", "lib:resize", false, () -> startResize(target)));
         }
         items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickProperties(target, lastMouseX, lastMouseY)));
         items.add(new MenuItem("Add Dependency", "", "lib:add", false, () -> linkFrom = target.id));
@@ -3789,7 +3836,13 @@ final class QuestBookWidget extends Widget {
 
     /** FTB Quests opens an item picker when an item task or reward is made; the book screen is shown again once an item is chosen. */
     private static void pickItem(java.util.function.Consumer<ItemStack> chosen) {
-        mc().displayGuiScreen(new ItemPickerScreen(mc().currentScreen, chosen));
+        mc().displayGuiScreen(SelectorScreen.items(mc().currentScreen, chosen));
+    }
+
+    private static DataNode.Compound fluidSpec(String name, long amount, String nbt) {
+        DataNode.Compound spec = DataNode.Compound.empty().with("fluid", "minecraft:" + name).with("amount", amount);
+        DataNode.Compound data = nbt == null || nbt.isBlank() ? null : com.levviata.reflibquests.model.BookEditor.parseNbt(nbt);
+        return data == null || data.entries().isEmpty() ? spec : spec.with("nbt", data);
     }
 
     /** What the server needs to know about a picked item: its registry name and variant. */
@@ -3797,6 +3850,9 @@ final class QuestBookWidget extends Widget {
         DataNode.Compound spec = DataNode.Compound.empty().with("id", String.valueOf(stack.getItem().getRegistryName()));
         if (stack.getMetadata() != 0) {
             spec = spec.with("damage", stack.getMetadata());
+        }
+        if (stack.hasTagCompound() && !stack.getTagCompound().isEmpty()) {
+            spec = spec.with("nbt", com.levviata.reflib.api.data.Snbt.parse(stack.getTagCompound().toString()));
         }
         return spec;
     }
@@ -3806,27 +3862,28 @@ final class QuestBookWidget extends Widget {
     }
 
     /** FTB's "Select Task Type" list, in its order. Types without support yet are listed greyed out. */
-    private static MenuItem[] taskTypeMenu(String owner) {
+    private static MenuItem[] taskTypeMenu(java.util.function.Consumer<DataNode.Compound> add) {
         return new MenuItem[] {
-            typeItem("Item", "item:diamond", () -> mc().displayGuiScreen(new ItemPickerScreen(mc().currentScreen, true,
-                    (stack, n) -> send("add_task", args("id", owner, "type", "item", "item", itemSpec(stack), "count", n))))),
-            typeItem("Custom", "lib:color_hsb", () -> send("add_task", args("id", owner, "type", "custom"))),
+            typeItem("Item", "item:diamond", () -> mc().displayGuiScreen(SelectorScreen.items(mc().currentScreen, true,
+                    (stack, n) -> add.accept(args("type", "item", "item", itemSpec(stack), "count", n))))),
+            typeItem("Custom", "lib:color_hsb", () -> add.accept(args("type", "custom"))),
             typeItem("XP Levels", "item:experience_bottle", () -> askNumber("XP Levels", 1,
-                    n -> send("add_task", args("id", owner, "type", "xp", "params", args("value", n, "points", false))))),
-            typeItem("Visit Dimension", "item:ender_eye", () -> send("add_task", args("id", owner, "type", "dimension", "params", args("dimension", "minecraft:the_nether")))),
-            typeItem("Stat", "item:iron_sword", () -> send("add_task", args("id", owner, "type", "stat", "params", args("stat", "minecraft:mob_kills", "value", 1)))), // FTB's defaults: Mob Kills, 1
-            typeItem("Kill Entity", "item:diamond_sword", () -> send("add_task", args("id", owner, "type", "kill", "params", args("entity", "minecraft:zombie", "value", 100)))),
-            typeItem("Location", "item:stone_pressure_plate", () -> send("add_task", args("id", owner, "type", "location"))),
-            typeItem("Checkmark", "check_gray", () -> send("add_task", args("id", owner, "type", "checkmark"))),
-            typeItem("Advancement", "item:wheat", () -> send("add_task", args("id", owner, "type", "advancement", "params", args("advancement", "minecraft:story/root")))),
-            typeItem("Observation", "item:painting", () -> send("add_task", args("id", owner, "type", "observation", "params", args("observation_type", "block", "to_observe", "minecraft:stone", "timer", 0)))),
-            typeItem("Visit Biome", "item:sapling", () -> send("add_task", args("id", owner, "type", "biome", "params", args("biome", "minecraft:plains")))),
-            typeItem("Find Structure", "item:paper", () -> send("add_task", args("id", owner, "type", "structure", "params", args("structure", "minecraft:village")))),
-            typeItem("Stage", "lib:controller", () -> send("add_task", args("id", owner, "type", "gamestage"))),
-            typeItem("Fluid", "item:bucket", () -> send("add_task", args("id", owner, "type", "fluid", "params", args("fluid", DataNode.Compound.empty().with("fluid", "minecraft:water").with("amount", 1000))))), // FTB's default: 1000 mB of water
-            typeItem("Interaction", "item:diamond_pickaxe", () -> send("add_task", args("id", owner, "type", "interaction"))),
+                    n -> add.accept(args("type", "xp", "params", args("value", n, "points", false))))),
+            typeItem("Visit Dimension", "item:ender_eye", () -> add.accept(args("type", "dimension", "params", args("dimension", "minecraft:the_nether")))),
+            typeItem("Stat", "item:iron_sword", () -> add.accept(args("type", "stat", "params", args("stat", "minecraft:mob_kills", "value", 1)))), // FTB's defaults: Mob Kills, 1
+            typeItem("Kill Entity", "item:diamond_sword", () -> add.accept(args("type", "kill", "params", args("entity", "minecraft:zombie", "value", 100)))),
+            typeItem("Location", "item:stone_pressure_plate", () -> add.accept(args("type", "location"))),
+            typeItem("Checkmark", "check_gray", () -> add.accept(args("type", "checkmark"))),
+            typeItem("Advancement", "item:wheat", () -> add.accept(args("type", "advancement", "params", args("advancement", "minecraft:story/root")))),
+            typeItem("Observation", "item:painting", () -> add.accept(args("type", "observation", "params", args("observation_type", "block", "to_observe", "minecraft:stone", "timer", 0)))),
+            typeItem("Visit Biome", "item:sapling", () -> add.accept(args("type", "biome", "params", args("biome", "minecraft:plains")))),
+            typeItem("Find Structure", "item:paper", () -> add.accept(args("type", "structure", "params", args("structure", "minecraft:village")))),
+            typeItem("Stage", "lib:controller", () -> add.accept(args("type", "gamestage"))),
+            typeItem("Fluid", "item:bucket", () -> mc().displayGuiScreen(SelectorScreen.fluids(mc().currentScreen, true,
+                    (name, amount, nbt) -> add.accept(args("type", "fluid", "params", args("fluid", fluidSpec(name, amount, nbt))))))),
+            typeItem("Interaction", "item:diamond_pickaxe", () -> add.accept(args("type", "interaction"))),
             typeItem("Forge Energy", "item:redstone_block", () -> askNumber("Forge Energy", 1,
-                    n -> send("add_task", args("id", owner, "type", "forge_energy", "params", args("value", n))))),
+                    n -> add.accept(args("type", "forge_energy", "params", args("value", n))))),
         };
     }
 
@@ -3991,7 +4048,7 @@ final class QuestBookWidget extends Widget {
 
     /**
      * "Image" of the map menu (FTB Quests 26.1.2 ends its list with it): choose a picture, and it is put where the menu was
-     * opened. The list holds the painting names this game knows; "Other..." asks for any texture name.
+     * opened. The window lists every picture this game has (SelectorScreen).
      */
     private void pickImageAt(int mouseX, int mouseY) {
         QuestBook book = ClientQuests.book();
@@ -4003,26 +4060,7 @@ final class QuestBookWidget extends Widget {
         final double wx = v.worldX(mouseX) / GRID;
         final double wy = v.worldY(mouseY) / GRID;
         final String chapterId = chapter.id;
-        List<ListPickerScreen.Option> options = new ArrayList<>();
-        for (net.minecraft.entity.item.EntityPainting.EnumArt art : net.minecraft.entity.item.EntityPainting.EnumArt.values()) {
-            options.add(new ListPickerScreen.Option(art.title + " [minecraft:" + art.title.toLowerCase(java.util.Locale.ROOT) + "]",
-                    "minecraft:" + art.title.toLowerCase(java.util.Locale.ROOT)));
-        }
-        options.add(new ListPickerScreen.Option("Other... (any texture name)", "::other"));
-        mc().displayGuiScreen(new ListPickerScreen(mc().currentScreen, "Image", options, chosen -> {
-            if (chosen.equals("::other")) {
-                ScaledResolution res = new ScaledResolution(mc());
-                int px = Mouse.getX() / res.getScaleFactor();
-                int py = (mc().displayHeight - Mouse.getY()) / res.getScaleFactor();
-                mc().displayGuiScreen(new NamePrompt(mc().currentScreen, px + 7, py + 12, "Image", "", 200, text -> {
-                    if (!text.isBlank()) {
-                        sendNewImage(chapterId, text.strip(), wx, wy);
-                    }
-                }));
-            } else {
-                sendNewImage(chapterId, chosen, wx, wy);
-            }
-        }));
+        mc().displayGuiScreen(SelectorScreen.images(mc().currentScreen, chosen -> sendNewImage(chapterId, chosen, wx, wy)));
     }
 
     /** The size a new picture starts with: a painting keeps its shape (blocks / 4, as FTB sized the 3 x 4 backyard 0.75 x 1), others are 1 x 1. */
@@ -4037,14 +4075,16 @@ final class QuestBookWidget extends Widget {
         send("create_image", args("chapter", chapterId, "image", image, "x", x, "y", y, "width", w, "height", h));
     }
 
-    private void createQuestAt(int mouseX, int mouseY) {
+    private void createQuestAt(int mouseX, int mouseY, DataNode.Compound task) {
         QuestBook book = ClientQuests.book();
         Chapter chapter = book == null ? null : currentChapter(book);
         if (chapter == null) {
             return;
         }
         ViewTransform v = viewFor(chapter, mapRect());
-        send("create_quest", args("chapter", chapter.id, "x", v.worldX(mouseX) / GRID, "y", v.worldY(mouseY) / GRID));
+        // FTB Quests opens the new task's options first: the quest is made when Accept is pressed, and not at all on Cancel
+        mc().displayGuiScreen(TaskRewardScreen.forDraft(mc().currentScreen,
+                new TaskRewardScreen.Draft(chapter.id, v.worldX(mouseX) / GRID, v.worldY(mouseY) / GRID, task)));
     }
 
     private int inlineButton(FontRenderer fr, int x, int y, String label, boolean on, Runnable action) {
@@ -4419,8 +4459,11 @@ final class QuestBookWidget extends Widget {
                 } else if (hit == null) {
                     final int cx = mouseX;
                     final int cy = mouseY;
-                    openMenu(mouseX, mouseY, new MenuItem("New Quest", () -> createQuestAt(cx, cy)),
-                            new MenuItem("Image", "", "lib:art", false, () -> pickImageAt(cx, cy)));
+                    // FTB Quests 26.1.2: the task types, each making a quest that starts with that task, then Image
+                    MenuItem[] types = taskTypeMenu(task -> createQuestAt(cx, cy, task));
+                    MenuItem[] all = java.util.Arrays.copyOf(types, types.length + 1);
+                    all[types.length] = new MenuItem("Image", "", "lib:art", false, () -> pickImageAt(cx, cy));
+                    openMenu(mouseX, mouseY, all);
                 } else if (linkIds.containsKey(hit)) {
                     linkMenu(hit);
                 } else {
@@ -4694,7 +4737,7 @@ final class QuestBookWidget extends Widget {
         }
         State s = stateOf(book, engine, p, q);
         if (s != State.DONE && !QuestRules.dependenciesMet(book, p, q)) {
-            lines.add("\u00a77[Locked: uncompleted dependencies]");
+            lines.add("§8Locked");
         }
         return lines;
     }

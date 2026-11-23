@@ -329,6 +329,10 @@ final class DescriptionEditorScreen extends GuiScreen {
         list.add(new Tool("Underline\n§7[Alt + U]", b -> glyph(b, "§nU"), () -> style("n"), true));
         list.add(new Tool("Strikethrough\n§7[Alt + S]", b -> glyph(b, "§mS"), () -> style("m"), true));
         list.add(new Tool("Palette\n§7Pick a colour", b -> {
+            // FTB Library's own palette picture (color_rgb); the four coloured squares are only the fallback
+            if (Ui.icon(Ui.LIBRARY, "textures/icons/color_rgb.png", b.x() + 1, b.y() + 1, 16, 16, 0xFFFFFFFF)) {
+                return;
+            }
             Gui.drawRect(b.x() + 3, b.y() + 3, b.x() + 9, b.y() + 9, 0xFFFF5555);
             Gui.drawRect(b.x() + 9, b.y() + 3, b.x() + 15, b.y() + 9, 0xFF55FF55);
             Gui.drawRect(b.x() + 3, b.y() + 9, b.x() + 9, b.y() + 15, 0xFF5555FF);
