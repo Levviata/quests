@@ -72,17 +72,17 @@ final class QuestPropertiesScreen extends SettingsScreen {
         initial.putAll(values);
 
         section("Quest");
-        text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("The name of the quest. Formatting codes such as &6 work.");
+        text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("Name of the quest. Color codes like &6 work.");
         text("Subtitle", () -> values.get("subtitle"), v -> values.put("subtitle", v)).tip("A short line shown under the sections of the quest window.");
         IconPicker.decorate(choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
-                .tip("The icon of the quest. None goes back to the icon of the first task or reward.")
+                .tip("Icon of the quest. None uses the first task's or reward's icon.")
                 .defaults("None"), quest.icon);
-        text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Comma separated labels, e.g. for styles.").defaults("");
+        text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Tags separated by commas, e.g. for styles.").defaults("");
         bool("Disable Completion Toast", () -> Boolean.parseBoolean(values.get("disable_toast")), v -> values.put("disable_toast", String.valueOf(v)))
                 .tip("No pop-up when this quest is completed.").defaults("False");
         section("Quest → Appearance");
         number("Icon Scaling", false, () -> values.get("icon_scale"), v -> values.put("icon_scale", String.valueOf(Math.max(0.0625, Math.min(16.0, Double.parseDouble(v))))))
-                .tip("Independent of the overall button size").defaults("1.00");
+                .tip("Separate from the quest's own size").defaults("1.00");
         choice("Shape", SHAPE_LABELS, () -> values.get("shape"), v -> values.put("shape", v))
                 .tip("How the quest is drawn on the map.").defaults("Default");
         number("Size", false, () -> values.get("size"), v -> values.put("size", String.valueOf(Math.max(0.0625, Math.min(64.0, Double.parseDouble(v))))))
@@ -97,45 +97,45 @@ final class QuestPropertiesScreen extends SettingsScreen {
             presetNames.add(values.get("preset"));
         }
         choice("Visual Preset", presetNames, () -> values.get("preset"), v -> values.put("preset", v))
-                .tip("Visual preset to be used by this quest").defaults("None");
+                .tip("Preset this quest uses").defaults("None");
         number("Z Position", false, () -> values.get("z"), v -> values.put("z", String.valueOf(Math.max(-1000.0, Math.min(1000.0, Double.parseDouble(v))))))
-                .tip("Quests with a higher Z are drawn over quests with a lower one. At the same Z the bigger quest is on top.").defaults("0");
+                .tip("Higher Z draws on top of lower Z. Same Z: the bigger quest goes on top.").defaults("0");
         section("Quest → Visibility");
-        triState("Hide Details Until Startable", "hide_details", "If true then quest details (text and tasks) can't be viewed until the quest can be started.");
-        triState("Hide Quest Until Dependencies Complete", "hide_deps_complete", "The quest stays hidden until every quest it needs is completed.");
-        triState("Hide Quest Until Dependencies Visible", "hide_deps_visible", "The quest stays hidden until the quests it needs are visible.");
-        triState("Hide Text Until Quest is Completed", "hide_text_until_complete",
-                "Quest details can be opened, but no description text is displayed until the quest is completed");
+        triState("Hide Details Until You Can Start", "hide_details", "Text and tasks stay out of sight until the quest can be started.");
+        triState("Hide Until Dependencies Are Done", "hide_deps_complete", "Quest stays hidden until every quest it needs is completed.");
+        triState("Hide Until Dependencies Show Up", "hide_deps_visible", "Quest stays hidden until the quests it needs are visible.");
+        triState("Hide Text Until Done", "hide_text_until_complete",
+                "You can open the quest, but the description stays blank until it's completed");
         bool("Hide Lock Icon", () -> Boolean.parseBoolean(values.get("hide_lock_icon")), v -> values.put("hide_lock_icon", String.valueOf(v)))
-                .tip("Hide the lock icon that is normally shown when quest is locked due to a dependency").defaults("False");
+                .tip("Takes off the padlock shown on quests locked by a dependency").defaults("False");
         bool("Invisible Until Completed", () -> Boolean.parseBoolean(values.get("invisible")), v -> values.put("invisible", String.valueOf(v)))
-                .tip("The quest is not shown until it is completed.").defaults("False");
-        number("Invisible until X tasks are completed", true, () -> values.get("invisible_until_tasks"), v -> values.put("invisible_until_tasks", String.valueOf(Math.max(0, Math.min(20, Integer.parseInt(v))))))
-                .tip("The quest is not shown until this many of its tasks are completed. 0 turns it off.").defaults("0");
+                .tip("Quest doesn't show until it's completed.").defaults("False");
+        number("Invisible Until X Tasks Done", true, () -> values.get("invisible_until_tasks"), v -> values.put("invisible_until_tasks", String.valueOf(Math.max(0, Math.min(20, Integer.parseInt(v))))))
+                .tip("Quest doesn't show until this many of its tasks are done. 0 turns it off.").defaults("0");
         section("Quest → Dependencies");
         choice("Dependency Requirement", REQUIREMENTS, () -> values.get("dependency_requirement"), v -> values.put("dependency_requirement", v))
-                .tip("What has to be true of the quests this one needs.").defaults("All Completed");
-        triState("Hide Dependency Lines", "hide_dep_lines", "Hide the lines to the quests this quest needs (they still show while it is hovered).");
-        triState("Hide Dependent Lines", "hide_dependent_lines", "Hide the lines to the quests that need this quest (they still show while it is hovered).");
+                .tip("Condition the needed quests have to meet.").defaults("All Completed");
+        triState("Hide Dependency Lines", "hide_dep_lines", "Hides the lines to the quests this one needs (still shown on hover).");
+        triState("Hide Dependent Lines", "hide_dependent_lines", "Hides the lines to the quests that need this one (still shown on hover).");
         number("Max Completable Dependents", true, () -> values.get("max_completable_dependents"), v -> values.put("max_completable_dependents", String.valueOf(Math.max(0, Math.min(50, Integer.parseInt(v))))))
-                .tip("If > 0, at most this number of dependents can be completed, and uncompleted dependents become unavailable. Useful to have exclusive branches in a questline").defaults("0");
+                .tip("Zero means no limit. Above zero, only that many dependents can be finished and the rest lock. Good for branching, pick one path").defaults("0");
         number("Min Required Dependencies", true, () -> values.get("min_required_dependencies"), v -> values.put("min_required_dependencies", String.valueOf(Math.max(0, Math.min(50, Integer.parseInt(v))))))
-                .tip("If above 0, this many of the dependencies are enough.").defaults("0");
+                .tip("Above 0: this many dependencies are enough.").defaults("0");
         section("Quest → Misc");
         bool("Optional Quest", () -> Boolean.parseBoolean(values.get("optional")), v -> values.put("optional", String.valueOf(v)))
-                .tip("Optional quests are not needed to finish the chapter.").defaults("False");
-        triState("Repeatable Quest", "repeatable", "The quest can be done again after its rewards are claimed.");
-        triState("Sequential Task Completion", "sequential", "Tasks have to be completed in order.");
+                .tip("Optional quests aren't needed to finish the chapter.").defaults("False");
+        triState("Repeatable Quest", "repeatable", "Can be done again after its rewards are claimed.");
+        triState("Sequential Task Completion", "sequential", "Tasks must be done in order.");
         number("Quest Repeat Cooldown", true, () -> values.get("repeat_cooldown"),
                 v -> values.put("repeat_cooldown", String.valueOf(Math.max(0L, Math.min(31_536_000L, Long.parseLong(v))))))
-                .tip("Only applies if 'Repeatable Quest' is true.\nThe delay in seconds between claiming all the rewards for the quest and being able to redo the quest's tasks.").defaults("0");
-        text("Guide Page", () -> values.get("guide_page"), v -> values.put("guide_page", v)).tip("Guide page to open when the 'Click here to read more...' link in the quest window is used").defaults("");
-        triState("Disable JEI Recipe", "disable_jei", "Clicking an item of this quest does not show its recipes.");
+                .tip("Only used when 'Repeatable Quest' is on.\nSeconds to wait after claiming everything before doing the tasks again.").defaults("0");
+        text("Guide Page", () -> values.get("guide_page"), v -> values.put("guide_page", v)).tip("Guide page opened by the 'Read more here...' link in the quest window").defaults("");
+        triState("Disable JEI Recipe", "disable_jei", "Clicking an item here won't show its recipes.");
         bool("Ignore reward blocking", () -> Boolean.parseBoolean(values.get("ignore_reward_blocking")),
                 v -> values.put("ignore_reward_blocking", String.valueOf(v)))
-                .tip("Offer the quest reward(s) even if rewards are blocked for the team by the '/rquests blockrewards' command").defaults("False");
+                .tip("Give the reward(s) even when '/rquests blockrewards' blocks them for the team").defaults("False");
         choice("Progression Mode", MODES, () -> values.get("progression_mode"), v -> values.put("progression_mode", v))
-                .tip("Default means to use the chapter setting").defaults("Default");
+                .tip("Default uses the chapter's setting").defaults("Default");
     }
 
     private void triState(String label, String key, String tip) {

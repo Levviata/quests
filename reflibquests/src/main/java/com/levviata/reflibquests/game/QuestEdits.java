@@ -29,7 +29,7 @@ final class QuestEdits {
             case "create_chapter": {
                 com.levviata.reflibquests.model.Definitions.Chapter made = ed.createChapter(a.getString("title", ""));
                 if (made == null) {
-                    return "That chapter name is not valid.";
+                    return "That chapter name won't work.";
                 }
                 if (!a.getString("group", "").isEmpty()) {
                     ed.setChapterGroup(made.id, a.getString("group", ""));
@@ -45,7 +45,7 @@ final class QuestEdits {
             case "delete_chapter":
                 return fail(ed.deleteChapter(a.getString("id", "")));
             case "create_group":
-                return ed.createGroup(a.getString("title", ""), a.getString("id", "")) != null ? null : "That group name is not valid.";
+                return ed.createGroup(a.getString("title", ""), a.getString("id", "")) != null ? null : "That group name won't work.";
             case "rename_group":
                 return fail(ed.renameGroup(a.getString("id", ""), a.getString("title", "")));
             case "delete_group":
@@ -59,7 +59,7 @@ final class QuestEdits {
             case "create_quest": {
                 com.levviata.reflibquests.model.Definitions.Quest made = ed.createQuest(a.getString("chapter", ""), a.getDouble("x", Double.NaN), a.getDouble("y", Double.NaN));
                 if (made == null) {
-                    return "Could not create a quest there.";
+                    return "Can't create a quest there.";
                 }
                 String newTitle = a.getString("title", "").strip();
                 if (!newTitle.isEmpty() && newTitle.length() <= 200) {
@@ -118,14 +118,14 @@ final class QuestEdits {
             case "create_image":
                 return ed.createImage(a.getString("chapter", ""), a.getString("image", ""), a.getDouble("x", Double.NaN),
                         a.getDouble("y", Double.NaN), a.getDouble("width", 1), a.getDouble("height", 1)) != null
-                        ? null : "Could not put that picture there.";
+                        ? null : "Can't put that picture there.";
             case "delete_image":
                 return fail(ed.deleteImage(a.getString("id", "")));
             case "set_image_props":
                 return fail(ed.setImageProps(a.getString("id", ""), a.getCompound("props")));
             case "create_link":
                 return ed.createLink(a.getString("chapter", ""), a.getString("quest", ""), a.getDouble("x", Double.NaN), a.getDouble("y", Double.NaN)) != null
-                        ? null : "Could not link that quest there.";
+                        ? null : "Can't link that quest there.";
             case "delete_link":
                 return fail(ed.deleteLink(a.getString("id", "")));
             case "toggle_dep":
@@ -149,7 +149,7 @@ final class QuestEdits {
             case "paste_quests": {
                 List<String> ids = lines(a.getList("ids"));
                 return ed.pasteQuests(a.getString("chapter", ""), ids, a.getDouble("x", Double.NaN), a.getDouble("y", Double.NaN),
-                        a.getBool("deps", true)) != null ? null : "Nothing could be pasted.";
+                        a.getBool("deps", true)) != null ? null : "Nothing to paste.";
             }
             case "move_task":
                 return fail(ed.moveTask(a.getString("id", ""), a.getInt("by", 0)));
@@ -163,7 +163,7 @@ final class QuestEdits {
                 if (a.getString("mode", "").equals("item")) {
                     DataNode.Compound chosen = pickedItem(a.getCompound("item"));
                     if (chosen == null) {
-                        return "That item does not exist in this game.";
+                        return "That item doesn't exist in 1.12.2.";
                     }
                     icon = chosen.getCompound("item");
                 } else if (a.getString("mode", "").equals("image")) {
@@ -171,10 +171,10 @@ final class QuestEdits {
                     try {
                         new net.minecraft.util.ResourceLocation(image);
                     } catch (RuntimeException ex) {
-                        return "That is not a valid picture name.";
+                        return "That picture name won't work.";
                     }
                     if (image.isEmpty() || image.length() > 200) {
-                        return "That is not a valid picture name.";
+                        return "That picture name won't work.";
                     }
                     icon = DataNode.Compound.empty().with("image", image);
                 } else if (a.getString("mode", "").equals("held")) {
@@ -193,7 +193,7 @@ final class QuestEdits {
             case "add_reward":
                 return addReward(ed, player, a);
             case "create_table":
-                return ed.createTable(a.getString("title", ""), a.getString("id", "")) != null ? null : "That table name is not valid.";
+                return ed.createTable(a.getString("title", ""), a.getString("id", "")) != null ? null : "That table name won't work.";
             case "rename_table":
                 return fail(ed.renameTable(a.getString("id", ""), a.getString("title", "")));
             case "delete_table":
@@ -230,7 +230,7 @@ final class QuestEdits {
         } else {
             params = params.without("item");
         }
-        return ed.addTask(a.getString("id", ""), type, params) != null ? null : "Could not add that task.";
+        return ed.addTask(a.getString("id", ""), type, params) != null ? null : "Can't add that task.";
     }
 
     private static String addReward(BookEditor ed, EntityPlayerMP player, DataNode.Compound a) {
@@ -246,7 +246,7 @@ final class QuestEdits {
         } else {
             params = params.without("item");
         }
-        return ed.addReward(a.getString("id", ""), type, params) != null ? null : "Could not add that reward.";
+        return ed.addReward(a.getString("id", ""), type, params) != null ? null : "Can't add that reward.";
     }
 
     private static String addTableEntry(BookEditor ed, EntityPlayerMP player, DataNode.Compound a) {
@@ -258,7 +258,7 @@ final class QuestEdits {
             String itemId = item.getString("id", "");
             net.minecraft.util.ResourceLocation rl = itemId.contains(":") ? new net.minecraft.util.ResourceLocation(itemId) : null;
             if (rl == null || !net.minecraftforge.fml.common.registry.ForgeRegistries.ITEMS.containsKey(rl)) {
-                return "That item does not exist in this game.";
+                return "That item doesn't exist in 1.12.2.";
             }
             DataNode.Compound clean = DataNode.Compound.empty().with("id", itemId);
             if (item.getInt("damage", 0) > 0) {
@@ -270,7 +270,7 @@ final class QuestEdits {
             params = params.without("item");
         }
         return ed.addTableEntry(a.getString("id", ""), type, params, (float) a.getDouble("weight", 1), a.getString("entry", "")) != null
-                ? null : "Could not add that entry.";
+                ? null : "Can't add that entry.";
     }
 
     private static DataNode.Compound withNbt(DataNode.Compound clean, DataNode.Compound item) {
@@ -342,11 +342,11 @@ final class QuestEdits {
             case OK:
                 return null;
             case NOT_FOUND:
-                return "That object no longer exists.";
+                return "That doesn't exist anymore.";
             case CYCLE:
-                return "That would make quests depend on each other in a loop.";
+                return "Quests can't depend on each other in a loop.";
             default:
-                return "That value is not allowed.";
+                return "Can't use that value.";
         }
     }
 }

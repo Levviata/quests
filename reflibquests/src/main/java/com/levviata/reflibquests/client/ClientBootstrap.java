@@ -55,6 +55,7 @@ public final class ClientBootstrap {
     public static void init() {
         ClientRegistry.registerKeyBinding(OPEN);
         MinecraftForge.EVENT_BUS.register(new ClientBootstrap());
+        MinecraftForge.EVENT_BUS.register(new InventoryBookButton());
         ClientCommandHandler.instance.registerCommand(new CommandBase() {
             @Override
             public String getName() {
@@ -84,16 +85,26 @@ public final class ClientBootstrap {
         });
     }
 
-    private static void open() {
+    public static void requestOpen() {
+        openNextTick = true;
+    }
+
+    @SubscribeEvent
+    public void onModels(net.minecraftforge.client.event.ModelRegistryEvent event) {
+        net.minecraftforge.client.model.ModelLoader.setCustomModelResourceLocation(com.levviata.reflibquests.ReflibQuestsMod.QUEST_BOOK, 0,
+                new net.minecraft.client.renderer.block.model.ModelResourceLocation(com.levviata.reflibquests.ReflibQuestsMod.QUEST_BOOK.getRegistryName(), "inventory"));
+    }
+
+    static void open() {
         Minecraft mc = Minecraft.getMinecraft();
         if (!ClientQuests.ready()) {
             if (mc.player != null) {
-                mc.player.sendMessage(new TextComponentString("[Quests] The quest book has not arrived from the server (is Reflib Quests installed there?)."));
+                mc.player.sendMessage(new TextComponentString("[Quests] No quest book from the server. Is Reflib Quests installed there?"));
             }
             return;
         }
         if (ClientQuests.book() != null && ClientQuests.book().settings.getBool("disable_gui", false) && !ClientQuests.canEdit()) {
-            mc.getToastGui().add(QuestToast.blocked("Quest Book GUI is disabled"));
+            mc.getToastGui().add(QuestToast.blocked("The quest book is disabled"));
             return;
         }
         mc.displayGuiScreen(new QuestScreen());
@@ -163,10 +174,13 @@ public final class ClientBootstrap {
                 CHAPTERS_SEEN.remove(ch.id);
             } else if (CHAPTERS_SEEN.add(ch.id) && !quiet && !ch.disableToast && !book.settings.getBool("disable_toast", false)) {
                 net.minecraft.item.ItemStack chIcon = ch.icon.entries().isEmpty() ? null : QuestText.stackOf(ch.icon);
+                net.minecraftforge.fluids.Fluid chFluid = null;
                 if (chIcon == null && !ch.quests.isEmpty()) {
                     chIcon = QuestText.iconOf(ch.quests.get(0));
+                    chFluid = QuestText.iconFluid(ch.quests.get(0));
                 }
                 QuestToast chapterToast = new QuestToast("Chapter completed!", com.levviata.reflibquests.text.RichText.stripCodes(ch.title.isEmpty() ? ch.id : ch.title), chIcon);
+                chapterToast.fluid = chFluid;
                 chapterToast.titleColor = 0xFF55FF;
                 notifyPlayer(mc, ClientPrefs.completionNotification, chapterToast, "Chapter completed: " + com.levviata.reflibquests.text.RichText.stripCodes(ch.title));
                 if (ClientPrefs.completionSounds && !ClientPrefs.completionNotification.equals("None")) {
@@ -184,7 +198,9 @@ public final class ClientBootstrap {
                         toastChapter != null && toastChapter.disableToast, book.settings.getBool("disable_toast", false), ClientPrefs.completionNotification);
             }
             if (p.isCompleted(q.id) && DONE_SEEN.add(q.id) && !quiet && !q.disableToast && (toastChapter == null || !toastChapter.disableToast) && !book.settings.getBool("disable_toast", false)) {
-                notifyPlayer(mc, ClientPrefs.completionNotification, new QuestToast("Quest completed!", QuestText.title(q), QuestText.iconOf(q)),
+                QuestToast questToast = new QuestToast("Quest completed!", QuestText.title(q), QuestText.iconOf(q));
+                questToast.fluid = QuestText.iconFluid(q);
+                notifyPlayer(mc, ClientPrefs.completionNotification, questToast,
                         "Quest completed: " + QuestText.titlePlain(q));
                 if (ClientPrefs.completionSounds && !ClientPrefs.completionNotification.equals("None") && QuestToast.live <= 1) {
                     mc.getSoundHandler().playSound(net.minecraft.client.audio.PositionedSoundRecord.getMasterRecord(net.minecraft.init.SoundEvents.ENTITY_PLAYER_LEVELUP, 1.0f));

@@ -20,16 +20,16 @@ import com.levviata.reflibquests.model.Definitions.ChapterImage;
 final class ImagePropertiesScreen extends SettingsScreen {
 
     private static final List<String> ALIGN = List.of("Start", "Middle", "End");
-    private static final List<String> ACTIONS = List.of("No Action", "Open a URI", "Jump to a Quest", "Run a Command",
-            "Post Custom Event", "Show Recipes for Item", "Show a Docs Page");
+    private static final List<String> ACTIONS = List.of("No Action", "Open a URI", "Go to Quest", "Run a Command",
+            "Post Custom Event", "Show Item Recipes", "Open Docs Page");
 
     private static final List<String> ACTION_IDS = List.of("", "open_uri", "open_quest", "run_command", "custom_event", "show_recipe", "show_docs");
     private static final String CLICK_DATA_TIP = "▪ Open URI: a http://, https:// or file:/// URL\n"
-            + "▪ Jump to a Quest: a quest ID - use 'Copy Quest ID' context menu entry\n"
-            + "▪ Run a Command: command to run on the server\n"
+            + "▪ Go to Quest: a quest ID, get it from 'Copy Quest ID' in the right-click menu\n"
+            + "▪ Run a Command: a command the server runs\n"
             + "▪ Post Custom Event: ID argument (namespace:path) for CustomClickEvent listeners\n"
-            + "▪ Show Recipes for Item: item ID\n"
-            + "▪ Show a Docs Page: <mod>,<book-id>[,<page-id>[,<anchor>]]";
+            + "▪ Show Item Recipes: item ID\n"
+            + "▪ Open Docs Page: <mod>,<book-id>[,<page-id>[,<anchor>]]";
 
     private final ChapterImage image;
     private final Map<String, String> values = new LinkedHashMap<>();
@@ -88,24 +88,24 @@ final class ImagePropertiesScreen extends SettingsScreen {
         text("Image", () -> values.get("image"), v -> values.put("image", v)).plainText().defaults("");
         number("Image Alpha", true, () -> values.get("alpha"), v -> values.put("alpha", String.valueOf(Math.max(0, Math.min(255, Integer.parseInt(v)))))).defaults("255");
         number("Image Ordering", true, () -> values.get("order"), v -> values.put("order", String.valueOf(Math.max(-1000, Math.min(1000, Integer.parseInt(v))))))
-                .tip("Order in which images in the same chapter are drawn.\nHigher order images are drawn above lower orders.").defaults("0");
+                .tip("Draw order for images in the same chapter.\nHigher values draw on top.").defaults("0");
         text("Image Tint", () -> values.get("color"), v -> values.put("color", v.strip())).plainText().withSwatch().defaults("#FFFFFF");
         bool("Lock Position", () -> Boolean.parseBoolean(values.get("position_locked")), v -> values.put("position_locked", String.valueOf(v)))
-                .tip("If true, prevents the image from being moved\nUseful to prevent accidental movement when other objects overlap").defaults("False");
-        bool("Only visible in Editing Mode", () -> Boolean.parseBoolean(values.get("dev")), v -> values.put("dev", String.valueOf(v))).defaults("False");
-        bool("Rotate and offset from corner", () -> Boolean.parseBoolean(values.get("corner")), v -> values.put("corner", String.valueOf(v))).defaults("False");
+                .tip("Can't drag the image\nSaves you from moving it by accident when stuff overlaps").defaults("False");
+        bool("Only Show in Editing Mode", () -> Boolean.parseBoolean(values.get("dev")), v -> values.put("dev", String.valueOf(v))).defaults("False");
+        bool("Rotate From Corner", () -> Boolean.parseBoolean(values.get("corner")), v -> values.put("corner", String.valueOf(v))).defaults("False");
         number("Rotation", false, () -> values.get("rotation"), v -> values.put("rotation", plain(Double.parseDouble(v)))).defaults("0");
         number("Width", false, () -> values.get("width"), v -> values.put("width", plain(Math.max(0.0625, Math.min(200, Double.parseDouble(v)))))).defaults("1");
         number("X", false, () -> values.get("x"), v -> values.put("x", plain(Double.parseDouble(v)))).defaults("0");
         number("Y", false, () -> values.get("y"), v -> values.put("y", plain(Double.parseDouble(v)))).defaults("0");
 
         section("Image → Image Text Properties");
-        bool("Draw Title Text on Image", () -> Boolean.parseBoolean(values.get("text_on_image")), v -> values.put("text_on_image", String.valueOf(v)))
-                .tip("If true, title text (if any) is drawn directly on image\nIf false, title text is used a tooltip").defaults("False");
+        bool("Put Title on Image", () -> Boolean.parseBoolean(values.get("text_on_image")), v -> values.put("text_on_image", String.valueOf(v)))
+                .tip("On: title goes over the image\nOff: title is only a tooltip").defaults("False");
         choice("Text Horizontal Alignment", ALIGN, () -> cap(values.get("text_h_align")), v -> values.put("text_h_align", v.toLowerCase(java.util.Locale.ROOT)))
                 .defaults("Middle").listing().enabledIf(() -> Boolean.parseBoolean(values.get("text_on_image")));
         number("Text Inset", true, () -> values.get("text_inset"), v -> values.put("text_inset", String.valueOf(Math.max(0, Math.min(50, Integer.parseInt(v))))))
-                .tip("Horizontal & vertical insets as percentage of image width & height, respectively").defaults("0").range("0", "50")
+                .tip("Side margins as % of width, top and bottom as % of height").defaults("0").range("0", "50")
                 .enabledIf(() -> Boolean.parseBoolean(values.get("text_on_image")));
         choice("Text Vertical Alignment", ALIGN, () -> cap(values.get("text_v_align")), v -> values.put("text_v_align", v.toLowerCase(java.util.Locale.ROOT)))
                 .defaults("Middle").listing().enabledIf(() -> Boolean.parseBoolean(values.get("text_on_image")));

@@ -61,7 +61,7 @@ final class QuestBookWidget extends Widget {
 
     private static final double DEP_LINE_PER_NODE = 0.156;
 
-    private static final float ICON_FRACTION = 0.72f;
+    private static final float ICON_FRACTION = 0.67f;
 
     private static String chapterId = "";
     private static String selectedQuest = "";
@@ -409,7 +409,7 @@ final class QuestBookWidget extends Widget {
         TeamProgress p = ClientQuests.progress();
         ProgressEngine engine = ClientQuests.engine();
         if (book == null || p == null || engine == null) {
-            fr.drawStringWithShadow("Waiting for the quest book from the server...", bounds.x() + 10, bounds.y() + 10, 0xFFFFFF);
+            fr.drawStringWithShadow("Waiting on the server for the quest book...", bounds.x() + 10, bounds.y() + 10, 0xFFFFFF);
             return;
         }
         if (stateVersion != ClientQuests.bookVersion()) {
@@ -446,7 +446,7 @@ final class QuestBookWidget extends Widget {
         }
         Rect map = mapRect();
         if (chapter == null) {
-            fr.drawStringWithShadow("This quest book has no chapters.", map.x() + 140, map.y() + 10, 0xAAAAAA);
+            fr.drawStringWithShadow("This book has no chapters.", map.x() + 140, map.y() + 10, 0xAAAAAA);
         } else {
 
             Rect visibleMap = propsOpen() ? new Rect(map.x(), map.y(), map.width() - DETAIL_W, map.height()) : map;
@@ -558,7 +558,7 @@ final class QuestBookWidget extends Widget {
 
     private record SearchRow(boolean chapter, String id, String chapterId, String title, String shown, DataNode.Compound icon) {}
 
-    private static ItemStack searchFallbackIcon(SearchRow row) {
+    private static Object searchFallbackIcon(SearchRow row) {
         QuestBook b = ClientQuests.book();
         if (b == null) {
             return null;
@@ -568,7 +568,11 @@ final class QuestBookWidget extends Widget {
             return c == null ? null : chapterIconFromQuests(c);
         }
         Quest q = b.quest(row.id());
-        return q == null ? null : QuestText.iconOf(q);
+        if (q == null) {
+            return null;
+        }
+        net.minecraftforge.fluids.Fluid fluid = QuestText.iconFluid(q);
+        return fluid != null ? fluid : QuestText.iconOf(q);
     }
 
     private static List<SearchRow> searchRows = List.of();
@@ -681,9 +685,13 @@ final class QuestBookWidget extends Widget {
             if (rr.contains(mouseX, mouseY)) {
                 Gui.drawRect(rr.x(), rr.y(), rr.x() + rr.width(), rr.y() + rr.height(), 0x55FFFFFF);
             }
-            ItemStack icon = row.icon().entries().isEmpty() ? searchFallbackIcon(row) : QuestText.stackOf(row.icon());
+            Object shown = row.icon().entries().isEmpty() ? searchFallbackIcon(row) : QuestText.stackOf(row.icon());
+            net.minecraftforge.fluids.Fluid rowFluid = shown instanceof net.minecraftforge.fluids.Fluid f ? f : null;
+            ItemStack icon = shown instanceof ItemStack s ? s : null;
             int tx = rr.x() + 3;
-            if (icon != null && !icon.isEmpty()) {
+            if (rowFluid != null && QuestArt.fluid(rowFluid.getStill(), tx, rr.y() + 3, 8, rowFluid.getColor())) {
+                tx += 12;
+            } else if (icon != null && !icon.isEmpty()) {
                 drawItem(icon, tx, rr.y() + 3, 0.5f);
                 tx += 12;
             }
@@ -750,7 +758,7 @@ final class QuestBookWidget extends Widget {
         if (searching) {
 
         } else if (isEditing() && !linkFrom.isEmpty()) {
-            String text = "Click the quest that has to be completed first (Esc cancels)";
+            String text = "Click the quest that must be done first (Esc cancels)";
             fr.drawStringWithShadow(fr.trimStringToWidth(text, bounds.width() - LIST_W - 80), left + 10, bounds.y() + 8, 0xFFB050);
         }
 
@@ -846,11 +854,11 @@ final class QuestBookWidget extends Widget {
                 hits.add(new Hit(cog, () -> openMenu(lastMouseX, lastMouseY,
                         new MenuItem("Edit File", "", "settings",  false,
                                 () -> mc().displayGuiScreen(new BookSettingsScreen(mc().currentScreen, ClientQuests.book()))),
-                        new MenuItem("Reset Progress", "", "lib:undo", false, () -> confirmBook("Reset progress for your team?", "reset_progress")),
-                        new MenuItem("Complete Instantly", "", "lib:check", false, () -> confirmBook("Complete this task instantly?", "complete_quest")),
+                        new MenuItem("Reset Progress", "", "lib:undo", false, () -> confirmBook("Wipe your team's progress?", "reset_progress")),
+                        new MenuItem("Complete Instantly", "", "lib:check", false, () -> confirmBook("Finish this task right now?", "complete_quest")),
                         new MenuItem("Edit Reward Tables", "", "collect_rewards", false,
                                 () -> mc().displayGuiScreen(new RewardTablesScreen(mc().currentScreen))),
-                        new MenuItem("Save on Server now", "", "", false, () -> send("save_now", DataNode.Compound.empty())),
+                        new MenuItem("Save Now (to Server)", "", "", false, () -> send("save_now", DataNode.Compound.empty())),
                         new MenuItem("Open Wiki", "", "", false, () -> onLink(wikiBook, new RichText.Click("open_url", "https://go.ftb.team/docs-quests")))), "Settings"));
             }
         }
@@ -905,7 +913,7 @@ final class QuestBookWidget extends Widget {
             }
             final int menuAtX = plusBox.x();
             final int menuAtY = plusBox.y() + 12;
-            hits.add(new Hit(plusBox, () -> addMenu(menuAtX, menuAtY), "Add a chapter or a chapter group"));
+            hits.add(new Hit(plusBox, () -> addMenu(menuAtX, menuAtY), "Add a chapter or group"));
         }
         if (!Ui.questsGui("pin", pinBox.x(), pinBox.y(), 10, 10, listPinned ? 0xFFF8BD1C : 0xFFDBDBDB)) {
             fr.drawStringWithShadow("P", pinBox.x() + 2, pinBox.y() + 1, listPinned ? 0xF8BD1C : 0xDBDBDB);
@@ -1654,7 +1662,7 @@ final class QuestBookWidget extends Widget {
             rect((int) (cx + half) - 3, (int) (cy + half) - 3, 7, 7, 0xFF66CCFF);
         }
         String l1 = "Size: " + sizeText(q.size) + " x " + sizeText(q.size);
-        String l2 = "Ctrl: disable snapping (1/16 steps)";
+        String l2 = "Ctrl: no snapping (1/16 steps)";
         String l3 = "Esc: cancel";
         int w = Math.max(fr.getStringWidth(l1), Math.max(fr.getStringWidth(l2), fr.getStringWidth(l3))) + 12;
         int bx = bounds.x() + bounds.width() - w - 34;
@@ -1889,7 +1897,7 @@ final class QuestBookWidget extends Widget {
         String l1 = imgMode.equals("resize")
                 ? "Size: " + degrees(raw.getDouble("width", 1)) + " x " + degrees(raw.getDouble("height", 1))
                 : "Rotation: " + degrees(raw.getDouble("rotation", 0)) + "\u00b0";
-        String l2 = imgMode.equals("resize") ? "Ctrl: disable snapping (1/16 steps)" : "Ctrl: disable snapping (15\u00b0 steps)";
+        String l2 = imgMode.equals("resize") ? "Ctrl: no snapping (1/16 steps)" : "Ctrl: no snapping (15\u00b0 steps)";
         int w = Math.max(fr.getStringWidth(l1), Math.max(fr.getStringWidth(l2), fr.getStringWidth("Esc: cancel"))) + 12;
         int bx = bounds.x() + bounds.width() - w - 34;
         int by = bounds.y() + 6;
@@ -2185,7 +2193,7 @@ final class QuestBookWidget extends Widget {
         fr.drawStringWithShadow(stateText, x, y, state == State.LOCKED ? 0xFF555555 : colorOf(state) | 0xFF000000);
         y += 14;
         if (!details) {
-            fr.drawStringWithShadow("Details are hidden until this quest is available.", x, y, 0x888888);
+            fr.drawStringWithShadow("Details stay hidden until this quest is available.", x, y, 0x888888);
             detailContentHeight = y + 12 - top;
             clip = null;
             return;
@@ -2298,6 +2306,10 @@ final class QuestBookWidget extends Widget {
 
         Task first = q.tasks.get((int) ((System.currentTimeMillis() / 2000) % q.tasks.size()));
         ItemStack named = QuestText.taskIcon(first);
+        net.minecraftforge.fluids.Fluid fluid = first.type().equals("fluid") ? QuestText.fluidOf(first) : null;
+        if (fluid != null && QuestArt.fluid(fluid.getStill(), x, y, size, fluid.getColor())) {
+            return;
+        }
         if (named != null && !first.type().equals("item")) {
             drawItem(named, x, y, size / 16f);
         } else if (first.type().equals("custom")) {
@@ -2337,8 +2349,16 @@ final class QuestBookWidget extends Widget {
     }
 
     private void drawTaskIcon(FontRenderer fr, Task t, boolean done, int x, int y) {
+        net.minecraftforge.fluids.Fluid fluid = t.type().equals("fluid") ? QuestText.fluidOf(t) : null;
+        net.minecraft.util.ResourceLocation fluidStill = fluid == null ? null : fluid.getStill();
         ItemStack named = t.type().equals("item") || t.type().equals("checkmark") ? null : QuestText.taskIcon(t);
-        if (named != null) {
+        if (fluidStill != null) {
+            if (!QuestArt.fluid(fluidStill, x + 1, y + 1, 16, fluid.getColor())) {
+                ImageCatalog.draw(mc(), fluidStill.getNamespace() + ":textures/" + fluidStill.getPath() + ".png", x + 1, y + 1, 16, fluid.getColor());
+            }
+            long mb = t.params().get("fluid") instanceof DataNode.Compound fc ? fc.getLong("amount", 1000) : 1000;
+            countText(fr, mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB", x + 1, y + 1);
+        } else if (named != null) {
             drawItem(named, x + 1, y + 1, 1f);
             if (t.type().equals("kill") && t.maxProgress() > 1) {
                 countText(fr, String.valueOf(t.maxProgress()), x + 1, y + 1);
@@ -2473,7 +2493,7 @@ final class QuestBookWidget extends Widget {
             sb.append("\n§9§o").append(modName);
         }
         if (recipeHint && JeiBridge.available()) {
-            sb.append("\n§eClick to view recipe(s)");
+            sb.append("\n§eClick to see the recipe(s)");
         }
         return sb.toString();
     }
@@ -2760,7 +2780,7 @@ final class QuestBookWidget extends Widget {
                     if (!progressLine.isEmpty()) {
                         tip.append('\n').append(progressLine);
                     }
-                    tip.append("\n§eClick to view valid items");
+                    tip.append("\n§eClick to see valid items");
                     final List<ItemStack> shown = new ArrayList<>();
                     for (com.levviata.reflibquests.game.ItemResolver.Resolved res : set) {
                         shown.add(res.toStack(1));
@@ -2787,7 +2807,7 @@ final class QuestBookWidget extends Widget {
                 tip.append("§f").append(points ? "XP: " : "XP Levels: ").append("§c").append(t.maxProgress());
                 tip.append("\n§2").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
                 if (!done && canWork) {
-                    tip.append("\n\n§e§nClick to submit");
+                    tip.append("\n\n§e§nClick to hand in");
                     act = () -> QuestNet.submit(t.id());
                 }
             } else if (t.type().equals("fluid")) {
@@ -2798,13 +2818,13 @@ final class QuestBookWidget extends Widget {
                 tip.append("§f").append(amount).append(" of ").append(fname);
                 tip.append("\n§2").append(got).append(" mB / ").append(amount).append(" [").append(mb == 0 ? 0 : got * 100 / mb).append("%]");
                 if (!done && canWork) {
-                    tip.append("\n\n§e§nClick to submit");
+                    tip.append("\n\n§e§nClick to hand in");
                     act = () -> QuestNet.submit(t.id());
                 }
             } else if (t.type().equals("forge_energy")) {
                 tip.append("§fForge Energy: §2").append(t.maxProgress()).append(" FE");
                 if (!done && canWork) {
-                    tip.append("\n\n§e§nClick to submit");
+                    tip.append("\n\n§e§nClick to hand in");
                     act = () -> QuestNet.submit(t.id());
                 }
             } else if (t.type().equals("dimension")) {
@@ -2820,7 +2840,7 @@ final class QuestBookWidget extends Widget {
                 tip.append("\n§7Optional Task");
             }
             if (t.type().equals("item") && t.params().getBool("task_screen_only", false)) {
-                tip.append("\n\n§e§nItems can ONLY be submitted via a Task Screen!");
+                tip.append("\n\n§e§nThe only way to hand in items is a Task Screen!");
             }
             if (t.maxProgress() > 1 && !t.type().equals("item") && !t.type().equals("fluid") && !t.type().equals("xp")) {
                 tip.append("\n§7").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
@@ -2898,7 +2918,7 @@ final class QuestBookWidget extends Widget {
         final int bodyTop = y;
         int pages = 1;
         if (!details) {
-            fr.drawStringWithShadow("Details are hidden until this quest is available.", r.x() + 6, y + 6, 0x888888);
+            fr.drawStringWithShadow("Details stay hidden until this quest is available.", r.x() + 6, y + 6, 0x888888);
             y += 20;
         } else {
             String subText = !q.subtitle.isEmpty() ? RichText.toRainbowAware(q.subtitle)
@@ -2921,7 +2941,7 @@ final class QuestBookWidget extends Widget {
                 if (!Ui.questsGui("hidden", eyeBox.x(), eyeBox.y(), 10.7, 10.7, 0xFFA0A0A0)) {
                     Ui.icon(Ui.LIBRARY, "textures/icons/visibility_show.png", eyeBox.x(), eyeBox.y(), 11, 11, 0xFFA0A0A0);
                 }
-                addHit(eyeBox, () -> { }, "Description text hidden outside edit mode: quest not completed");
+                addHit(eyeBox, () -> { }, "Hidden until the quest is completed (you only see it in edit mode)");
             }
             if (!q.description.isEmpty() && !textHidden) {
                 y += 4;
@@ -2962,7 +2982,7 @@ final class QuestBookWidget extends Widget {
         }
         if (details && !q.guidePage.isEmpty()) {
 
-            String readMore = "Click here to read more...";
+            String readMore = "Read more here...";
             int lw = 14 + fr.getStringWidth(readMore);
             int lx = mid - lw / 2;
             Rect lineBox = new Rect(lx, y + 4, lw, 12);
@@ -3179,7 +3199,7 @@ final class QuestBookWidget extends Widget {
         } else if (click.action().equals("open_url")) {
             String lower = value.toLowerCase(java.util.Locale.ROOT);
             if (!(lower.startsWith("http://") || lower.startsWith("https://"))) {
-                notice("Link refused: only http and https links can be opened");
+                notice("Link blocked: only http and https links open");
                 return;
             }
             final net.minecraft.client.gui.GuiScreen back = mc().currentScreen;
@@ -3348,11 +3368,11 @@ final class QuestBookWidget extends Widget {
             presetLabels.addAll(presetBook.settings.getCompound("presets").entries().keySet());
         }
         items.add(quickChoice(q, "Visual Preset", "preset", presetLabels, presetLabels, q.preset.isEmpty() ? "None" : q.preset));
-        items.add(quickTri(q, "Hide Quest Until Dependencies Complete", "hide_deps_complete", q.hideUntilDepsComplete));
-        items.add(quickTri(q, "Hide Quest Until Dependencies Visible", "hide_deps_visible", q.hideUntilDepsVisible));
+        items.add(quickTri(q, "Hide Until Dependencies Are Done", "hide_deps_complete", q.hideUntilDepsComplete));
+        items.add(quickTri(q, "Hide Until Dependencies Show Up", "hide_deps_visible", q.hideUntilDepsVisible));
         items.add(quickSwitch(q, "Invisible Until Completed", "invisible", q.invisible));
-        items.add(quickTri(q, "Hide Details Until Startable", "hide_details", q.hideDetailsUntilStartable));
-        items.add(quickTri(q, "Hide Text Until Quest is Completed", "hide_text_until_complete", q.hideTextUntilComplete));
+        items.add(quickTri(q, "Hide Details Until You Can Start", "hide_details", q.hideDetailsUntilStartable));
+        items.add(quickTri(q, "Hide Text Until Done", "hide_text_until_complete", q.hideTextUntilComplete));
         items.add(quickSwitch(q, "Hide Lock Icon", "hide_lock_icon", q.hideLockIcon));
         items.add(quickChoice(q, "Dependency Requirement", "dependency_requirement",
                 List.of("All Completed", "One Completed", "All Started", "One Started"),
@@ -3392,9 +3412,9 @@ final class QuestBookWidget extends Widget {
             }
         }));
         if (t.type().equals("item")) {
-            items.add(new MenuItem("Grab Copy of Item", "", "lib:add_gray", false, () -> grabCopy(q, t)));
+            items.add(new MenuItem("Take a Copy of the Item", "", "lib:add_gray", false, () -> grabCopy(q, t)));
         }
-        items.add(new MenuItem("Use Task Icon as Quest Icon", "", "settings", false,
+        items.add(new MenuItem("Make Task Icon the Quest Icon", "", "settings", false,
                 () -> send("set_icon", args("kind", "quest", "id", q.id, "mode", "task", "task", t.id()))));
         items.add(new MenuItem("Edit", "", "settings", false, () -> mc().displayGuiScreen(new TaskRewardScreen(mc().currentScreen, t, null))));
         items.add(new MenuItem("Quick Edit Properties...", "", "settings", false, () -> quickTask(q, t)));
@@ -3487,12 +3507,12 @@ final class QuestBookWidget extends Widget {
                 () -> send("set_task_prop", args("id", t.id(), "key", "optional_task", "value", String.valueOf(!optional)))));
         if (t.type().equals("item")) {
             items.add(quickList("Consume Items", "set_task_prop", t.id(), "consume_items", TRI_LABELS, TRI_VALUES, triOf(t, "consume_items")));
-            items.add(quickList("Only Detect From Crafting", "set_task_prop", t.id(), "only_from_crafting", TRI_LABELS, TRI_VALUES, triOf(t, "only_from_crafting")));
+            items.add(quickList("Only Count Crafted Items", "set_task_prop", t.id(), "only_from_crafting", TRI_LABELS, TRI_VALUES, triOf(t, "only_from_crafting")));
             String match = t.params().getString("match_components", "default");
             items.add(quickList("Match Data Components", "set_task_prop", t.id(), "match_components",
                     List.of("Default", "Fuzzy", "Exact"), List.of("default", "fuzzy", "exact"), match));
             boolean taskScreen = t.params().getBool("task_screen_only", false);
-            items.add(new MenuItem("Only From Task Screen", "", taskScreen ? "lib:check" : "lib:check@dim", false,
+            items.add(new MenuItem("Task Screen Only", "", taskScreen ? "lib:check" : "lib:check@dim", false,
                     () -> send("set_task_prop", args("id", t.id(), "key", "task_screen_only", "value", String.valueOf(!taskScreen)))));
         }
         menu = items;
@@ -3519,9 +3539,9 @@ final class QuestBookWidget extends Widget {
         List<String> labels = List.of("Default", "Disabled", "Enabled", "Enabled, No Toast", "Enabled, Invisible");
         List<String> values = List.of("default", "disabled", "enabled", "no_toast", "invisible");
         items.add(quickList("Auto-claim", "set_reward_prop", rw.id(), "auto", labels, values, rw.params().getString("auto", "default")));
-        items.add(rewardSwitch(rw, "Exclude from Claim All", "exclude_from_claim_all", false));
+        items.add(rewardSwitch(rw, "Skip on Claim All", "exclude_from_claim_all", false));
         items.add(rewardSwitch(rw, "Ignore reward blocking", "ignore_reward_blocking", false));
-        items.add(rewardSwitch(rw, "Disable Reward Screen Blur", "disable_reward_screen_blur", false));
+        items.add(rewardSwitch(rw, "No Blur on Reward Screen", "disable_reward_screen_blur", false));
         items.add(rewardSwitch(rw, "Only One", "only_one", false));
         menu = items;
         menuX = lastMouseX;
@@ -3530,13 +3550,20 @@ final class QuestBookWidget extends Widget {
 
     private static final Map<String, Object[]> CHAPTER_ICON_CACHE = new HashMap<>();
 
-    private static ItemStack chapterIconFromQuests(Chapter c) {
+    private static Object chapterIconFromQuests(Chapter c) {
         long now = System.currentTimeMillis();
         Object[] cached = CHAPTER_ICON_CACHE.get(c.id);
         if (cached == null || now - (Long) cached[0] > 2000 || (Integer) cached[1] != c.quests.size()) {
-            List<ItemStack> icons = new ArrayList<>();
+            List<Object> icons = new ArrayList<>();
             java.util.Set<String> seen = new java.util.HashSet<>();
             for (Quest q : c.quests) {
+                net.minecraftforge.fluids.Fluid fluid = QuestText.iconFluid(q);
+                if (fluid != null) {
+                    if (seen.add("fluid/" + fluid.getName()) && icons.size() < 40) {
+                        icons.add(fluid);
+                    }
+                    continue;
+                }
                 ItemStack s = QuestText.iconOf(q);
                 if (s != null && !s.isEmpty() && seen.add(s.getItem().getRegistryName() + "/" + s.getMetadata()) && icons.size() < 40) {
                     icons.add(s);
@@ -3546,7 +3573,7 @@ final class QuestBookWidget extends Widget {
             CHAPTER_ICON_CACHE.put(c.id, cached);
         }
         @SuppressWarnings("unchecked")
-        List<ItemStack> icons = (List<ItemStack>) cached[2];
+        List<Object> icons = (List<Object>) cached[2];
         return icons.isEmpty() ? null : icons.get((int) ((now / 1200) % icons.size()));
     }
 
@@ -3612,15 +3639,15 @@ final class QuestBookWidget extends Widget {
         items.add(chapterList(c, "Default Quest Shape", "shape", SHAPE_LABELS_Q, SHAPE_VALUES_Q,
                 c.defaultQuestShape.equals("default") ? "" : c.defaultQuestShape));
         items.add(chapterSwitch(c, "Always Invisible", "always_invisible", c.alwaysInvisible));
-        items.add(chapterSwitch(c, "Default 'Hide Dependency Lines'", "hide_dep_lines", c.defaultHideDependencyLines));
-        items.add(chapterSwitch(c, "Hide Quest Details Until Startable", "hide_details", c.hideQuestDetailsUntilStartable));
-        items.add(chapterSwitch(c, "Hide Quests Until Dependencies Visible", "hide_deps_visible", c.hideQuestUntilDepsVisible));
-        items.add(chapterSwitch(c, "Hide Quests Until Dependencies Complete", "hide_deps_complete", c.hideQuestUntilDepsComplete));
-        items.add(chapterSwitch(c, "Hide Text Until Quest is Completed", "hide_text", c.hideTextUntilComplete));
+        items.add(chapterSwitch(c, "Hide Dependency Lines by Default", "hide_dep_lines", c.defaultHideDependencyLines));
+        items.add(chapterSwitch(c, "Hide Details Until You Can Start", "hide_details", c.hideQuestDetailsUntilStartable));
+        items.add(chapterSwitch(c, "Hide Until Dependencies Show Up", "hide_deps_visible", c.hideQuestUntilDepsVisible));
+        items.add(chapterSwitch(c, "Hide Until Dependencies Are Done", "hide_deps_complete", c.hideQuestUntilDepsComplete));
+        items.add(chapterSwitch(c, "Hide Text Until Done", "hide_text", c.hideTextUntilComplete));
         items.add(chapterList(c, "Default 'Progression Mode'", "progression_mode", List.of("Default", "Linear", "Flexible"),
                 List.of("DEFAULT", "LINEAR", "FLEXIBLE"), c.progressionMode.name()));
         items.add(chapterSwitch(c, "Default 'Repeatable Quest'", "repeatable", c.defaultRepeatable));
-        items.add(chapterList(c, "Default Item Task 'Consume Items'", "consume_items", TRI_LABELS, TRI_VALUES,
+        items.add(chapterList(c, "Item Tasks Consume Items by Default", "consume_items", TRI_LABELS, TRI_VALUES,
                 c.defaultConsumeItems.name().toLowerCase(java.util.Locale.ROOT)));
         items.add(chapterSwitch(c, "Sequential Task Completion", "sequential", c.requireSequentialTasks));
         menu = items;
@@ -3676,7 +3703,7 @@ final class QuestBookWidget extends Widget {
         if (focusChapter != null) {
             boolean focused = target.id.equals(focusChapter.autofocusId);
             final String fcId = focusChapter.id;
-            items.add(new MenuItem(focused ? "Clear Autofocused Quest" : "Set as Autofocused Quest", "", "lib:marker", false,
+            items.add(new MenuItem(focused ? "Clear Autofocused Quest" : "Make This the Autofocus Quest", "", "lib:marker", false,
                     () -> send("set_chapter_prop", args("id", fcId, "key", "autofocus", "value", focused ? "" : target.id))));
         }
         QuestBook bezBook = ClientQuests.book();
@@ -3749,14 +3776,14 @@ final class QuestBookWidget extends Widget {
             typeItem("Visit Dimension", "item:ender_eye", () -> add.accept(args("type", "dimension", "params", args("dimension", "minecraft:the_nether")))),
             typeItem("Stat", "item:iron_sword", () -> add.accept(args("type", "stat", "params", args("stat", "minecraft:mob_kills", "value", 1)))),
             typeItem("Kill Entity", "item:diamond_sword", () -> add.accept(args("type", "kill", "params", args("entity", "minecraft:zombie", "value", 100)))),
-            typeItem("Location", "item:stone_pressure_plate", () -> add.accept(args("type", "location"))),
+            typeItem("Location", "item:compass", () -> add.accept(args("type", "location"))),
             typeItem("Checkmark", "check_gray", () -> add.accept(args("type", "checkmark"))),
             typeItem("Advancement", "item:wheat", () -> add.accept(args("type", "advancement", "params", args("advancement", "minecraft:story/root")))),
             typeItem("Observation", "item:painting", () -> add.accept(args("type", "observation", "params", args("observation_type", "block", "to_observe", "minecraft:stone", "timer", 0)))),
             typeItem("Visit Biome", "item:sapling", () -> add.accept(args("type", "biome", "params", args("biome", "minecraft:plains")))),
             typeItem("Find Structure", "item:paper", () -> add.accept(args("type", "structure", "params", args("structure", "minecraft:village")))),
             typeItem("Stage", "lib:controller", () -> add.accept(args("type", "gamestage"))),
-            typeItem("Fluid", "item:bucket", () -> mc().displayGuiScreen(SelectorScreen.fluids(mc().currentScreen, true,
+            typeItem("Fluid", "task:tank", () -> mc().displayGuiScreen(SelectorScreen.fluids(mc().currentScreen, true,
                     (name, amount, nbt) -> add.accept(args("type", "fluid", "params", args("fluid", fluidSpec(name, amount, nbt))))))),
             typeItem("Interaction", "item:diamond_pickaxe", () -> add.accept(args("type", "interaction"))),
             typeItem("Forge Energy", "item:redstone_block", () -> askNumber("Forge Energy", 1,
@@ -3856,6 +3883,13 @@ final class QuestBookWidget extends Widget {
                     net.minecraft.item.Item menuItem = net.minecraft.item.Item.getByNameOrId(iconName.substring(5));
                     if (menuItem != null) {
                         drawItem(new ItemStack(menuItem), tx, y + 1, 0.75f);
+                    }
+                } else if (iconName.startsWith("task:")) {
+                    if (iconName.equals("task:tank")) {
+                        QuestArt.fluid(net.minecraftforge.fluids.FluidRegistry.WATER.getStill(), tx + 1, y + 3, 10, iconColor);
+                    }
+                    if (!Ui.icon(Ui.QUESTS, "textures/tasks/" + iconName.substring(5) + ".png", tx, y + 2, 12, 12, iconColor)) {
+                        drawItem(new ItemStack(net.minecraft.init.Items.BUCKET), tx, y + 1, 0.75f);
                     }
                 } else if (iconName.startsWith("gui:")) {
                     Ui.icon(Ui.LIBRARY, "textures/gui/" + iconName.substring(4) + ".png", tx, y + 2, 12, 12, iconColor);

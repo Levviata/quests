@@ -69,48 +69,48 @@ final class BookSettingsScreen extends SettingsScreen {
         initial.putAll(values);
 
         section("Quest Book");
-        text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("The name of the quest book. Formatting codes such as &6 work.");
+        text("Title", () -> values.get("title"), v -> values.put("title", v)).tip("Name of the book. Color codes like &6 work.");
         IconPicker.decorate(choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> values.get("icon"), v -> values.put("icon", v))
-                .tip("The icon of the quest book.").defaults("None"), book.settings.getCompound("icon"));
-        text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Words that mark the book, separated by commas.");
-        unusedBool("Disable GUI", "disable_gui", "The quest book cannot be opened by players who cannot edit it.");
-        unusedBool("Drop FTB Quests Book on Death", "drop_book_on_death", "Stored in the book; Reflib Quests does not use it yet.");
+                .tip("Icon of the book.").defaults("None"), book.settings.getCompound("icon"));
+        text("Tags", () -> values.get("tags"), v -> values.put("tags", v)).tip("Tags for the book, separated by commas.");
+        unusedBool("Disable GUI", "disable_gui", "Only players who can edit can open the book.");
+        unusedBool("Drop Book on Death", "drop_book_on_death", "Saved in the book, but Reflib Quests ignores it for now.");
         number("Emergency Items Cooldown", true, () -> values.get("emergency_items_cooldown"),
                 v -> values.put("emergency_items_cooldown", String.valueOf(Math.max(0L, Long.parseLong(v)))))
-                .tip("Cooldown timer for emergency items to respawn.Stored in the book; Reflib Quests does not use it yet.");
-        unusedBool("Entities Drop Loot Crates", "drop_loot_crates", "Stored in the book; Reflib Quests does not use it yet.");
+                .tip("Time before emergency items come back. Saved in the book, but Reflib Quests ignores it for now.");
+        unusedBool("Mobs Drop Loot Crates", "drop_loot_crates", "Saved in the book, but Reflib Quests ignores it for now.");
         text("Fallback Locale", () -> values.get("fallback_locale"), v -> values.put("fallback_locale", v))
-                .tip("The locale used for translations not found in the current locale\n"
-                        + "This can be overridden on the client via Player Preferences\nDefaults to 'en_us' if empty");
+                .tip("Locale to use when a translation is missing\n"
+                        + "Players can change it in Preferences\nEmpty means 'en_us'");
         number("Grid Scale", false, () -> values.get("grid_scale"),
                 v -> values.put("grid_scale", String.valueOf(Math.max(0.0625, Math.min(16.0, Double.parseDouble(v))))))
-                .tip("Stored in the book; Reflib Quests does not use it yet.");
-        unusedBool("Hide Quests in excluded questlines", "hide_excluded_quests",
-                "If false, excluded quests will remain visible but grayed out\nStored in the book; Reflib Quests does not use it yet.");
-        number("Item Auto-Detection Minimum Interval", true, () -> values.get("detection_delay"),
+                .tip("Saved in the book, but Reflib Quests ignores it for now.");
+        unusedBool("Hide Excluded Quests", "hide_excluded_quests",
+                "Off: excluded quests stay visible but grayed out\nSaved in the book, but Reflib Quests ignores it for now.");
+        number("Item Check Delay", true, () -> values.get("detection_delay"),
                 v -> values.put("detection_delay", String.valueOf(Math.max(1, Long.parseLong(v)))))
-                .tip("Minimum interval (in ticks) between checks of a player's inventory when it changes\n"
-                        + "Higher values are kinder on server TPS, especially if players inventories change frequently,\n"
-                        + "but mean longer delays for quest auto-completion messages.");
-        text("Lock Message", () -> values.get("lock_message"), v -> values.put("lock_message", v)).tip("Stored in the book; Reflib Quests does not use it yet.");
+                .tip("Minimum ticks between inventory checks after it changes\n"
+                        + "Higher is easier on server TPS if inventories change a lot,\n"
+                        + "but quests will complete a bit later.");
+        text("Lock Message", () -> values.get("lock_message"), v -> values.put("lock_message", v)).tip("Saved in the book, but Reflib Quests ignores it for now.");
         choice("Progression Mode", MODES, () -> values.get("progression_mode"), v -> values.put("progression_mode", v))
-                .tip("Linear: quest must be complete before dependant quests are started\n"
-                        + "Flexible: tasks in dependant quests can be progressed at any time,\n"
-                        + "  but dependant quests can't be completed until dependency is completed");
-        bool("Quest Screen Pauses SSP Game", () -> Boolean.parseBoolean(values.get("pause_game")),
-                v -> values.put("pause_game", String.valueOf(v))).tip("Does not apply to multiplayer games");
-        bool("Show Icon for Locked Quests", () -> Boolean.parseBoolean(values.get("show_lock_icons")),
+                .tip("Linear: finish a quest before the ones that need it can start\n"
+                        + "Flexible: dependants can progress early,\n"
+                        + "  but can't complete until their dependencies do");
+        bool("Pause Singleplayer on Quest Screen", () -> Boolean.parseBoolean(values.get("pause_game")),
+                v -> values.put("pause_game", String.valueOf(v))).tip("Multiplayer ignores this.");
+        bool("Show Lock on Locked Quests", () -> Boolean.parseBoolean(values.get("show_lock_icons")),
                 v -> values.put("show_lock_icons", String.valueOf(v)))
-                .tip("Quests that wait for their dependencies show a small lock.");
-        bool("Suppress all Reward Autoclaiming", () -> Boolean.parseBoolean(values.get("suppress_all_autoclaiming")),
+                .tip("Quests waiting on their dependencies get a little lock.");
+        bool("Stop All Auto-Claiming", () -> Boolean.parseBoolean(values.get("suppress_all_autoclaiming")),
                 v -> values.put("suppress_all_autoclaiming", String.valueOf(v)))
-                .tip("If true, no rewards can be autoclaimed, including via the \"Claim All\" button on the reward selector screen\n"
-                        + "May be useful during pack development to ensure testers read quests...");
+                .tip("Nothing gets claimed automatically, and \"Claim All\" on the reward screen is blocked too\n"
+                        + "Handy while building a pack so testers actually read the quests");
         bool("Disable Completion Toast", () -> Boolean.parseBoolean(values.get("disable_toast")),
-                v -> values.put("disable_toast", String.valueOf(v))).tip("No pop-up when any quest of the book is completed.");
+                v -> values.put("disable_toast", String.valueOf(v))).tip("No pop-up when any quest is completed.");
 
         section("Quest Book \u2192 Defaults");
-        bool("Quest 'Disable JEI Recipe'", () -> Boolean.parseBoolean(values.get("default_quest_disable_jei")),
+        bool("Default: Disable JEI Recipe", () -> Boolean.parseBoolean(values.get("default_quest_disable_jei")),
                 v -> values.put("default_quest_disable_jei", String.valueOf(v)));
         choice("Quest Shape", SHAPE_LABELS, () -> values.get("default_quest_shape"), v -> values.put("default_quest_shape", v));
         choice("Reward 'Auto-claim'", AUTO_LABELS, () -> values.get("default_autoclaim_rewards"), v -> values.put("default_autoclaim_rewards", v));
@@ -122,14 +122,14 @@ final class BookSettingsScreen extends SettingsScreen {
         section("Quest Book \u2192 Defaults \u2192 Per-Team Reward by Type");
         for (String[] t : TEAM_TYPES) {
             choice(t[1], TEAM_LABELS, () -> values.get("reward_team_" + t[0]), v -> values.put("reward_team_" + t[0], v))
-                    .tip("When true, this is one reward for the whole team; only the submitting player receives it. Default follows 'Reward Team Reward'.")
+                    .tip("One shared reward for the whole team, and only the player who claims it gets it. Default follows 'Reward Team Reward'.")
                     .defaults("Default");
         }
 
         section("Quest Book \u2192 Entity Loot Crate Drop Empty Weight");
-        number("Boss", true, () -> values.get("loot_boss"), v -> values.put("loot_boss", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Stored in the book; Reflib Quests does not use it yet.");
-        number("Monster", true, () -> values.get("loot_monster"), v -> values.put("loot_monster", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Stored in the book; Reflib Quests does not use it yet.");
-        number("Passive", true, () -> values.get("loot_passive"), v -> values.put("loot_passive", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Stored in the book; Reflib Quests does not use it yet.");
+        number("Boss", true, () -> values.get("loot_boss"), v -> values.put("loot_boss", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Saved in the book, but Reflib Quests ignores it for now.");
+        number("Monster", true, () -> values.get("loot_monster"), v -> values.put("loot_monster", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Saved in the book, but Reflib Quests ignores it for now.");
+        number("Passive", true, () -> values.get("loot_passive"), v -> values.put("loot_passive", String.valueOf(Math.max(0L, Long.parseLong(v))))).tip("Saved in the book, but Reflib Quests ignores it for now.");
     }
 
     private static final String[][] TEAM_TYPES = {

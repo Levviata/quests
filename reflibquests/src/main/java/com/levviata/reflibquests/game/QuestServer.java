@@ -217,12 +217,12 @@ public final class QuestServer {
         try {
             args = com.levviata.reflib.api.data.Snbt.parse(argsText);
         } catch (RuntimeException ex) {
-            player.sendMessage(new TextComponentString("[Quests] Edit refused: unreadable request."));
+            player.sendMessage(new TextComponentString("[Quests] Couldn't read that edit."));
             return;
         }
         if (op.equals("save_now")) {
             exportBook();
-            player.sendMessage(new TextComponentString("[Quests] Quest files saved on the server."));
+            player.sendMessage(new TextComponentString("[Quests] Saved the quest files on the server."));
             return;
         }
         if ((op.equals("reset_progress") || op.equals("complete_quest")) && args.getBool("all", false)) {
@@ -238,7 +238,7 @@ public final class QuestServer {
         if ((op.equals("reset_progress") || op.equals("complete_quest")) && !args.getString("chapter", "").isEmpty()) {
             com.levviata.reflibquests.model.Definitions.Chapter ch = book.chapter(args.getString("chapter", ""));
             if (ch == null) {
-                player.sendMessage(new TextComponentString("[Quests] That chapter no longer exists."));
+                player.sendMessage(new TextComponentString("[Quests] That chapter doesn't exist anymore."));
                 return;
             }
             TeamProgress team = progressOf(player);
@@ -252,7 +252,7 @@ public final class QuestServer {
         if (op.equals("reset_progress") || op.equals("complete_quest")) {
             String questId = args.getString("id", "");
             if (book.quest(questId) == null) {
-                player.sendMessage(new TextComponentString("[Quests] That quest no longer exists."));
+                player.sendMessage(new TextComponentString("[Quests] That quest doesn't exist anymore."));
                 return;
             }
             TeamProgress team = progressOf(player);
@@ -264,7 +264,7 @@ public final class QuestServer {
         if (op.equals("complete_task") || op.equals("reset_task")) {
             String taskId = args.getString("id", "");
             if (book.task(taskId) == null) {
-                player.sendMessage(new TextComponentString("[Quests] That task no longer exists."));
+                player.sendMessage(new TextComponentString("[Quests] That task doesn't exist anymore."));
                 return;
             }
             TeamProgress team = progressOf(player);
@@ -553,10 +553,10 @@ public final class QuestServer {
                 player.sendMessage(new TextComponentString("[Quests] Pick one of the options."));
                 break;
             case UNSUPPORTED:
-                player.sendMessage(new TextComponentString("[Quests] This reward type is not supported yet; it stays unclaimed."));
+                player.sendMessage(new TextComponentString("[Quests] This reward type isn't supported yet, so it stays unclaimed."));
                 break;
             case FAILED:
-                player.sendMessage(new TextComponentString("[Quests] You cannot claim that reward now."));
+                player.sendMessage(new TextComponentString("[Quests] You can't claim that reward right now."));
                 break;
             default:
                 break;

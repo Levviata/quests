@@ -97,7 +97,7 @@ final class ValidItemsScreen extends GuiScreen {
         Rect win = window();
         QuestArt.tile(QuestArt.DIRT, win.x(), win.y(), win.width(), win.height(), 32, 0xFF505560);
         Ui.outline(win, 0xFF0E0F12);
-        String head = picker != null ? "Copy which item? " + title : "Valid items for " + title;
+        String head = picker != null ? "Copy which item? " + title : "Items that work for " + title;
         int headWidth = Math.min(Ui.width(fontRenderer, head), win.width() - 10);
         Ui.drawText(fontRenderer, head, win.x() + win.width() / 2 - headWidth / 2, win.y() + 7, 0xFFFFFFFF, win.width() - 10);
         Rect grid = grid(win);
@@ -148,7 +148,7 @@ final class ValidItemsScreen extends GuiScreen {
         if (!hovered.isEmpty()) {
             renderToolTip(hovered, mouseX, mouseY);
         } else if (picker == null && !canSubmit && submit.contains(mouseX, mouseY)) {
-            drawHoveringText("Items will be auto-detected", mouseX, mouseY);
+            drawHoveringText("Items are detected automatically", mouseX, mouseY);
         }
     }
 

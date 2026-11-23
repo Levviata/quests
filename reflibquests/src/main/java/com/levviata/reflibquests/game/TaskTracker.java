@@ -199,7 +199,7 @@ public final class TaskTracker {
             return "Already done.";
         }
         if (!QuestRules.canProgress(quests.book(), team, q) || !QuestRules.dependenciesMet(quests.book(), team, q)) {
-            return "That quest is not available yet.";
+            return "That quest isn't available yet.";
         }
         String fluid = fluidNameOf(t.params());
         net.minecraft.nbt.NBTTagCompound wantedNbt = fluidNbt(t.params());
@@ -240,7 +240,7 @@ public final class TaskTracker {
             }
         }
         if (taken == 0) {
-            return "You do not carry a container with that fluid.";
+            return "You aren't carrying a container with that fluid.";
         }
         quests.addTaskProgress(player, t, taken);
         player.inventoryContainer.detectAndSendChanges();
@@ -369,7 +369,7 @@ public final class TaskTracker {
             return "Already done.";
         }
         if (!QuestRules.canProgress(quests.book(), team, q) || !QuestRules.dependenciesMet(quests.book(), team, q)) {
-            return "That quest is not available yet.";
+            return "That quest isn't available yet.";
         }
         long need = t.maxProgress() - team.taskProgress(t.id());
         long taken = 0;
@@ -384,7 +384,7 @@ public final class TaskTracker {
             }
         }
         if (taken == 0) {
-            return "You do not carry an item with stored energy.";
+            return "You aren't carrying an item with stored energy.";
         }
         quests.addTaskProgress(player, t, taken);
         player.inventoryContainer.detectAndSendChanges();
@@ -461,10 +461,10 @@ public final class TaskTracker {
             return "Already done.";
         }
         if (!QuestRules.canProgress(quests.book(), team, q) || !QuestRules.dependenciesMet(quests.book(), team, q)) {
-            return "That quest is not available yet.";
+            return "That quest isn't available yet.";
         }
         quests.setTaskProgress(player, t, 1);
-        return QuestRules.taskDone(quests.progressOf(player), t) ? "Checked." : "You cannot do that task yet.";
+        return QuestRules.taskDone(quests.progressOf(player), t) ? "Checked." : "You can't do that task yet.";
     }
 
     private String submitExperience(EntityPlayerMP player, Task t) {
@@ -474,14 +474,14 @@ public final class TaskTracker {
             return "Already done.";
         }
         if (!QuestRules.canProgress(quests.book(), team, q) || !QuestRules.dependenciesMet(quests.book(), team, q)) {
-            return "That quest is not available yet.";
+            return "That quest isn't available yet.";
         }
         boolean points = t.params().getBool("points", false);
         long need = t.maxProgress() - team.taskProgress(t.id());
         long have = points ? player.experienceTotal : player.experienceLevel;
         long take = Math.min(need, have);
         if (take <= 0) {
-            return "You do not have enough experience.";
+            return "You don't have enough experience.";
         }
         if (points) {
             player.addExperience((int) -take);
@@ -508,7 +508,7 @@ public final class TaskTracker {
         }
         List<ItemResolver.Resolved> set = ItemSet.resolveAll(t.params().get("item"), quests.idMap());
         if (set.isEmpty()) {
-            return "This task's item is not known in 1.12.2.";
+            return "This task's item doesn't exist in 1.12.2.";
         }
         TeamProgress team = quests.progressOf(player);
         Quest q = quests.book().questOfTask(taskId);
@@ -516,7 +516,7 @@ public final class TaskTracker {
             return "Already done.";
         }
         if (!QuestRules.canProgress(quests.book(), team, q) || !QuestRules.dependenciesMet(quests.book(), team, q)) {
-            return "That quest is not available yet.";
+            return "That quest isn't available yet.";
         }
         long need = t.maxProgress() - team.taskProgress(taskId);
         long taken = 0;
@@ -529,7 +529,7 @@ public final class TaskTracker {
             }
         }
         if (taken == 0) {
-            return "You do not have the required items.";
+            return "You don't have the items.";
         }
         quests.addTaskProgress(player, t, taken);
         return "Handed in " + taken + " item(s).";

@@ -179,16 +179,16 @@ final class TaskRewardScreen extends SettingsScreen {
         initialConsume = consume;
         initialAuto = auto;
 
-        text("Title", () -> title, v -> title = v).tip("A name shown instead of the one made from what it is. Empty keeps the automatic name.");
+        text("Title", () -> title, v -> title = v).tip("Custom name instead of the automatic one. Empty keeps automatic.");
 
         boolean hasIcon = !p.getCompound("icon").entries().isEmpty();
         iconChoice = ChapterPropertiesScreen.ICON_KEEP;
         IconPicker.decorate(choice("Icon", ChapterPropertiesScreen.ICON_CHOICES, () -> iconChoice, v -> iconChoice = v)
-                .tip("The icon. None goes back to the automatic icon.").defaults("None"), p.getCompound("icon"));
-        text("Tags", () -> tags, v -> tags = v).tip("Words that mark it, separated by commas.");
+                .tip("Icon. None keeps the automatic one.").defaults("None"), p.getCompound("icon"));
+        text("Tags", () -> tags, v -> tags = v).tip("Tags, separated by commas.");
         if (!amount.isEmpty()) {
             number(task != null && (task.type().equals("item") || task.type().equals("kill")) ? "Count" : task != null && task.type().equals("stat") ? "Value" : "Amount", true, () -> amount,
-                    v -> amount = String.valueOf(Math.max(1L, Long.parseLong(v)))).tip("How many are needed, or how many are given.");
+                    v -> amount = String.valueOf(Math.max(1L, Long.parseLong(v)))).tip("How many are needed (or given).");
         }
         String tk = task == null ? null : com.levviata.reflibquests.model.BookEditor.targetKey(task.type());
         if (task != null && task.type().equals("kill")) {
@@ -197,7 +197,7 @@ final class TaskRewardScreen extends SettingsScreen {
             extra.put("entityTypeTag", p.getString("entityTypeTag", ""));
             extra.put("nbt_filter", p.getString("nbt_filter", ""));
             initialExtra.putAll(extra);
-            text("Entity Name", () -> extra.get("custom_name"), v -> extra.put("custom_name", v)).tip("Only mobs with this custom name count. Empty counts any.");
+            text("Entity Name", () -> extra.get("custom_name"), v -> extra.put("custom_name", v)).tip("Only mobs with this name count. Empty counts any.");
         }
         if (tk != null) {
             target = p.getString(tk, "");
@@ -210,8 +210,8 @@ final class TaskRewardScreen extends SettingsScreen {
             Entry targetRow = dimensionTask ? choice("Dimension", dimensions, () -> target, v -> target = v)
                     : text(task.type().equals("kill") ? "Entity Type" : task.type().equals("biome") ? "Biome"
                     : task.type().equals("structure") ? "Structure" : "Advancement", () -> target, v -> target = v);
-            targetRow.tip(dimensionTask ? "The dimension that has to be visited. Click to go through every dimension this game has registered."
-                    : "A registry name such as minecraft:plains.");
+            targetRow.tip(dimensionTask ? "Dimension to visit. Click to cycle through every registered dimension."
+                    : "Registry name, like minecraft:plains.");
             if (task.type().equals("kill")) {
 
                 targetRow.pick = done -> {
@@ -230,15 +230,15 @@ final class TaskRewardScreen extends SettingsScreen {
         }
         if (task != null && task.type().equals("kill")) {
             text("Entity Type Tag", () -> extra.get("entityTypeTag"), v -> extra.put("entityTypeTag", v))
-                    .tip("An entity type tag such as minecraft:boats. This game version has no entity type tags, so a tag alone matches nothing.");
-            text("NBT Filter", () -> extra.get("nbt_filter"), v -> extra.put("nbt_filter", v)).tip("Only mobs whose data contains this (for example {Age:5}) count.");
+                    .tip("Entity type tag like minecraft:boats. 1.12.2 has no entity tags, so a tag alone matches nothing.");
+            text("NBT Filter", () -> extra.get("nbt_filter"), v -> extra.put("nbt_filter", v)).tip("Only mobs with this data count (like {Age:5}).");
         }
         if (task != null && task.type().equals("item") && p.get("item") instanceof DataNode.Compound itemSpec) {
 
             String nbtText = itemSpec.getCompound("nbt").entries().isEmpty() ? "" : "|" + com.levviata.reflib.api.data.Snbt.printCompact(itemSpec.getCompound("nbt"));
             extra.put("item", itemSpec.getString("id", "") + (itemSpec.getInt("damage", 0) > 0 || !nbtText.isEmpty() ? "|" + itemSpec.getInt("damage", 0) : "") + nbtText);
             initialExtra.put("item", extra.get("item"));
-            Entry itemRow = text("Item", () -> extra.get("item"), v -> extra.put("item", v)).tip("The item that has to be handed in or collected.");
+            Entry itemRow = text("Item", () -> extra.get("item"), v -> extra.put("item", v)).tip("Item to hand in or collect.");
             itemRow.plain = true;
             itemRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
                     SelectorScreen.items(net.minecraft.client.Minecraft.getMinecraft().currentScreen, stack ->
@@ -265,7 +265,7 @@ final class TaskRewardScreen extends SettingsScreen {
             initialExtra.put("fluid_amount", extra.get("fluid_amount"));
 
             Entry fluidRow = choice("Fluid", names, () -> extra.get("fluid"), v -> extra.put("fluid", v))
-                    .tip("The fluid that has to be handed in, and how many millibuckets (a bucket holds 1000).");
+                    .tip("Fluid to hand in, and how many mB (a bucket is 1000).");
             fluidRow.plain = true;
             fluidRow.formatted(v -> SelectorScreen.fluidLabel(v, parseLong(extra.get("fluid_amount"), 1000)));
             fluidRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
@@ -277,7 +277,7 @@ final class TaskRewardScreen extends SettingsScreen {
 
             String fluidMatch = p.getString("match_components", "default");
             flag("Match Data Components", "match_components", List.of("Default", "Fuzzy", "Exact"),
-                    Character.toUpperCase(fluidMatch.charAt(0)) + fluidMatch.substring(1), "Default and Fuzzy need the fluid to contain the task's data; Exact needs it to match.");
+                    Character.toUpperCase(fluidMatch.charAt(0)) + fluidMatch.substring(1), "Default and Fuzzy: the fluid must contain the task's data. Exact: it must match.");
         }
         if (task != null && task.type().equals("stat")) {
 
@@ -295,41 +295,41 @@ final class TaskRewardScreen extends SettingsScreen {
             extra.put("stage", p.getString("stage", ""));
             extra.put("team_stage", p.getBool("team_stage", false) ? "True" : "False");
             initialExtra.putAll(extra);
-            text("Stage", () -> extra.get("stage"), v -> extra.put("stage", v)).tip("The stage the player has to have. Here it is a player tag (/scoreboard players tag <player> add <stage>).");
+            text("Stage", () -> extra.get("stage"), v -> extra.put("stage", v)).tip("Stage the player needs. Here it's a player tag (/scoreboard players tag <player> add <stage>).");
             choice("Team Stage", List.of("False", "True"), () -> extra.get("team_stage"), v -> extra.put("team_stage", v))
-                    .tip("Kept for files from newer versions; this game checks the player's own tags.");
+                    .tip("Only kept for newer files. 1.12.2 checks the player's own tags.");
         }
         if (task != null && task.type().equals("interaction")) {
 
             extra.put("to_interact", p.getString("to_interact", "minecraft:air"));
             extra.put("interaction_type", p.getString("interaction_type", "block"));
             initialExtra.putAll(extra);
-            text("Match", () -> extra.get("to_interact"), v -> extra.put("to_interact", v)).tip("A registry name such as minecraft:chest.");
+            text("Match", () -> extra.get("to_interact"), v -> extra.put("to_interact", v)).tip("Registry name, like minecraft:chest.");
             choice("Type", com.levviata.reflibquests.model.BookEditor.INTERACTION_TYPES, () -> extra.get("interaction_type"), v -> extra.put("interaction_type", v))
-                    .tip("What is right-clicked. Tags and block states are not known in this game: a tag matches nothing, a state is read as its block.");
+                    .tip("What gets right-clicked. 1.12.2 has no tags or block states: a tag matches nothing, a state counts as its block.");
         }
         if (task != null && task.type().equals("advancement")) {
             extra.put("criterion", p.getString("criterion", ""));
             initialExtra.put("criterion", extra.get("criterion"));
-            text("Criterion", () -> extra.get("criterion"), v -> extra.put("criterion", v)).tip("A single criterion of the advancement. Empty needs the whole advancement.");
+            text("Criterion", () -> extra.get("criterion"), v -> extra.put("criterion", v)).tip("One criterion of the advancement. Empty needs the whole advancement.");
         }
         if (task != null && task.type().equals("observation")) {
             extra.put("timer", String.valueOf(p.getInt("timer", 0)));
             extra.put("observation_type", p.getString("observation_type", "block"));
             initialExtra.put("timer", extra.get("timer"));
             initialExtra.put("observation_type", extra.get("observation_type"));
-            text("Timer", () -> extra.get("timer"), v -> extra.put("timer", v)).tip("Ticks the thing has to be watched. This game counts one look.");
+            text("Timer", () -> extra.get("timer"), v -> extra.put("timer", v)).tip("Ticks you have to look at it. 1.12.2 counts a single look.");
             choice("Type", List.of("block", "entity"), () -> extra.get("observation_type"), v -> extra.put("observation_type", v))
-                    .tip("What is observed. Only blocks are detected in this game.");
+                    .tip("What to look at. Only blocks work in 1.12.2.");
         }
         if (task != null && task.type().equals("location")) {
             extra.put("dimension", p.getString("dimension", "minecraft:overworld"));
             extra.put("ignore_dimension", p.getBool("ignore_dimension", false) ? "True" : "False");
             initialExtra.put("dimension", extra.get("dimension"));
             initialExtra.put("ignore_dimension", extra.get("ignore_dimension"));
-            text("Dimension", () -> extra.get("dimension"), v -> extra.put("dimension", v)).tip("The dimension the box is in.");
+            text("Dimension", () -> extra.get("dimension"), v -> extra.put("dimension", v)).tip("Dimension the box is in.");
             choice("Ignore Dimension", List.of("False", "True"), () -> extra.get("ignore_dimension"), v -> extra.put("ignore_dimension", v))
-                    .tip("The box counts in any dimension.");
+                    .tip("Box works in any dimension.");
         }
         if (task != null && task.type().equals("location")) {
             List<com.levviata.reflib.api.data.DataNode> pos = p.getList("position");
@@ -355,26 +355,26 @@ final class TaskRewardScreen extends SettingsScreen {
                     }
                     parts[at] = String.valueOf(at >= 3 ? Math.max(1, n) : n);
                     box = String.join(", ", parts);
-                }).tip(k < 3 ? "A corner of the box, in blocks." : "How many blocks the box measures.");
+                }).tip(k < 3 ? "One corner of the box, in blocks." : "Box size in blocks.");
             }
         }
         if (task != null) {
             choice("Optional Task", List.of("False", "True"), () -> optional, v -> optional = v)
-                    .tip("The quest can be completed without this task.");
+                    .tip("Quest can be completed without this task.");
             flag("Disable Completion Toast", "disable_toast", List.of("False", "True"), yesNo(p, "disable_toast"),
                     "No pop-up when this task is completed.");
             if (task.type().equals("item")) {
-                flag("Only From Task Screen", "task_screen_only", List.of("False", "True"), yesNo(p, "task_screen_only"),
-                        "Progress only counts when done through the task screen.");
+                flag("Task Screen Only", "task_screen_only", List.of("False", "True"), yesNo(p, "task_screen_only"),
+                        "Only counts when done through the task screen.");
             }
             if (task.type().equals("item")) {
                 String crafting = !p.has("only_from_crafting") ? "Default" : p.getBool("only_from_crafting", false) ? "True" : "False";
-                flag("Only Detect From Crafting", "only_from_crafting", CONSUME_LABELS, crafting, "Only items made by crafting count.");
+                flag("Only Count Crafted Items", "only_from_crafting", CONSUME_LABELS, crafting, "Only crafted items count.");
                 String match = p.getString("match_components", "default");
                 flag("Match Data Components", "match_components", List.of("Default", "Fuzzy", "Exact"),
-                        Character.toUpperCase(match.charAt(0)) + match.substring(1), "Default and Fuzzy ignore the item's data; Exact needs it to match.");
+                        Character.toUpperCase(match.charAt(0)) + match.substring(1), "Default and Fuzzy ignore item data. Exact needs it to match.");
                 choice("Consume Items", CONSUME_LABELS, () -> consume, v -> consume = v)
-                        .tip("Default follows the book's setting. True takes the items when they are handed in.");
+                        .tip("Default follows the book. True takes the items when handed in.");
             }
         } else {
             String rt = reward.type();
@@ -382,7 +382,7 @@ final class TaskRewardScreen extends SettingsScreen {
 
                 String rewardNbt = rewardItem.getCompound("nbt").entries().isEmpty() ? "" : "|" + com.levviata.reflib.api.data.Snbt.printCompact(rewardItem.getCompound("nbt"));
                 extra.put("item", rewardItem.getString("id", "") + (rewardItem.getInt("damage", 0) > 0 || !rewardNbt.isEmpty() ? "|" + rewardItem.getInt("damage", 0) : "") + rewardNbt);
-                Entry rewardItemRow = text("Item", () -> extra.get("item"), v -> extra.put("item", v)).tip("The item that is given.");
+                Entry rewardItemRow = text("Item", () -> extra.get("item"), v -> extra.put("item", v)).tip("Item that is given.");
                 rewardItemRow.plain = true;
                 rewardItemRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
                         SelectorScreen.items(net.minecraft.client.Minecraft.getMinecraft().currentScreen, stack ->
@@ -393,17 +393,17 @@ final class TaskRewardScreen extends SettingsScreen {
             if (rt.equals("item")) {
                 extra.put("random_bonus", String.valueOf(Math.max(0, p.getInt("random_bonus", 0))));
                 text("Random Bonus", () -> extra.get("random_bonus"), v -> extra.put("random_bonus", v))
-                        .tip("Up to this many more items are given at random on top of the count.");
+                        .tip("Up to this many extra items at random on top of the count.");
             }
             if (rt.equals("command")) {
                 extra.put("feedback_message", p.getString("feedback_message", ""));
                 text("Feedback Toast", () -> extra.get("feedback_message"), v -> extra.put("feedback_message", v))
-                        .tip("Text shown to the player when the command has run.");
+                        .tip("Message shown to the player after the command runs.");
                 extra.put("command", p.getString("command", ""));
                 extra.put("permission_level", String.valueOf(Math.max(0, Math.min(4, p.getInt("permission_level", 0)))));
                 extra.put("silent", p.getBool("silent", false) ? "True" : "False");
-                text("Command", () -> extra.get("command"), v -> extra.put("command", v)).tip("The command run for the player. @p is the player.");
-                choice("Run with Permission Level", List.of("0", "1", "2", "3", "4"), () -> extra.get("permission_level"), v -> extra.put("permission_level", v))
+                text("Command", () -> extra.get("command"), v -> extra.put("command", v)).tip("Command to run. @p is the player.");
+                choice("Permission Level to Run With", List.of("0", "1", "2", "3", "4"), () -> extra.get("permission_level"), v -> extra.put("permission_level", v))
                         .tip("0 default, 1, 2 Game Master, 3 Server Admin, 4 Server Owner.");
                 choice("Silent", List.of("False", "True"), () -> extra.get("silent"), v -> extra.put("silent", v));
             } else if (rt.equals("gamestage")) {
@@ -411,24 +411,24 @@ final class TaskRewardScreen extends SettingsScreen {
                 extra.put("remove", p.getBool("remove", false) ? "True" : "False");
                 extra.put("stage", p.getString("stage", ""));
                 choice("Remove", List.of("False", "True"), () -> extra.get("remove"), v -> extra.put("remove", v))
-                        .tip("Take the stage away instead of giving it.");
+                        .tip("Remove the stage instead of giving it.");
                 text("Stage", () -> extra.get("stage"), v -> extra.put("stage", v))
-                        .tip("Here a stage is a player tag (the Stage task looks for the same tag).");
+                        .tip("A stage here is a player tag (the Stage task checks the same one).");
             } else if (rt.equals("toast")) {
                 extra.put("description", p.getString("description", ""));
                 text("Description", () -> extra.get("description"), v -> extra.put("description", v));
             } else if (rt.equals("advancement")) {
                 extra.put("advancement", p.getString("advancement", ""));
                 extra.put("criterion", p.getString("criterion", ""));
-                text("Advancement", () -> extra.get("advancement"), v -> extra.put("advancement", v)).tip("A registry name such as minecraft:story/mine_stone.");
+                text("Advancement", () -> extra.get("advancement"), v -> extra.put("advancement", v)).tip("Registry name, like minecraft:story/mine_stone.");
                 text("Criterion", () -> extra.get("criterion"), v -> extra.put("criterion", v));
             }
             initialExtra.putAll(extra);
             choice("Auto-claim", AUTO_LABELS, () -> auto, v -> auto = v)
-                    .tip("Whether the reward is given by itself once the quest is complete.");
+                    .tip("Gives the reward by itself once the quest is complete.");
             choice("Per-Team Reward", CONSUME_LABELS, () -> team, v -> team = v)
-                    .tip("When true, this is one reward for the whole team; only the submitting player receives it. When false, all online players receive the reward");
-            Entry excludeRow = choice("Exclude from Claim All", List.of("False", "True"), () -> exclude, v -> exclude = v);
+                    .tip("One shared reward for the team, only the player who claims it gets it. Off: every online member gets it");
+            Entry excludeRow = choice("Skip on Claim All", List.of("False", "True"), () -> exclude, v -> exclude = v);
             if (com.levviata.reflibquests.model.BookEditor.TABLE_REWARD_TYPES.contains(rt)) {
 
                 exclude = "True";
@@ -441,10 +441,10 @@ final class TaskRewardScreen extends SettingsScreen {
                 tableRow.enabled = () -> false;
             }
             choice("Ignore reward blocking", List.of("False", "True"), () -> ignoreBlocking, v -> ignoreBlocking = v);
-            flag("Disable Reward Screen Blur", "disable_reward_screen_blur", List.of("False", "True"), yesNo(p, "disable_reward_screen_blur"),
-                    "The reward screen does not blur what is behind it.");
+            flag("No Blur on Reward Screen", "disable_reward_screen_blur", List.of("False", "True"), yesNo(p, "disable_reward_screen_blur"),
+                    "Reward screen doesn't blur the background.");
             if (rt.equals("item")) {
-                flag("Only One", "only_one", List.of("False", "True"), yesNo(p, "only_one"), "If inventory has that item, doesn't give it. Ignores NBT.");
+                flag("Only One", "only_one", List.of("False", "True"), yesNo(p, "only_one"), "Skipped if the player already has the item. NBT isn't checked.");
             }
         }
     }

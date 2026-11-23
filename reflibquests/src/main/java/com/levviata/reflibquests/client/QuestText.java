@@ -258,6 +258,22 @@ final class QuestText {
     }
 
     @Nullable
+    static net.minecraftforge.fluids.Fluid fluidOf(Task t) {
+        DataNode own = t.params().get("icon");
+        if (own instanceof DataNode.Compound c && !c.entries().isEmpty()) {
+            return null;
+        }
+        DataNode f = t.params().get("fluid");
+        String name = f instanceof DataNode.Compound fc ? fc.getString("fluid", "") : f instanceof DataNode.Str fs ? fs.value() : "";
+        int colon = name.indexOf(':');
+        try {
+            return net.minecraftforge.fluids.FluidRegistry.getFluid(colon < 0 ? name : name.substring(colon + 1));
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    @Nullable
     static ItemStack taskIcon(Task t) {
         DataNode own = t.params().get("icon");
         if (own instanceof DataNode.Compound c && !c.entries().isEmpty()) {
@@ -313,6 +329,19 @@ final class QuestText {
             default:
                 return null;
         }
+    }
+
+    @Nullable
+    static net.minecraftforge.fluids.Fluid iconFluid(Quest q) {
+        if (!q.icon.entries().isEmpty() && stackOf(q.icon) != null) {
+            return null;
+        }
+        for (Task t : q.tasks) {
+            if (taskIcon(t) != null) {
+                return t.type().equals("fluid") ? fluidOf(t) : null;
+            }
+        }
+        return null;
     }
 
     @Nullable
@@ -422,7 +451,7 @@ final class QuestText {
                 if (table != null && !table.title.isEmpty()) {
                     return table.title;
                 }
-                return r.type().equals("choice") ? "Choose one reward" : r.type().equals("random") ? "A random reward" : r.type().equals("loot") ? "Loot" : "Several rewards";
+                return r.type().equals("choice") ? "Choose one reward" : r.type().equals("random") ? "Random pick" : r.type().equals("loot") ? "Loot" : "Several rewards";
             }
             default:
                 return r.type() + " (not supported yet)";

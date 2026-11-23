@@ -207,10 +207,10 @@ public final class QuestCommand extends CommandBase {
                 say(sender, "Choose one: /rquests claim " + reward.id() + " <number>");
                 break;
             case UNSUPPORTED:
-                say(sender, "This reward type is not supported yet (" + reward.type() + "); it stays unclaimed.");
+                say(sender, "This reward type isn't supported yet (" + reward.type() + ") so it stays unclaimed.");
                 break;
             default:
-                say(sender, "You cannot claim that reward now.");
+                say(sender, "You can't claim that reward right now.");
         }
     }
 

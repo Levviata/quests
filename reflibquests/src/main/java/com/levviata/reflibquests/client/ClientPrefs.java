@@ -47,6 +47,57 @@ final class ClientPrefs {
     static double changelogScale = 0.75;
     static int maxLines = 10;
 
+    private static final java.util.Map<Integer, double[]> BOOK_BUTTON = new java.util.TreeMap<>();
+
+    static double[] bookButtonAt(int guiScale) {
+        double[] at = BOOK_BUTTON.get(guiScale);
+        if (at != null) {
+            return new double[] {at[0], at[1]};
+        }
+        int nearest = -1;
+        for (int s : BOOK_BUTTON.keySet()) {
+            if (nearest < 0 || Math.abs(s - guiScale) < Math.abs(nearest - guiScale)) {
+                nearest = s;
+            }
+        }
+        if (nearest < 0) {
+            return new double[] {0, 0};
+        }
+        double[] from = BOOK_BUTTON.get(nearest);
+        return new double[] {from[0], from[1]};
+    }
+
+    static void setBookButton(int guiScale, double fx, double fy) {
+        BOOK_BUTTON.put(guiScale, new double[] {Math.max(0, Math.min(1, fx)), Math.max(0, Math.min(1, fy))});
+    }
+
+    static void resetBookButton(int guiScale) {
+        BOOK_BUTTON.put(guiScale, new double[] {0, 0});
+    }
+
+    private static String bookButtonText() {
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<Integer, double[]> e : BOOK_BUTTON.entrySet()) {
+            sb.append(sb.length() == 0 ? "" : ",").append(e.getKey()).append(':').append(e.getValue()[0]).append(':').append(e.getValue()[1]);
+        }
+        return sb.toString();
+    }
+
+    private static void restoreBookButton(String text) {
+        BOOK_BUTTON.clear();
+        for (String part : text.split(",")) {
+            String[] f = part.split(":");
+            if (f.length == 3) {
+                try {
+                    BOOK_BUTTON.put(Integer.parseInt(f[0].trim()), new double[] {
+                        Math.max(0, Math.min(1, Double.parseDouble(f[1].trim()))), Math.max(0, Math.min(1, Double.parseDouble(f[2].trim())))});
+                } catch (NumberFormatException ignored) {
+
+                }
+            }
+        }
+    }
+
     private static boolean loaded;
 
     private ClientPrefs() {}
@@ -80,7 +131,8 @@ final class ClientPrefs {
                 .with("trackerVisibility", trackerVisibility).with("fallbackLocale", fallbackLocale)
                 .with("highlightMissing", highlightMissing).with("localeOverride", localeOverride)
                 .with("alwaysShowHistory", alwaysShowHistory).with("historySeconds", historySeconds)
-                .with("changelogScale", changelogScale).with("maxLines", maxLines);
+                .with("changelogScale", changelogScale).with("maxLines", maxLines)
+                .with("bookButtonFraction", bookButtonText());
     }
 
     static void restore(DataNode.Compound c) {
@@ -106,6 +158,7 @@ final class ClientPrefs {
         historySeconds = c.getDouble("historySeconds", 5.0);
         changelogScale = c.getDouble("changelogScale", 0.75);
         maxLines = c.getInt("maxLines", 10);
+        restoreBookButton(c.getString("bookButtonFraction", ""));
     }
 
     static void save() {

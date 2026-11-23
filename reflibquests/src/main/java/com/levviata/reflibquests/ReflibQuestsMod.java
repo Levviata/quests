@@ -33,11 +33,19 @@ public class ReflibQuestsMod {
     public static final String VERSION = "0.1.0";
     public static final Logger LOGGER = LogManager.getLogger("reflibquests");
 
+    public static final net.minecraft.item.Item QUEST_BOOK = new QuestBookItem();
+
     private int serverTicks;
+
+    @SubscribeEvent
+    public void registerItems(net.minecraftforge.event.RegistryEvent.Register<net.minecraft.item.Item> event) {
+        event.getRegistry().register(QUEST_BOOK);
+    }
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         ReflibProjects.register(ID, VERSION, 4);
+        net.minecraftforge.oredict.OreDictionary.registerOre("book", net.minecraft.init.Items.BOOK);
         com.levviata.reflib.api.assets.SuppliedAssets.declareOptional(ID, "FTB Quests 1.20 or newer (art for the quest map)",
                 "https://www.curseforge.com/minecraft/mc-mods/ftb-quests-forge", "ftbquests");
         com.levviata.reflibquests.net.QuestNet.init();
