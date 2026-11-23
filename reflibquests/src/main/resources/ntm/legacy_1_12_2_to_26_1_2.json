@@ -21650,6 +21650,281 @@
 "to":"minecraft:smoker",
 "status":"renamed",
 "note":"Future MC block is vanilla in 26.1.2"
+},
+"refinedstorage:cable@0":{
+"to":"refinedstorage:cable",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:constructor@0":{
+"to":"refinedstorage:constructor",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:destructor@0":{
+"to":"refinedstorage:destructor",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:disk_drive@0":{
+"to":"refinedstorage:disk_drive",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:exporter@0":{
+"to":"refinedstorage:exporter",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:importer@0":{
+"to":"refinedstorage:importer",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:external_storage@0":{
+"to":"refinedstorage:external_storage",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:network_card@0":{
+"to":"refinedstorage:network_card",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:network_receiver@0":{
+"to":"refinedstorage:network_receiver",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:network_transmitter@0":{
+"to":"refinedstorage:network_transmitter",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:pattern@0":{
+"to":"refinedstorage:pattern",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:portable_grid@0":{
+"to":"refinedstorage:portable_grid",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:quartz_enriched_iron@0":{
+"to":"refinedstorage:quartz_enriched_iron",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage_housing@0":{
+"to":"refinedstorage:storage_housing",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:wireless_grid@0":{
+"to":"refinedstorage:wireless_grid",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:wrench@0":{
+"to":"refinedstorage:wrench",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:controller@0":{
+"to":"refinedstorage:controller",
+"status":"same-ish",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:controller@1":{
+"to":"refinedstorage:creative_controller",
+"status":"flattened",
+"note":"meta 1 was the creative controller; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:core@0":{
+"to":"refinedstorage:construction_core",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:core@1":{
+"to":"refinedstorage:destruction_core",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:crafter@0":{
+"to":"refinedstorage:autocrafter",
+"status":"renamed",
+"note":"Crafter is Autocrafter in 2.x; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:crafter_manager@0":{
+"to":"refinedstorage:autocrafter_manager",
+"status":"renamed",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:crafting_monitor@0":{
+"to":"refinedstorage:autocrafting_monitor",
+"status":"renamed",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:disk_manipulator@0":{
+"to":"refinedstorage:disk_interface",
+"status":"substitute",
+"note":"the Disk Manipulator was replaced by the Disk Interface; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:fluid_storage_part@0":{
+"to":"refinedstorage:64b_fluid_storage_part",
+"status":"substitute",
+"note":"1.6 fluid parts hold 64k; 2.x parts are 64B..4096B, smallest used; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:grid@0":{
+"to":"refinedstorage:grid",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:grid@1":{
+"to":"refinedstorage:crafting_grid",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:grid@2":{
+"to":"refinedstorage:pattern_grid",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:grid@3":{
+"to":"refinedstorage:grid",
+"status":"substitute",
+"note":"no separate Fluid Grid in 2.x: the Grid handles fluids; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:processor@3":{
+"to":"refinedstorage:basic_processor",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:processor@4":{
+"to":"refinedstorage:improved_processor",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:processor@5":{
+"to":"refinedstorage:advanced_processor",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:reader@0":{
+"to":"refinedstorage:relay",
+"status":"substitute-weak",
+"note":"Reader/Writer do not exist in 2.x; the Relay is the closest network-linking block; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:writer@0":{
+"to":"refinedstorage:relay",
+"status":"substitute-weak",
+"note":"Reader/Writer do not exist in 2.x; the Relay is the closest network-linking block; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage@0":{
+"to":"refinedstorage:1k_storage_block",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage_disk@0":{
+"to":"refinedstorage:1k_storage_disk",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage_part@0":{
+"to":"refinedstorage:1k_storage_part",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage@1":{
+"to":"refinedstorage:4k_storage_block",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage_disk@1":{
+"to":"refinedstorage:4k_storage_disk",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage_part@1":{
+"to":"refinedstorage:4k_storage_part",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage@2":{
+"to":"refinedstorage:16k_storage_block",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage_disk@2":{
+"to":"refinedstorage:16k_storage_disk",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage_part@2":{
+"to":"refinedstorage:16k_storage_part",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage@3":{
+"to":"refinedstorage:64k_storage_block",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage_disk@3":{
+"to":"refinedstorage:64k_storage_disk",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:storage_part@3":{
+"to":"refinedstorage:64k_storage_part",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:upgrade@0":{
+"to":"refinedstorage:upgrade",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:upgrade@1":{
+"to":"refinedstorage:range_upgrade",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:upgrade@2":{
+"to":"refinedstorage:speed_upgrade",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:upgrade@3":{
+"to":"refinedstorage:autocrafting_upgrade",
+"status":"flattened",
+"note":"1.6 Crafting Upgrade is the 2.x Autocrafting Upgrade; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:upgrade@4":{
+"to":"refinedstorage:stack_upgrade",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:upgrade@6":{
+"to":"refinedstorage:silk_touch_upgrade",
+"status":"flattened",
+"note":"id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:upgrade@7":{
+"to":"refinedstorage:fortune_1_upgrade",
+"status":"inferred",
+"note":"fortune levels 7-9 taken as I-III; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:upgrade@8":{
+"to":"refinedstorage:fortune_2_upgrade",
+"status":"inferred",
+"note":"fortune levels 7-9 taken as I-III; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
+},
+"refinedstorage:upgrade@9":{
+"to":"refinedstorage:fortune_3_upgrade",
+"status":"inferred",
+"note":"fortune levels 7-9 taken as I-III; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items)"
 }
 },
 "entities":{
@@ -21757,63 +22032,156 @@
 },
 "anyHeatBox":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:heater_firebox",
+"hbm:heater_oven",
+"hbm:heater_oilburner"
+],
+"status":"from-dump",
+"note":"members of this ore dictionary name in the 1.12.2 dump, translated"
 },
 "bedrockOreCleaned":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_rad_byproduct_light",
+"hbm:bedrock_ore_rad_byproduct_heavy",
+"hbm:bedrock_ore_rad_byproduct_rare",
+"hbm:bedrock_ore_rad_byproduct_actinide",
+"hbm:bedrock_ore_rad_byproduct_nonmetal",
+"hbm:bedrock_ore_rad_byproduct_crystal"
+],
+"status":"inferred",
+"note":"Cleaned read as rad from the naming pattern"
 },
 "bedrockOreCleanedPrimaryFraction":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_primary_rad_light",
+"hbm:bedrock_ore_primary_rad_heavy",
+"hbm:bedrock_ore_primary_rad_rare",
+"hbm:bedrock_ore_primary_rad_actinide",
+"hbm:bedrock_ore_primary_rad_nonmetal",
+"hbm:bedrock_ore_primary_rad_crystal"
+],
+"status":"inferred",
+"note":"Cleaned read as rad from the naming pattern"
 },
 "bedrockOreCleanedRoasted":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_rad_roasted_light",
+"hbm:bedrock_ore_rad_roasted_heavy",
+"hbm:bedrock_ore_rad_roasted_rare",
+"hbm:bedrock_ore_rad_roasted_actinide",
+"hbm:bedrock_ore_rad_roasted_nonmetal",
+"hbm:bedrock_ore_rad_roasted_crystal"
+],
+"status":"inferred",
+"note":"Cleaned read as rad from the naming pattern"
 },
 "bedrockOreCleanedSeared":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_rad_arc_light",
+"hbm:bedrock_ore_rad_arc_heavy",
+"hbm:bedrock_ore_rad_arc_rare",
+"hbm:bedrock_ore_rad_arc_actinide",
+"hbm:bedrock_ore_rad_arc_nonmetal",
+"hbm:bedrock_ore_rad_arc_crystal"
+],
+"status":"inferred",
+"note":"Cleaned/Seared read as rad/arc from the naming pattern"
 },
 "bedrockOreCleanedWashed":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_rad_washed_light",
+"hbm:bedrock_ore_rad_washed_heavy",
+"hbm:bedrock_ore_rad_washed_rare",
+"hbm:bedrock_ore_rad_washed_actinide",
+"hbm:bedrock_ore_rad_washed_nonmetal",
+"hbm:bedrock_ore_rad_washed_crystal"
+],
+"status":"inferred",
+"note":"Cleaned read as rad from the naming pattern"
 },
 "bedrockOreDissolved":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_solvent_byproduct_light",
+"hbm:bedrock_ore_solvent_byproduct_heavy",
+"hbm:bedrock_ore_solvent_byproduct_rare",
+"hbm:bedrock_ore_solvent_byproduct_actinide",
+"hbm:bedrock_ore_solvent_byproduct_nonmetal",
+"hbm:bedrock_ore_solvent_byproduct_crystal"
+],
+"status":"inferred",
+"note":"Dissolved read as solvent from the naming pattern"
 },
 "bedrockOreDissolvedPrimaryFraction":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_primary_solvent_light",
+"hbm:bedrock_ore_primary_solvent_heavy",
+"hbm:bedrock_ore_primary_solvent_rare",
+"hbm:bedrock_ore_primary_solvent_actinide",
+"hbm:bedrock_ore_primary_solvent_nonmetal",
+"hbm:bedrock_ore_primary_solvent_crystal"
+],
+"status":"inferred",
+"note":"Dissolved read as solvent from the naming pattern"
 },
 "bedrockOreDissolvedRoasted":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_solvent_roasted_light",
+"hbm:bedrock_ore_solvent_roasted_heavy",
+"hbm:bedrock_ore_solvent_roasted_rare",
+"hbm:bedrock_ore_solvent_roasted_actinide",
+"hbm:bedrock_ore_solvent_roasted_nonmetal",
+"hbm:bedrock_ore_solvent_roasted_crystal"
+],
+"status":"inferred",
+"note":"Dissolved read as solvent from the naming pattern"
 },
 "bedrockOreDissolvedSeared":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_solvent_arc_light",
+"hbm:bedrock_ore_solvent_arc_heavy",
+"hbm:bedrock_ore_solvent_arc_rare",
+"hbm:bedrock_ore_solvent_arc_actinide",
+"hbm:bedrock_ore_solvent_arc_nonmetal",
+"hbm:bedrock_ore_solvent_arc_crystal"
+],
+"status":"inferred",
+"note":"Dissolved/Seared read as solvent/arc from the naming pattern"
 },
 "bedrockOreDissolvedWashed":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_solvent_washed_light",
+"hbm:bedrock_ore_solvent_washed_heavy",
+"hbm:bedrock_ore_solvent_washed_rare",
+"hbm:bedrock_ore_solvent_washed_actinide",
+"hbm:bedrock_ore_solvent_washed_nonmetal",
+"hbm:bedrock_ore_solvent_washed_crystal"
+],
+"status":"inferred",
+"note":"Dissolved read as solvent from the naming pattern"
 },
 "bedrockOreFullWashed":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_base_washed_light",
+"hbm:bedrock_ore_base_washed_heavy",
+"hbm:bedrock_ore_base_washed_rare",
+"hbm:bedrock_ore_base_washed_actinide",
+"hbm:bedrock_ore_base_washed_nonmetal",
+"hbm:bedrock_ore_base_washed_crystal"
+],
+"status":"derived",
+"note":"items named \"Washed <kind> Bedrock Ore\" in the 1.12.2 dump"
 },
 "bedrockOreHigherWeightPrimaryFraction":{
 "tag":null,
@@ -21827,13 +22195,29 @@
 },
 "bedrockOrePrimaryFraction":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_primary_light",
+"hbm:bedrock_ore_primary_heavy",
+"hbm:bedrock_ore_primary_rare",
+"hbm:bedrock_ore_primary_actinide",
+"hbm:bedrock_ore_primary_nonmetal",
+"hbm:bedrock_ore_primary_crystal"
+],
+"status":"inferred",
+"note":"by name"
 },
 "bedrockOreRoastedPrimaryFraction":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_primary_roasted_light",
+"hbm:bedrock_ore_primary_roasted_heavy",
+"hbm:bedrock_ore_primary_roasted_rare",
+"hbm:bedrock_ore_primary_roasted_actinide",
+"hbm:bedrock_ore_primary_roasted_nonmetal",
+"hbm:bedrock_ore_primary_roasted_crystal"
+],
+"status":"inferred",
+"note":"by name"
 },
 "bedrockOreSeparated":{
 "tag":null,
@@ -21842,33 +22226,107 @@
 },
 "bedrockOreSulfuric":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_sulfuric_byproduct_light",
+"hbm:bedrock_ore_sulfuric_byproduct_heavy",
+"hbm:bedrock_ore_sulfuric_byproduct_rare",
+"hbm:bedrock_ore_sulfuric_byproduct_actinide",
+"hbm:bedrock_ore_sulfuric_byproduct_nonmetal",
+"hbm:bedrock_ore_sulfuric_byproduct_crystal"
+],
+"status":"inferred",
+"note":"by name"
 },
 "bedrockOreSulfuricPrimaryFraction":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_primary_sulfuric_light",
+"hbm:bedrock_ore_primary_sulfuric_heavy",
+"hbm:bedrock_ore_primary_sulfuric_rare",
+"hbm:bedrock_ore_primary_sulfuric_actinide",
+"hbm:bedrock_ore_primary_sulfuric_nonmetal",
+"hbm:bedrock_ore_primary_sulfuric_crystal"
+],
+"status":"inferred",
+"note":"by name"
 },
 "bedrockOreSulfuricRoasted":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_sulfuric_roasted_light",
+"hbm:bedrock_ore_sulfuric_roasted_heavy",
+"hbm:bedrock_ore_sulfuric_roasted_rare",
+"hbm:bedrock_ore_sulfuric_roasted_actinide",
+"hbm:bedrock_ore_sulfuric_roasted_nonmetal",
+"hbm:bedrock_ore_sulfuric_roasted_crystal"
+],
+"status":"inferred",
+"note":"by name"
 },
 "bedrockOreSulfuricSeared":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_sulfuric_arc_light",
+"hbm:bedrock_ore_sulfuric_arc_heavy",
+"hbm:bedrock_ore_sulfuric_arc_rare",
+"hbm:bedrock_ore_sulfuric_arc_actinide",
+"hbm:bedrock_ore_sulfuric_arc_nonmetal",
+"hbm:bedrock_ore_sulfuric_arc_crystal"
+],
+"status":"inferred",
+"note":"Seared read as arc from the naming pattern"
 },
 "bedrockOreSulfuricWashed":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bedrock_ore_sulfuric_washed_light",
+"hbm:bedrock_ore_sulfuric_washed_heavy",
+"hbm:bedrock_ore_sulfuric_washed_rare",
+"hbm:bedrock_ore_sulfuric_washed_actinide",
+"hbm:bedrock_ore_sulfuric_washed_nonmetal",
+"hbm:bedrock_ore_sulfuric_washed_crystal"
+],
+"status":"inferred",
+"note":"by name"
 },
 "bobblehead":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:bobblehead_abel",
+"hbm:bobblehead_adam29",
+"hbm:bobblehead_agility",
+"hbm:bobblehead_bluehat",
+"hbm:bobblehead_bob",
+"hbm:bobblehead_charisma",
+"hbm:bobblehead_cirno",
+"hbm:bobblehead_clawd",
+"hbm:bobblehead_doc",
+"hbm:bobblehead_drillgon",
+"hbm:bobblehead_endurance",
+"hbm:bobblehead_eos",
+"hbm:bobblehead_frizzle",
+"hbm:bobblehead_golem",
+"hbm:bobblehead_hacker6329",
+"hbm:bobblehead_intelligence",
+"hbm:bobblehead_leafia",
+"hbm:bobblehead_luck",
+"hbm:bobblehead_mellow",
+"hbm:bobblehead_microwave",
+"hbm:bobblehead_movblock",
+"hbm:bobblehead_norwood",
+"hbm:bobblehead_nos",
+"hbm:bobblehead_peep",
+"hbm:bobblehead_perception",
+"hbm:bobblehead_pheo",
+"hbm:bobblehead_pu238",
+"hbm:bobblehead_silentyeti",
+"hbm:bobblehead_strength",
+"hbm:bobblehead_uffr",
+"hbm:bobblehead_vaer",
+"hbm:bobblehead_vt"
+],
+"status":"derived",
+"note":"every bobblehead_* item"
 },
 "boltDuraSteel":{
 "tag":"c:bolts/dura_steel",
@@ -21877,8 +22335,11 @@
 },
 "container1000estradiol":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:fluid_tank"
+],
+"status":"substitute-weak",
+"note":"the 1.12.2 filter meant a tank holding estradiol; the 26.1.2 filter here accepts any universal fluid tank (fluid cannot be tested with item())"
 },
 "decoBlock":{
 "tag":null,
@@ -21887,8 +22348,15 @@
 },
 "drillbit":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:drillbit_desh",
+"hbm:drillbit_ferro",
+"hbm:drillbit_hss",
+"hbm:drillbit_steel",
+"hbm:drillbit_tcalloy"
+],
+"status":"inferred",
+"note":"drillbit_* items without the diamond tip"
 },
 "ingotAnyBismoidBronze":{
 "tag":"c:ingots/any_bismoid_bronze",
@@ -21907,8 +22375,12 @@
 },
 "ironAnvil":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:anvil_iron",
+"hbm:anvil_lead"
+],
+"status":"from-dump",
+"note":"members of this ore dictionary name in the 1.12.2 dump, translated"
 },
 "oreCobalt":{
 "tag":"c:ores/cobalt",
@@ -21927,21 +22399,30 @@
 },
 "tippedDrillbit":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:drillbit_desh_diamond",
+"hbm:drillbit_ferro_diamond",
+"hbm:drillbit_hss_diamond",
+"hbm:drillbit_steel_diamond",
+"hbm:drillbit_tcalloy_diamond"
+],
+"status":"inferred",
+"note":"drillbit_* items with the diamond tip"
 },
 "usedCloth":{
 "tag":null,
-"status":"unresolved",
-"note":"no tag of that name in the 26.1.2 mod"
+"items":[
+"hbm:rag_damp",
+"hbm:rag_piss"
+],
+"status":"from-dump",
+"note":"members of this ore dictionary name in the 1.12.2 dump, translated"
 }
 },
 "images":{
-"minecraft:textures/blocks/command_block_conditional.png":"minecraft:textures/block/command_block_conditional.png",
-"minecraft:textures/items/barrier.png":"minecraft:textures/item/barrier.png",
-"minecraft:textures/items/structure_void.png":"minecraft:textures/item/structure_void.png"
+"minecraft:textures/blocks/command_block_conditional.png":"lvimages:textures/gas_centrifuge.png",
+"minecraft:textures/items/barrier.png":"lvimages:textures/ntm_icon.png",
+"minecraft:textures/items/structure_void.png":"lvimages:textures/wojaksona.png"
 },
-"keep_mods":[
-"refinedstorage"
-]
+"keep_mods":[]
 }

@@ -212,6 +212,65 @@ if a.new_jar and a.pack_dir:
             if n not in oredict:
                 oredict[n] = {'tag': None, 'status': 'unresolved', 'note': 'no tag of that name in the 26.1.2 mod'}
 
+# bedrock ore processing: the 26.1.2 chain is named <stage>_<kind>; stage names read off the item ids against the 1.12.2 names
+KINDS = ['light', 'heavy', 'rare', 'actinide', 'nonmetal', 'crystal']
+BEDROCK = {
+    'bedrockOreFullWashed': ('bedrock_ore_base_washed_', 'derived', 'items named "Washed <kind> Bedrock Ore" in the 1.12.2 dump'),
+    'bedrockOrePrimaryFraction': ('bedrock_ore_primary_', 'inferred', 'by name'),
+    'bedrockOreRoastedPrimaryFraction': ('bedrock_ore_primary_roasted_', 'inferred', 'by name'),
+    'bedrockOreSulfuricPrimaryFraction': ('bedrock_ore_primary_sulfuric_', 'inferred', 'by name'),
+    'bedrockOreDissolvedPrimaryFraction': ('bedrock_ore_primary_solvent_', 'inferred', 'Dissolved read as solvent from the naming pattern'),
+    'bedrockOreCleanedPrimaryFraction': ('bedrock_ore_primary_rad_', 'inferred', 'Cleaned read as rad from the naming pattern'),
+    'bedrockOreSulfuric': ('bedrock_ore_sulfuric_byproduct_', 'inferred', 'by name'),
+    'bedrockOreSulfuricRoasted': ('bedrock_ore_sulfuric_roasted_', 'inferred', 'by name'),
+    'bedrockOreSulfuricSeared': ('bedrock_ore_sulfuric_arc_', 'inferred', 'Seared read as arc from the naming pattern'),
+    'bedrockOreSulfuricWashed': ('bedrock_ore_sulfuric_washed_', 'inferred', 'by name'),
+    'bedrockOreDissolved': ('bedrock_ore_solvent_byproduct_', 'inferred', 'Dissolved read as solvent from the naming pattern'),
+    'bedrockOreDissolvedRoasted': ('bedrock_ore_solvent_roasted_', 'inferred', 'Dissolved read as solvent from the naming pattern'),
+    'bedrockOreDissolvedSeared': ('bedrock_ore_solvent_arc_', 'inferred', 'Dissolved/Seared read as solvent/arc from the naming pattern'),
+    'bedrockOreDissolvedWashed': ('bedrock_ore_solvent_washed_', 'inferred', 'Dissolved read as solvent from the naming pattern'),
+    'bedrockOreCleaned': ('bedrock_ore_rad_byproduct_', 'inferred', 'Cleaned read as rad from the naming pattern'),
+    'bedrockOreCleanedRoasted': ('bedrock_ore_rad_roasted_', 'inferred', 'Cleaned read as rad from the naming pattern'),
+    'bedrockOreCleanedSeared': ('bedrock_ore_rad_arc_', 'inferred', 'Cleaned/Seared read as rad/arc from the naming pattern'),
+    'bedrockOreCleanedWashed': ('bedrock_ore_rad_washed_', 'inferred', 'Cleaned read as rad from the naming pattern'),
+}
+for n, (pre, st, why) in BEDROCK.items():
+    ids = ['hbm:' + pre + k for k in KINDS if (pre + k) in new_items]
+    if len(ids) == 6 and oredict.get(n, {}).get('tag') is None:
+        oredict[n] = {'tag': None, 'items': ids, 'status': st, 'note': why}
+
+# families that the 26.1.2 mod keeps as separate items with a common prefix
+FAMILIES = {
+    'bobblehead': (lambda i: i.startswith('bobblehead_'), 'derived', 'every bobblehead_* item'),
+    'drillbit': (lambda i: i.startswith('drillbit_') and not i.endswith('_diamond'), 'inferred', 'drillbit_* items without the diamond tip'),
+    'tippedDrillbit': (lambda i: i.startswith('drillbit_') and i.endswith('_diamond'), 'inferred', 'drillbit_* items with the diamond tip'),
+}
+for n, (test, st, why) in FAMILIES.items():
+    ids = ['hbm:' + i for i in sorted(new_items) if test(i)]
+    if ids and oredict.get(n, {}).get('tag') is None:
+        oredict[n] = {'tag': None, 'items': ids, 'status': st, 'note': why}
+oredict['container1000estradiol'] = {'tag': None, 'items': ['hbm:fluid_tank'], 'status': 'substitute-weak',
+                                     'note': 'the 1.12.2 filter meant a tank holding estradiol; the 26.1.2 filter here accepts any universal fluid tank (fluid cannot be tested with item())'}
+
+# names without a tag: the members the 1.12.2 dump lists under that ore dictionary name, translated through the item table
+members = collections.defaultdict(list)
+for r in rows:
+    for od in (r['OreDict Names'] or '').split(','):
+        od = od.strip()
+        if od:
+            members[od].append((r['ID'], int(r['Metadata'])))
+for n, v in list(oredict.items()):
+    if v['tag'] is None and members.get(n):
+        ids = []
+        for (i, m) in members[n]:
+            if i.startswith('hbm:'):
+                e = table.get('%s@%d' % (i, m))
+                to = e['to'] if e else {'id': i}
+                if to and 'components' not in to and to['id'] not in ids:
+                    ids.append(to['id'])
+        if ids:
+            oredict[n] = {'tag': None, 'items': ids, 'status': 'from-dump', 'note': 'members of this ore dictionary name in the 1.12.2 dump, translated'}
+
 items_out = collections.OrderedDict()
 for k, v in table.items():
     if v['status'] == 'same':

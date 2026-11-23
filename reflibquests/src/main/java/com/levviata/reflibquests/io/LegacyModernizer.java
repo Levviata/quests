@@ -329,8 +329,10 @@ public final class LegacyModernizer {
         if (!hover.isEmpty()) {
             out = out.with("title", String.join(" - ", hover));
         }
-        if (!raw.getString("click", "").isEmpty()) {
-            note("dropped", raw.getString("click", ""), "", "the image's click link: the key FTB Quests 26.1.2 uses for it was not read from a saved file, so it is not written");
+        String click = raw.getString("click", "");
+        if (!click.isEmpty()) {
+            out = out.with("click_action", DataNode.Compound.empty().with("type", "open_uri").with("data", click));
+            note("mapped", "image click " + click, "click_action open_uri", "keys read from a file FTB Quests 26.1.2 saved");
         }
         String hexId = img.id().matches("[0-9A-F]{16}") ? img.id() : String.format("%08X%08X", img.id().hashCode(), 0x1A6E);
         return new ChapterImage(hexId, out);
@@ -421,7 +423,16 @@ public final class LegacyModernizer {
             } else {
                 DataNode e = oredict.get(arg);
                 String tag = e instanceof DataNode.Compound c ? c.getString("tag", "") : "";
-                if (!tag.isEmpty()) {
+                if (e instanceof DataNode.Compound ec && !ec.getList("items").isEmpty()) {
+                    StringBuilder listed = new StringBuilder();
+                    for (DataNode in : ec.getList("items")) {
+                        if (in instanceof DataNode.Str s) {
+                            pieces.add("item(" + s.value() + ")");
+                            listed.append(listed.length() == 0 ? "" : ", ").append(s.value());
+                        }
+                    }
+                    note(ec.getString("status", "inferred"), "ore(" + arg + ")", "items " + listed, ec.getString("note", ""));
+                } else if (!tag.isEmpty()) {
                     note(((DataNode.Compound) e).getString("status", "derived"), "ore(" + arg + ")", "tag(" + tag + ")", ((DataNode.Compound) e).getString("note", ""));
                     pieces.add("tag(" + tag + ")");
                 } else {

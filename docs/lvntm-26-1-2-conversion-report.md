@@ -2,93 +2,49 @@
 
 Quests 1536, tasks 2169, rewards 1483.
 
-Decisions taken: {by-name=66, component=379, derived=311, derived-renamed=4, dropped=8, game-checked=17, inferred=27, kept=77, mapped=50, renamed=65, same=2039, substitute=71, substitute-weak=7, unresolved=58}
+Decisions taken: {by-name=66, component=379, derived=313, derived-renamed=4, flattened=28, from-dump=3, game-checked=17, inferred=49, kept=20, mapped=58, renamed=68, same=2039, same-ish=18, substitute=74, substitute-weak=10, unresolved=8}
 
 ## Importer problems
 
 - chapter folder 7079924d is not listed in C:\Users\Lev\AppData\Roaming\PolyMC\instances\LvNTM\minecraft\config\ftbquests\normal\chapters\index.snbt; skipped, as FTB Quests does
 
-## unresolved (58 distinct, 58 uses)
+## unresolved (8 distinct, 8 uses)
 
 | from -> to | uses | note | first seen in |
 |---|---|---|---|
-| ore(anyHeatBox) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Early Game / Heat Boxes |
-| ore(anyHeatBox) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any anyHeatBox" | quest Early Game / Heat Boxes |
-| ore(ironAnvil) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Early Game / Iron Anvil |
-| ore(ironAnvil) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any ironAnvil" | quest Early Game / Iron Anvil |
-| ore(bobblehead) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Early Game / 000000003B5EFBA7 |
-| ore(bobblehead) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bobblehead" | quest Early Game / 000000003B5EFBA7 |
 | ore(decoBlock) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Early Game / 0000000049843424 |
 | ore(decoBlock) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any decoBlock" | quest Early Game / 0000000049843424 |
-| ore(usedCloth) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Early Game / 00000000FD3F14CF |
-| ore(usedCloth) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any usedCloth" | quest Early Game / 00000000FD3F14CF |
-| ore(container1000estradiol) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Oil Age / Gender Swapping Tactics |
-| ore(container1000estradiol) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any container1000estradiol" | quest Oil Age / Gender Swapping Tactics |
-| ore(drillbit) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Oil Age / Drillbits |
-| ore(drillbit) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any drillbit" | quest Oil Age / Drillbits |
-| ore(tippedDrillbit) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Oil Age / Tipped Drillbits |
-| ore(tippedDrillbit) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any tippedDrillbit" | quest Oil Age / Tipped Drillbits |
-| ore(bedrockOreRoastedPrimaryFraction) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Roasted Primary Fraction |
-| ore(bedrockOreRoastedPrimaryFraction) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreRoastedPrimaryFraction" | quest Bedrock Ore / Roasted Primary Fraction |
-| ore(bedrockOreDissolvedRoasted) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Dissolved Roasted |
-| ore(bedrockOreDissolvedRoasted) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreDissolvedRoasted" | quest Bedrock Ore / Dissolved Roasted |
-| ore(bedrockOreDissolved) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Dissolved By-Product |
-| ore(bedrockOreDissolved) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreDissolved" | quest Bedrock Ore / Dissolved By-Product |
-| ore(bedrockOrePrimaryFraction) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Primary Fraction |
-| ore(bedrockOrePrimaryFraction) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOrePrimaryFraction" | quest Bedrock Ore / Primary Fraction |
 | ore(bedrockOreHigherWeightPrimaryFraction) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Higher Weight Primary Fraction |
 | ore(bedrockOreHigherWeightPrimaryFraction) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreHigherWeightPrimaryFraction" | quest Bedrock Ore / Higher Weight Primary Fraction |
-| ore(bedrockOreCleanedRoasted) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Cleaned Roasted |
-| ore(bedrockOreCleanedRoasted) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreCleanedRoasted" | quest Bedrock Ore / Cleaned Roasted |
-| ore(bedrockOreSulfuric) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Sulfuric By-Product |
-| ore(bedrockOreSulfuric) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreSulfuric" | quest Bedrock Ore / Sulfuric By-Product |
-| ore(bedrockOreSulfuricPrimaryFraction) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Sulfuric Primary Fraction |
-| ore(bedrockOreSulfuricPrimaryFraction) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreSulfuricPrimaryFraction" | quest Bedrock Ore / Sulfuric Primary Fraction |
 | ore(bedrockOreSeparated) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Separated Ore |
 | ore(bedrockOreSeparated) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreSeparated" | quest Bedrock Ore / Separated Ore |
 | ore(bedrockOreLowerWeightPrimaryFraction) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Lower Weight Primary Fraction |
 | ore(bedrockOreLowerWeightPrimaryFraction) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreLowerWeightPrimaryFraction" | quest Bedrock Ore / Lower Weight Primary Fraction |
-| ore(bedrockOreDissolvedPrimaryFraction) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Dissolved Primary Fraction |
-| ore(bedrockOreDissolvedPrimaryFraction) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreDissolvedPrimaryFraction" | quest Bedrock Ore / Dissolved Primary Fraction |
-| ore(bedrockOreDissolvedSeared) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Dissolved Seared |
-| ore(bedrockOreDissolvedSeared) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreDissolvedSeared" | quest Bedrock Ore / Dissolved Seared |
-| ore(bedrockOreSulfuricWashed) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Sulfuric Washed |
-| ore(bedrockOreSulfuricWashed) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreSulfuricWashed" | quest Bedrock Ore / Sulfuric Washed |
-| ore(bedrockOreFullWashed) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Washed Ore |
-| ore(bedrockOreFullWashed) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreFullWashed" | quest Bedrock Ore / Washed Ore |
-| ore(bedrockOreCleanedPrimaryFraction) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Cleaned Primary Fraction |
-| ore(bedrockOreCleanedPrimaryFraction) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreCleanedPrimaryFraction" | quest Bedrock Ore / Cleaned Primary Fraction |
-| ore(bedrockOreCleanedSeared) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Cleaned Seared |
-| ore(bedrockOreCleanedSeared) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreCleanedSeared" | quest Bedrock Ore / Cleaned Seared |
-| ore(bedrockOreSulfuricSeared) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Sulfuric Seared |
-| ore(bedrockOreSulfuricSeared) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreSulfuricSeared" | quest Bedrock Ore / Sulfuric Seared |
-| ore(bedrockOreSulfuricRoasted) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Sulfuric Roasted |
-| ore(bedrockOreSulfuricRoasted) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreSulfuricRoasted" | quest Bedrock Ore / Sulfuric Roasted |
-| ore(bedrockOreDissolvedWashed) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Dissolved Washed |
-| ore(bedrockOreDissolvedWashed) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreDissolvedWashed" | quest Bedrock Ore / Dissolved Washed |
-| ore(bedrockOreCleanedWashed) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Cleaned Washed |
-| ore(bedrockOreCleanedWashed) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreCleanedWashed" | quest Bedrock Ore / Cleaned Washed |
-| ore(bedrockOreCleaned) ->  | 1 | no tag of that name in the 26.1.2 mod | quest Bedrock Ore / Cleaned By-Product |
-| ore(bedrockOreCleaned) -> checkmark task | 1 | no 26.1.2 equivalent; the task became a check-off titled "Any bedrockOreCleaned" | quest Bedrock Ore / Cleaned By-Product |
 
-## substitute-weak (6 distinct, 7 uses)
+## substitute-weak (9 distinct, 10 uses)
 
 | from -> to | uses | note | first seen in |
 |---|---|---|---|
 | ore(stoneResource) -> tag(c:cobblestones) | 1 | NTM's stoneResource has no tag in 26.1.2; cobblestones is the closest | quest LvNTM / Stone Resources |
 | hbm:capsule_xen@0 -> hbm:crystal_xen | 1 | no Xen Capsule in 26.1.2; the Artificial Xen Crystal is the closest Xen item | quest Early Game / High-Performance Hazmat Suit |
 | hbm:lung_diagnostic@0 -> hbm:digamma_diagnostic | 1 | no lung diagnostic item in 26.1.2 (the lung scanner is a GUI); the digamma diagnostic is the only diagnostic item | quest Early Game / 00000000E95D2814 |
+| ore(container1000estradiol) -> items hbm:fluid_tank | 1 | the 1.12.2 filter meant a tank holding estradiol; the 26.1.2 filter here accepts any universal fluid tank (fluid cannot be tested with item()) | quest Oil Age / Gender Swapping Tactics |
 | hbm:sat_interface@0 -> hbm:machine_satlink | 1 | the Satellite Control Interface item no longer exists; the ground station block replaces it | quest Satellites / Satellite Controls |
+| refinedstorage:writer@0 -> refinedstorage:relay | 1 | Reader/Writer do not exist in 2.x; the Relay is the closest network-linking block; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / Writer and Reader |
+| refinedstorage:reader@0 -> refinedstorage:relay | 1 | Reader/Writer do not exist in 2.x; the Relay is the closest network-linking block; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / Writer and Reader |
 | hbm:spinny_light@0 -> hbm:lantern | 2 | the Spinny Light block does not exist in 26.1.2; the lantern is the closest light source | quest Checklists / 0000000076815E10 |
 | ore(miniNuke) -> tag(hbm:bombs) | 1 | no mini nuke tag in 26.1.2; the bombs tag is broader | quest Weapons / 00000000B5258396 |
 
-## substitute (20 distinct, 71 uses)
+## substitute (23 distinct, 74 uses)
 
 | from -> to | uses | note | first seen in |
 |---|---|---|---|
 | hbm:ingot_copper@0 -> minecraft:copper_ingot | 23 | the 1.12.2 "Industrial Grade Copper Ingot" is the vanilla copper ingot in 26.1.2 (tag c:ingots/copper); ingot_red_copper is the alloy | quest LvNTM / 000000009543BA13 |
 | hbm:ore_copper@0 -> minecraft:copper_ore | 5 | 26.1.2 Nuclear Tech has no plain copper ore; vanilla copper ore is the equivalent | quest LvNTM / Copper |
 | hbm:block_copper@0 -> minecraft:copper_block | 1 | 26.1.2 Nuclear Tech has no copper block; it uses the vanilla one (its c:ingots/copper tag lists minecraft:copper_ingot) | quest Early Game / 00000000887A3AED |
+| refinedstorage:fluid_storage_part@0 -> refinedstorage:64b_fluid_storage_part | 1 | 1.6 fluid parts hold 64k; 2.x parts are 64B..4096B, smallest used; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / Fluids Parts |
+| refinedstorage:grid@3 -> refinedstorage:grid | 1 | no separate Fluid Grid in 2.x: the Grid handles fluids; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / Fluid Grid |
+| refinedstorage:disk_manipulator@0 -> refinedstorage:disk_interface | 1 | the Disk Manipulator was replaced by the Disk Interface; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / 0000000048C385AA |
 | hbm:mp_warhead_15_thermo@0 -> hbm:mp_warhead_15_nuclear | 1 | no thermonuclear size-15 warhead in 26.1.2; the nuclear one is the closest | quest Missiles / 0000000028FC0BEB |
 | hbm:mp_warhead_15_mirv@0 -> hbm:warhead_mirv | 1 | no size-15 MIRV warhead in 26.1.2; the MIRV warhead item is the closest | quest Missiles / 000000006F2F6CCB |
 | ore(12 gauge) -> tag(hbm:ammo) | 6 | 26.1.2 has no per-caliber ammo tag; every NTM ammo item matches | quest Weapons / 000000000354DE87 |
@@ -107,13 +63,32 @@ Decisions taken: {by-name=66, component=379, derived=311, derived-renamed=4, dro
 | hbm:bottle2_fritz_special@0 -> hbm:bottle2_fritz | 1 | the 1.12.2 "First Fritz Cola" collectible no longer exists; the normal Fritz Cola is the closest | reward table Treats |
 | hbm:bottle2_korl_special@0 -> hbm:bottle2_korl | 1 | the 1.12.2 "First Korl" collectible no longer exists; the normal Korl is the closest | reward table Treats |
 
-## inferred (17 distinct, 27 uses)
+## inferred (39 distinct, 49 uses)
 
 | from -> to | uses | note | first seen in |
 |---|---|---|---|
 | hbm:apple_lead@2 -> hbm:apple_lead_block | 2 | meta 1 and 2 of the apple are the ingot and block versions; the order is assumed | quest LvNTM / 00000000CE0D1E9C |
 | hbm:apple_lead@1 -> hbm:apple_lead_ingot | 2 | meta 1 and 2 of the apple are the ingot and block versions; the order is assumed | quest LvNTM / 00000000CE0D1E9C |
 | hbm:fluid_duct_mk2@1 -> hbm:fluid_duct_neo | 4 | the Universal Fluid Duct is fluid_duct_neo in 26.1.2 (colored and silver variants exist) | quest Early Game / 00000000039125AD |
+| ore(drillbit) -> items hbm:drillbit_desh, hbm:drillbit_ferro, hbm:drillbit_hss, hbm:drillbit_steel, hbm:drillbit_tcalloy | 1 | drillbit_* items without the diamond tip | quest Oil Age / Drillbits |
+| ore(tippedDrillbit) -> items hbm:drillbit_desh_diamond, hbm:drillbit_ferro_diamond, hbm:drillbit_hss_diamond, hbm:drillbit_steel_diamond, hbm:drillbit_tcalloy_diamond | 1 | drillbit_* items with the diamond tip | quest Oil Age / Tipped Drillbits |
+| ore(bedrockOreRoastedPrimaryFraction) -> items hbm:bedrock_ore_primary_roasted_light, hbm:bedrock_ore_primary_roasted_heavy, hbm:bedrock_ore_primary_roasted_rare, hbm:bedrock_ore_primary_roasted_actinide, hbm:bedrock_ore_primary_roasted_nonmetal, hbm:bedrock_ore_primary_roasted_crystal | 1 | by name | quest Bedrock Ore / Roasted Primary Fraction |
+| ore(bedrockOreDissolvedRoasted) -> items hbm:bedrock_ore_solvent_roasted_light, hbm:bedrock_ore_solvent_roasted_heavy, hbm:bedrock_ore_solvent_roasted_rare, hbm:bedrock_ore_solvent_roasted_actinide, hbm:bedrock_ore_solvent_roasted_nonmetal, hbm:bedrock_ore_solvent_roasted_crystal | 1 | Dissolved read as solvent from the naming pattern | quest Bedrock Ore / Dissolved Roasted |
+| ore(bedrockOreDissolved) -> items hbm:bedrock_ore_solvent_byproduct_light, hbm:bedrock_ore_solvent_byproduct_heavy, hbm:bedrock_ore_solvent_byproduct_rare, hbm:bedrock_ore_solvent_byproduct_actinide, hbm:bedrock_ore_solvent_byproduct_nonmetal, hbm:bedrock_ore_solvent_byproduct_crystal | 1 | Dissolved read as solvent from the naming pattern | quest Bedrock Ore / Dissolved By-Product |
+| ore(bedrockOrePrimaryFraction) -> items hbm:bedrock_ore_primary_light, hbm:bedrock_ore_primary_heavy, hbm:bedrock_ore_primary_rare, hbm:bedrock_ore_primary_actinide, hbm:bedrock_ore_primary_nonmetal, hbm:bedrock_ore_primary_crystal | 1 | by name | quest Bedrock Ore / Primary Fraction |
+| ore(bedrockOreCleanedRoasted) -> items hbm:bedrock_ore_rad_roasted_light, hbm:bedrock_ore_rad_roasted_heavy, hbm:bedrock_ore_rad_roasted_rare, hbm:bedrock_ore_rad_roasted_actinide, hbm:bedrock_ore_rad_roasted_nonmetal, hbm:bedrock_ore_rad_roasted_crystal | 1 | Cleaned read as rad from the naming pattern | quest Bedrock Ore / Cleaned Roasted |
+| ore(bedrockOreSulfuric) -> items hbm:bedrock_ore_sulfuric_byproduct_light, hbm:bedrock_ore_sulfuric_byproduct_heavy, hbm:bedrock_ore_sulfuric_byproduct_rare, hbm:bedrock_ore_sulfuric_byproduct_actinide, hbm:bedrock_ore_sulfuric_byproduct_nonmetal, hbm:bedrock_ore_sulfuric_byproduct_crystal | 1 | by name | quest Bedrock Ore / Sulfuric By-Product |
+| ore(bedrockOreSulfuricPrimaryFraction) -> items hbm:bedrock_ore_primary_sulfuric_light, hbm:bedrock_ore_primary_sulfuric_heavy, hbm:bedrock_ore_primary_sulfuric_rare, hbm:bedrock_ore_primary_sulfuric_actinide, hbm:bedrock_ore_primary_sulfuric_nonmetal, hbm:bedrock_ore_primary_sulfuric_crystal | 1 | by name | quest Bedrock Ore / Sulfuric Primary Fraction |
+| ore(bedrockOreDissolvedPrimaryFraction) -> items hbm:bedrock_ore_primary_solvent_light, hbm:bedrock_ore_primary_solvent_heavy, hbm:bedrock_ore_primary_solvent_rare, hbm:bedrock_ore_primary_solvent_actinide, hbm:bedrock_ore_primary_solvent_nonmetal, hbm:bedrock_ore_primary_solvent_crystal | 1 | Dissolved read as solvent from the naming pattern | quest Bedrock Ore / Dissolved Primary Fraction |
+| ore(bedrockOreDissolvedSeared) -> items hbm:bedrock_ore_solvent_arc_light, hbm:bedrock_ore_solvent_arc_heavy, hbm:bedrock_ore_solvent_arc_rare, hbm:bedrock_ore_solvent_arc_actinide, hbm:bedrock_ore_solvent_arc_nonmetal, hbm:bedrock_ore_solvent_arc_crystal | 1 | Dissolved/Seared read as solvent/arc from the naming pattern | quest Bedrock Ore / Dissolved Seared |
+| ore(bedrockOreSulfuricWashed) -> items hbm:bedrock_ore_sulfuric_washed_light, hbm:bedrock_ore_sulfuric_washed_heavy, hbm:bedrock_ore_sulfuric_washed_rare, hbm:bedrock_ore_sulfuric_washed_actinide, hbm:bedrock_ore_sulfuric_washed_nonmetal, hbm:bedrock_ore_sulfuric_washed_crystal | 1 | by name | quest Bedrock Ore / Sulfuric Washed |
+| ore(bedrockOreCleanedPrimaryFraction) -> items hbm:bedrock_ore_primary_rad_light, hbm:bedrock_ore_primary_rad_heavy, hbm:bedrock_ore_primary_rad_rare, hbm:bedrock_ore_primary_rad_actinide, hbm:bedrock_ore_primary_rad_nonmetal, hbm:bedrock_ore_primary_rad_crystal | 1 | Cleaned read as rad from the naming pattern | quest Bedrock Ore / Cleaned Primary Fraction |
+| ore(bedrockOreCleanedSeared) -> items hbm:bedrock_ore_rad_arc_light, hbm:bedrock_ore_rad_arc_heavy, hbm:bedrock_ore_rad_arc_rare, hbm:bedrock_ore_rad_arc_actinide, hbm:bedrock_ore_rad_arc_nonmetal, hbm:bedrock_ore_rad_arc_crystal | 1 | Cleaned/Seared read as rad/arc from the naming pattern | quest Bedrock Ore / Cleaned Seared |
+| ore(bedrockOreSulfuricSeared) -> items hbm:bedrock_ore_sulfuric_arc_light, hbm:bedrock_ore_sulfuric_arc_heavy, hbm:bedrock_ore_sulfuric_arc_rare, hbm:bedrock_ore_sulfuric_arc_actinide, hbm:bedrock_ore_sulfuric_arc_nonmetal, hbm:bedrock_ore_sulfuric_arc_crystal | 1 | Seared read as arc from the naming pattern | quest Bedrock Ore / Sulfuric Seared |
+| ore(bedrockOreSulfuricRoasted) -> items hbm:bedrock_ore_sulfuric_roasted_light, hbm:bedrock_ore_sulfuric_roasted_heavy, hbm:bedrock_ore_sulfuric_roasted_rare, hbm:bedrock_ore_sulfuric_roasted_actinide, hbm:bedrock_ore_sulfuric_roasted_nonmetal, hbm:bedrock_ore_sulfuric_roasted_crystal | 1 | by name | quest Bedrock Ore / Sulfuric Roasted |
+| ore(bedrockOreDissolvedWashed) -> items hbm:bedrock_ore_solvent_washed_light, hbm:bedrock_ore_solvent_washed_heavy, hbm:bedrock_ore_solvent_washed_rare, hbm:bedrock_ore_solvent_washed_actinide, hbm:bedrock_ore_solvent_washed_nonmetal, hbm:bedrock_ore_solvent_washed_crystal | 1 | Dissolved read as solvent from the naming pattern | quest Bedrock Ore / Dissolved Washed |
+| ore(bedrockOreCleanedWashed) -> items hbm:bedrock_ore_rad_washed_light, hbm:bedrock_ore_rad_washed_heavy, hbm:bedrock_ore_rad_washed_rare, hbm:bedrock_ore_rad_washed_actinide, hbm:bedrock_ore_rad_washed_nonmetal, hbm:bedrock_ore_rad_washed_crystal | 1 | Cleaned read as rad from the naming pattern | quest Bedrock Ore / Cleaned Washed |
+| ore(bedrockOreCleaned) -> items hbm:bedrock_ore_rad_byproduct_light, hbm:bedrock_ore_rad_byproduct_heavy, hbm:bedrock_ore_rad_byproduct_rare, hbm:bedrock_ore_rad_byproduct_actinide, hbm:bedrock_ore_rad_byproduct_nonmetal, hbm:bedrock_ore_rad_byproduct_crystal | 1 | Cleaned read as rad from the naming pattern | quest Bedrock Ore / Cleaned By-Product |
 | hbm:apple_schrabidium@1 -> hbm:apple_schrabidium_ingot | 2 | meta 1 and 2 of the apple are the ingot and block versions; the order is assumed | quest Late Game / 000000005A6CC8DF |
 | hbm:apple_schrabidium@2 -> hbm:apple_schrabidium_block | 2 | meta 1 and 2 of the apple are the ingot and block versions; the order is assumed | quest Late Game / 000000005A6CC8DF |
 | hbm:plant_flower@2 -> hbm:plant_flower_cd0 | 1 | Mustard Willow, first growth stage | quest Late Game / 32x Mustard Willow |
@@ -127,9 +102,12 @@ Decisions taken: {by-name=66, component=379, derived=311, derived-renamed=4, dro
 | hbm:pile_rod@5 -> hbm:pile_rod_mk2_rgp | 1 | breeding chain uranium, plutonium, RGP, waste | quest Reactors / 00000000AF5D6E4C |
 | hbm:pile_rod@6 -> hbm:pile_rod_mk2_waste | 1 | breeding chain uranium, plutonium, RGP, waste | quest Reactors / 00000000B78F543E |
 | hbm:pile_rod@1 -> hbm:pile_rod_mk2_po210be | 1 | order read from the quest structure: second neutron source | quest Reactors / Neutron Sources |
+| refinedstorage:upgrade@7 -> refinedstorage:fortune_1_upgrade | 1 | fortune levels 7-9 taken as I-III; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / Destructor Upgrades |
+| refinedstorage:upgrade@8 -> refinedstorage:fortune_2_upgrade | 1 | fortune levels 7-9 taken as I-III; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / Destructor Upgrades |
+| refinedstorage:upgrade@9 -> refinedstorage:fortune_3_upgrade | 1 | fortune levels 7-9 taken as I-III; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / Destructor Upgrades |
 | hbm:fluid_duct_exhaust@0 -> hbm:fluid_duct_exhaust_0 | 1 | 26.1.2 splits the exhaust pipe into five items; the first is used | quest Fluids / 00000000F90F6383 |
 
-## kept (63 distinct, 77 uses)
+## kept (8 distinct, 20 uses)
 
 | from -> to | uses | note | first seen in |
 |---|---|---|---|
@@ -140,82 +118,14 @@ Decisions taken: {by-name=66, component=379, derived=311, derived-renamed=4, dro
 | lvimages:textures/image5.png -> lvimages:textures/image5.png | 1 | texture lives in the user's lvimage mod; ship it as a resource pack | chapter Bedrock Ore |
 | lvimages:textures/image1.png -> lvimages:textures/image1.png | 1 | texture lives in the user's lvimage mod; ship it as a resource pack | chapter Bedrock Ore |
 | lvimages:textures/image6.png -> lvimages:textures/image6.png | 5 | texture lives in the user's lvimage mod; ship it as a resource pack | chapter Late Game |
-| refinedstorage:controller@1 -> refinedstorage:controller | 2 | mod not installed in the 26.1.2 instance; id kept as written | chapter Refined Storage |
 | lvimages:textures/image9.png -> lvimages:textures/image9.png | 1 | texture lives in the user's lvimage mod; ship it as a resource pack | chapter Refined Storage |
-| refinedstorage:crafter@0 -> refinedstorage:crafter | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000002A689A1 |
-| refinedstorage:writer@0 -> refinedstorage:writer | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Writer and Reader |
-| refinedstorage:reader@0 -> refinedstorage:reader | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Writer and Reader |
-| refinedstorage:fluid_storage_part@0 -> refinedstorage:fluid_storage_part | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Fluids Parts |
-| refinedstorage:grid@3 -> refinedstorage:grid | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Fluid Grid |
-| refinedstorage:storage_part@1 -> refinedstorage:storage_part | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000011F806C5 |
-| refinedstorage:processor@5 -> refinedstorage:processor | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000138AF57D |
-| refinedstorage:storage_housing@0 -> refinedstorage:storage_housing | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000138E1B48 |
-| refinedstorage:storage@1 -> refinedstorage:storage | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000016CE33BA |
-| refinedstorage:grid@0 -> refinedstorage:grid | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000024D24B3E |
-| refinedstorage:storage_disk@1 -> refinedstorage:storage_disk | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000027894255 |
-| refinedstorage:processor@3 -> refinedstorage:processor | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000289FA311 |
-| refinedstorage:storage_part@2 -> refinedstorage:storage_part | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 000000002A8382FA |
-| refinedstorage:external_storage@0 -> refinedstorage:external_storage | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 000000002FC28BC7 |
-| refinedstorage:storage_part@3 -> refinedstorage:storage_part | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000033942C1D |
-| refinedstorage:grid@1 -> refinedstorage:grid | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 000000003C576230 |
-| refinedstorage:core@1 -> refinedstorage:core | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000404B0514 |
-| refinedstorage:upgrade@1 -> refinedstorage:upgrade | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000040C5271A |
-| refinedstorage:wireless_grid@0 -> refinedstorage:wireless_grid | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000047E70431 |
-| refinedstorage:disk_drive@0 -> refinedstorage:disk_drive | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000048C385AA |
-| refinedstorage:disk_manipulator@0 -> refinedstorage:disk_manipulator | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000048C385AA |
-| refinedstorage:pattern@0 -> refinedstorage:pattern | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 000000004FA9F3A2 |
-| refinedstorage:upgrade@7 -> refinedstorage:upgrade | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Destructor Upgrades |
-| refinedstorage:upgrade@8 -> refinedstorage:upgrade | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Destructor Upgrades |
-| refinedstorage:upgrade@9 -> refinedstorage:upgrade | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Destructor Upgrades |
-| refinedstorage:upgrade@6 -> refinedstorage:upgrade | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Destructor Upgrades |
-| refinedstorage:upgrade@2 -> refinedstorage:upgrade | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000067A7EB8D |
-| refinedstorage:portable_grid@0 -> refinedstorage:portable_grid | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 000000006B6E8294 |
-| refinedstorage:quartz_enriched_iron@0 -> refinedstorage:quartz_enriched_iron | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Quartz Enriched Iron |
-| refinedstorage:constructor@0 -> refinedstorage:constructor | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Constructor and Destructor |
-| refinedstorage:destructor@0 -> refinedstorage:destructor | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Constructor and Destructor |
-| refinedstorage:controller@0 -> refinedstorage:controller | 2 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000090BE8287 |
-| refinedstorage:storage@0 -> refinedstorage:storage | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 0000000099990A29 |
-| refinedstorage:storage_disk@2 -> refinedstorage:storage_disk | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 000000009A4E7F9F |
-| refinedstorage:core@0 -> refinedstorage:core | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 000000009DF0F966 |
-| refinedstorage:wrench@0 -> refinedstorage:wrench | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 000000009EA1956A |
-| refinedstorage:upgrade@4 -> refinedstorage:upgrade | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000A76009BC |
-| refinedstorage:cable@0 -> refinedstorage:cable | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000AB56CF1E |
-| refinedstorage:importer@0 -> refinedstorage:importer | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Import and Exporter |
-| refinedstorage:exporter@0 -> refinedstorage:exporter | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Import and Exporter |
-| refinedstorage:storage_part@0 -> refinedstorage:storage_part | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000B9376292 |
-| refinedstorage:network_transmitter@0 -> refinedstorage:network_transmitter | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000BE7E00FB |
-| refinedstorage:network_receiver@0 -> refinedstorage:network_receiver | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000BE7E00FB |
-| refinedstorage:network_card@0 -> refinedstorage:network_card | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000BE7E00FB |
-| refinedstorage:storage_disk@3 -> refinedstorage:storage_disk | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000BF540CBA |
-| refinedstorage:upgrade@3 -> refinedstorage:upgrade | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000C20B1334 |
-| refinedstorage:storage@2 -> refinedstorage:storage | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000CE68FB93 |
-| refinedstorage:upgrade@0 -> refinedstorage:upgrade | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / Upgrades |
-| refinedstorage:crafter_manager@0 -> refinedstorage:crafter_manager | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000D287DEA9 |
-| refinedstorage:storage_disk@0 -> refinedstorage:storage_disk | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000D2EBB555 |
-| refinedstorage:storage@3 -> refinedstorage:storage | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000D68F616F |
-| refinedstorage:crafting_monitor@0 -> refinedstorage:crafting_monitor | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000DE5F31F5 |
-| refinedstorage:grid@2 -> refinedstorage:grid | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000E5A14DDA |
-| refinedstorage:processor@4 -> refinedstorage:processor | 1 | mod not installed in the 26.1.2 instance; id kept as written | quest Refined Storage / 00000000FA717720 |
 
-## dropped (8 distinct, 8 uses)
+## renamed (40 distinct, 68 uses)
 
 | from -> to | uses | note | first seen in |
 |---|---|---|---|
-| https://nucleartech.wiki/wiki/Main_Page ->  | 1 | the image's click link: the key FTB Quests 26.1.2 uses for it was not read from a saved file, so it is not written | chapter LvNTM |
-| https://www.youtube.com/watch?v=os7E3b8NO64 ->  | 1 | the image's click link: the key FTB Quests 26.1.2 uses for it was not read from a saved file, so it is not written | chapter Late Game |
-| https://youtu.be/TrAtMS970sI?si=WPKnZb55blCrOdIs ->  | 1 | the image's click link: the key FTB Quests 26.1.2 uses for it was not read from a saved file, so it is not written | chapter Late Game |
-| https://nucleartech.wiki/wiki/Inertial_Confinement_Fusion_Reactor#Laser_Port ->  | 1 | the image's click link: the key FTB Quests 26.1.2 uses for it was not read from a saved file, so it is not written | chapter Late Game |
-| https://www.youtube.com/watch?v=tTl2GgvBbag ->  | 1 | the image's click link: the key FTB Quests 26.1.2 uses for it was not read from a saved file, so it is not written | chapter Reactors |
-| https://www.youtube.com/watch?v=3nHCB3QCysk ->  | 1 | the image's click link: the key FTB Quests 26.1.2 uses for it was not read from a saved file, so it is not written | chapter Reactors |
-| https://refinedmods.com/refined-storage/v3.2.1/index.html ->  | 1 | the image's click link: the key FTB Quests 26.1.2 uses for it was not read from a saved file, so it is not written | chapter Refined Storage |
-| https://youtu.be/EaPSZcSy4Sg?si=C98qDnocTOt68Dyb&t=170 ->  | 1 | the image's click link: the key FTB Quests 26.1.2 uses for it was not read from a saved file, so it is not written | chapter Automation |
-
-## renamed (37 distinct, 65 uses)
-
-| from -> to | uses | note | first seen in |
-|---|---|---|---|
-| minecraft:textures/items/barrier.png -> minecraft:textures/item/barrier.png | 2 | texture folder renamed in 1.13 | chapter LvNTM |
-| minecraft:textures/items/structure_void.png -> minecraft:textures/item/structure_void.png | 1 | texture folder renamed in 1.13 | chapter LvNTM |
+| minecraft:textures/items/barrier.png -> lvimages:textures/ntm_icon.png | 2 | texture folder renamed in 1.13 | chapter LvNTM |
+| minecraft:textures/items/structure_void.png -> lvimages:textures/wojaksona.png | 1 | texture folder renamed in 1.13 | chapter LvNTM |
 | futuremc:smoker@0 -> minecraft:smoker | 1 | Future MC block is vanilla in 26.1.2 | quest Vanilla / 00000000469BC620 |
 | futuremc:grindstone@0 -> minecraft:grindstone | 1 | Future MC block is vanilla in 26.1.2 | quest Vanilla / 00000000469BC620 |
 | hbm:fluid_tank_empty@0 -> hbm:fluid_tank | 3 | 26.1.2 has one universal tank item; empty means no fluid component | quest Early Game / Fluid Tanks |
@@ -243,10 +153,13 @@ Decisions taken: {by-name=66, component=379, derived=311, derived-renamed=4, dro
 | hbm:scraps@0 -> hbm:scraps | 6 | "Stone Scraps" is now "Foundry Scraps" | quest Late Game / Bismoids |
 | hbm:ring_starmetal@0 -> hbm:ring_starmetal | 1 | "Starmetal Ring" is now "§9Starmetal Ring§r" | quest Late Game / 00000000ABFC425A |
 | hbm:machine_deuterium_tower@0 -> hbm:machine_deuterium_tower | 2 | "Deuterium Extraction Tower" is now "Heavy Water Extraction Tower" | quest Late Game / Deuterium Extractors |
-| minecraft:textures/blocks/command_block_conditional.png -> minecraft:textures/block/command_block_conditional.png | 1 | texture folder renamed in 1.13 | chapter Reactors |
+| minecraft:textures/blocks/command_block_conditional.png -> lvimages:textures/gas_centrifuge.png | 1 | texture folder renamed in 1.13 | chapter Reactors |
 | hbm:rbmk_fuel_drx@0 -> hbm:rbmk_fuel_drx | 1 | "Digamma RBMK Fuel Rod" is now "§cDigamma RBMK Fuel Rod§r" | quest Reactors / 00000000EB4863D6 |
+| refinedstorage:crafter@0 -> refinedstorage:autocrafter | 1 | Crafter is Autocrafter in 2.x; id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / 0000000002A689A1 |
 | hbm:mass_storage_iron@0 -> hbm:mass_storage_iron | 1 | "Mass Storage Unit" is now "Iron Mass Storage" | quest Refined Storage / 00000000879AC4EA |
 | hbm:mass_storage_wood@0 -> hbm:mass_storage_wood | 1 | "Mass Storage Unit" is now "Wooden Mass Storage" | quest Refined Storage / Wood Mass Storage Unit |
+| refinedstorage:crafter_manager@0 -> refinedstorage:autocrafter_manager | 1 | id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / 00000000D287DEA9 |
+| refinedstorage:crafting_monitor@0 -> refinedstorage:autocrafting_monitor | 1 | id exists in refinedstorage-neoforge-3.2.1 (26.1.2 instance, assets/refinedstorage/items) | quest Refined Storage / 00000000DE5F31F5 |
 | hbm:mass_storage_desh@0 -> hbm:mass_storage_desh | 1 | "Mass Storage Unit" is now "Desh Mass Storage" | quest Refined Storage / 00000000FD359A14 |
 | hbm:machine_lpw2@0 -> hbm:machine_lpw2 | 2 | "LPW-2 Station Thruster" is now "LPW-2" | quest Checklists / 000000000C9B808B |
 | hbm:machine_bigasstank@0 -> hbm:machine_bigasstank | 1 | "Big-Ass Tank" is now "Big Ass Tank" | quest Fluids / 00000000EB1CFE11 |
@@ -305,7 +218,7 @@ Decisions taken: {by-name=66, component=379, derived=311, derived-renamed=4, dro
 | hbm:pribris@0 -> hbm:rbmk_debris | 1 | matched on the name "RBMK Debris" | quest Bosses / 00000000E81B73B6 |
 | hbm:canned_conserve@0 -> hbm:canned_conserve_beef | 1 | matched on the name "Canned Beef" | reward table Treats |
 
-## derived (222 distinct, 311 uses)
+## derived (224 distinct, 313 uses)
 
 | from -> to | uses | note | first seen in |
 |---|---|---|---|
@@ -319,6 +232,7 @@ Decisions taken: {by-name=66, component=379, derived=311, derived-renamed=4, dro
 | hbm:crashed_bomb@1 -> hbm:crashed_bomb_conventional | 1 | tile.crashed_bomb.conventional | quest Early Game / 00000000165103AE |
 | ore(gemCoal) -> tag(c:gems/coal) | 1 | if the tag does not exist the entry falls to unresolved at export | quest Early Game / Black Lung and Mesothelioma, Second Revision Edition |
 | hbm:ammo_standard@50 -> hbm:ammo_standard_g26_flare | 1 |  | quest Early Game / Iron Anvil |
+| ore(bobblehead) -> items hbm:bobblehead_abel, hbm:bobblehead_adam29, hbm:bobblehead_agility, hbm:bobblehead_bluehat, hbm:bobblehead_bob, hbm:bobblehead_charisma, hbm:bobblehead_cirno, hbm:bobblehead_clawd, hbm:bobblehead_doc, hbm:bobblehead_drillgon, hbm:bobblehead_endurance, hbm:bobblehead_eos, hbm:bobblehead_frizzle, hbm:bobblehead_golem, hbm:bobblehead_hacker6329, hbm:bobblehead_intelligence, hbm:bobblehead_leafia, hbm:bobblehead_luck, hbm:bobblehead_mellow, hbm:bobblehead_microwave, hbm:bobblehead_movblock, hbm:bobblehead_norwood, hbm:bobblehead_nos, hbm:bobblehead_peep, hbm:bobblehead_perception, hbm:bobblehead_pheo, hbm:bobblehead_pu238, hbm:bobblehead_silentyeti, hbm:bobblehead_strength, hbm:bobblehead_uffr, hbm:bobblehead_vaer, hbm:bobblehead_vt | 1 | every bobblehead_* item | quest Early Game / 000000003B5EFBA7 |
 | hbm:circuit@7 -> hbm:circuit_analog | 1 |  | quest Early Game / 000000008A25FA82 |
 | hbm:conveyor_wand@0 -> hbm:conveyor_wand_regular | 5 |  | quest Early Game / 00000000A6972699 |
 | hbm:circuit@8 -> hbm:circuit_basic | 5 |  | quest Early Game / Old Lantern |
@@ -362,6 +276,7 @@ Decisions taken: {by-name=66, component=379, derived=311, derived-renamed=4, dro
 | hbm:bedrock_ore_fragment@700 -> hbm:bedrock_ore_fragment_niter | 1 | name "Niter Bedrock Ore Fragment" | quest Bedrock Ore / Sulfuric Non-Metal Results |
 | hbm:bedrock_ore_fragment@8300 -> hbm:bedrock_ore_fragment_bismuth | 1 |  | quest Bedrock Ore / Cleaned Heavy Metal Results |
 | hbm:bedrock_ore_fragment@7300 -> hbm:bedrock_ore_fragment_tantalium | 1 | name "Tantalum Bedrock Ore Fragment" | quest Bedrock Ore / Cleaned Heavy Metal Results |
+| ore(bedrockOreFullWashed) -> items hbm:bedrock_ore_base_washed_light, hbm:bedrock_ore_base_washed_heavy, hbm:bedrock_ore_base_washed_rare, hbm:bedrock_ore_base_washed_actinide, hbm:bedrock_ore_base_washed_nonmetal, hbm:bedrock_ore_base_washed_crystal | 1 | items named "Washed <kind> Bedrock Ore" in the 1.12.2 dump | quest Bedrock Ore / Washed Ore |
 | hbm:bedrock_ore_fragment@1400 -> hbm:bedrock_ore_fragment_silicon | 1 |  | quest Bedrock Ore / Cleaned Non-Metal Results |
 | hbm:bedrock_ore_fragment@4399 -> hbm:bedrock_ore_fragment_technetium | 1 | name "Technetium-99 Bedrock Ore Fragment" | quest Bedrock Ore / Cleaned Actinide Results |
 | hbm:bedrock_ore_fragment@9238 -> hbm:bedrock_ore_fragment_u238 | 1 | name "Uranium-238 Bedrock Ore Fragment" | quest Bedrock Ore / Cleaned Actinide Results |
@@ -724,10 +639,11 @@ Decisions taken: {by-name=66, component=379, derived=311, derived-renamed=4, dro
 | hbm:fluid_icon@30 -> hbm:fluid_icon | 2 | fluid hbm:puf6 | quest Fluids / 00000000FE72764F |
 | hbm:fluid_icon@104 -> hbm:fluid_icon | 2 | fluid hbm:iongel | quest Fluids / 00000000FFD6AC84 |
 
-## mapped (32 distinct, 35 uses)
+## mapped (40 distinct, 43 uses)
 
 | from -> to | uses | note | first seen in |
 |---|---|---|---|
+| image click https://nucleartech.wiki/wiki/Main_Page -> click_action open_uri | 1 | keys read from a file FTB Quests 26.1.2 saved | chapter LvNTM |
 | minecraft:spawn_egg minecraft:villager -> minecraft:villager_spawn_egg | 1 | spawn egg of that entity | quest LvNTM / Author |
 | minecraft:spawn_egg hbm:entity_elder_one -> hbm:entity_elder_one_spawn_egg | 1 | spawn egg of that entity | quest LvNTM / Author |
 | fluid nitric_acid -> hbm:nitric_acid | 1 | fluid id | quest Early Game / 000000002AD8278A |
@@ -747,14 +663,21 @@ Decisions taken: {by-name=66, component=379, derived=311, derived-renamed=4, dro
 | fluid naphtha -> hbm:naphtha | 1 | fluid id | quest Oil Age / Naptha |
 | fluid gas -> hbm:gas | 1 | fluid id | quest Oil Age / 00000000FD3DB02D |
 | fluid slop -> hbm:slop | 1 | fluid id | quest Bedrock Ore / 00000000D6EF4B2A |
+| image click https://www.youtube.com/watch?v=os7E3b8NO64 -> click_action open_uri | 1 | keys read from a file FTB Quests 26.1.2 saved | chapter Late Game |
+| image click https://youtu.be/TrAtMS970sI?si=WPKnZb55blCrOdIs -> click_action open_uri | 1 | keys read from a file FTB Quests 26.1.2 saved | chapter Late Game |
+| image click https://nucleartech.wiki/wiki/Inertial_Confinement_Fusion_Reactor#Laser_Port -> click_action open_uri | 1 | keys read from a file FTB Quests 26.1.2 saved | chapter Late Game |
 | fluid xylene -> hbm:xylene | 1 | fluid id | quest Late Game / 0000000064C1C604 |
 | fluid radiosolvent -> hbm:radiosolvent | 1 | fluid id | quest Late Game / 000000007057B18B |
 | fluid reformate -> hbm:reformate | 1 | fluid id | quest Late Game / 000000008A71393D |
 | fluid reformgas -> hbm:reformgas | 1 | fluid id | quest Late Game / 000000008A76F5CE |
 | fluid heavywater -> hbm:heavywater | 1 | fluid id | quest Late Game / 00000000D19941B2 |
+| image click https://www.youtube.com/watch?v=tTl2GgvBbag -> click_action open_uri | 1 | keys read from a file FTB Quests 26.1.2 saved | chapter Reactors |
+| image click https://www.youtube.com/watch?v=3nHCB3QCysk -> click_action open_uri | 1 | keys read from a file FTB Quests 26.1.2 saved | chapter Reactors |
 | fluid coolant -> hbm:coolant | 1 | fluid id | quest Reactors / 000000001F522B58 |
+| image click https://refinedmods.com/refined-storage/v3.2.1/index.html -> click_action open_uri | 1 | keys read from a file FTB Quests 26.1.2 saved | chapter Refined Storage |
 | hbm:entity_ntm_test_dummy -> hbm:entity_test_dummy | 2 | entity renamed | quest Checklists / 00000000C9D6BE8E |
 | minecraft:spawn_egg hbm:entity_ntm_test_dummy -> hbm:entity_test_dummy_spawn_egg | 2 | spawn egg of that entity | quest Checklists / 00000000C9D6BE8E |
+| image click https://youtu.be/EaPSZcSy4Sg?si=C98qDnocTOt68Dyb&t=170 -> click_action open_uri | 1 | keys read from a file FTB Quests 26.1.2 saved | chapter Automation |
 | hbm:entity_ntm_radiation_blaze -> hbm:entity_radiation_blaze | 1 | entity renamed | quest Bosses / 00000000103472EC |
 | hbm:entity_mask_man -> hbm:entity_mob_mask_man | 1 | entity renamed | quest Bosses / 00000000146FE7A6 |
 | hbm:entity_nuclear_creeper -> hbm:entity_mob_nuclear_creeper | 2 | entity renamed | quest Bosses / 00000000A23994CF |
