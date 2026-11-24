@@ -54,7 +54,7 @@ final class Theme {
         sections = null;
     }
 
-    private static void parse(String text, Map<String, Map<String, String>> out) {
+    static void parse(String text, Map<String, Map<String, String>> out) {
         String current = ALL;
         for (String raw : text.split("\r?\n")) {
             String rest = raw.strip();
@@ -110,7 +110,10 @@ final class Theme {
     }
 
     static int color(String key, int fallback, Quest q) {
-        String v = lookup(key, q);
+        return parseColor(lookup(key, q), fallback);
+    }
+
+    static int parseColor(String v, int fallback) {
         if (v == null || !v.startsWith("#")) {
             return fallback;
         }

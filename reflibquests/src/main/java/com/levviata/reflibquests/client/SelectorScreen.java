@@ -199,8 +199,8 @@ final class SelectorScreen extends GuiScreen {
         ItemStack bucket = net.minecraftforge.fluids.FluidUtil.getFilledBucket(new net.minecraftforge.fluids.FluidStack(f, 1000));
         if (bucket.isEmpty()) {
             bucket = new ItemStack(Items.BUCKET);
-            bucket.setStackDisplayName(f.getLocalizedName(new net.minecraftforge.fluids.FluidStack(f, 1000)) + " Bucket");
         }
+        bucket.setStackDisplayName(f.getLocalizedName(new net.minecraftforge.fluids.FluidStack(f, 1000)));
         return bucket;
     }
 
