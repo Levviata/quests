@@ -86,8 +86,9 @@ final class QuestText {
 
                 long mb = t.maxProgress();
                 String fl = t.params().get("fluid") instanceof DataNode.Compound fc ? fc.getString("fluid", "") : "";
-                String name = titleCase(fl.isEmpty() ? "water" : fl);
-                return (mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB") + " of " + name + " Bucket";
+                net.minecraftforge.fluids.Fluid known = net.minecraftforge.fluids.FluidRegistry.getFluid(fl.isEmpty() ? "water" : fl.substring(fl.indexOf(':') + 1));
+                String name = known == null ? titleCase(fl.isEmpty() ? "water" : fl) : known.getLocalizedName(new net.minecraftforge.fluids.FluidStack(known, 1000));
+                return (mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB") + " of " + name;
             }
             case "stat":
                 return titleCase(t.params().getString("stat", ""));
