@@ -1,0 +1,116 @@
+From 25c8e5c1b8b33e41e99210944fa89a2b4859b2e9 Mon Sep 17 00:00:00 2001
+From: claude <claude@example.invalid>
+Date: Fri, 27 Nov 2026 20:52:54 +0000
+Subject: [PATCH 4/4] Store modded dimensions by their bare name instead of the
+ modded: prefix (old values still read)
+
+---
+ .../main/java/com/levviata/reflibquests/io/Names.java  |  8 ++++++--
+ .../com/levviata/reflibquests/model/BookEditor.java    | 10 ++++++++--
+ .../com/levviata/reflibquests/io/SmallPartsTest.java   |  3 +++
+ .../levviata/reflibquests/model/BookEditorTest.java    |  7 +++++++
+ 4 files changed, 24 insertions(+), 4 deletions(-)
+
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/io/Names.java b/reflibquests/src/main/java/com/levviata/reflibquests/io/Names.java
+index b8d0cc8..7efed0f 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/io/Names.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/io/Names.java
+@@ -38,6 +38,10 @@ public final class Names {
+         }
+     }
+ 
++    /**
++     * Older versions of this mod stored a modded dimension as {@code modded:name}. That prefix is no longer written, but
++     * values that have it are still understood and shown without it.
++     */
+     public static final String MODDED_PREFIX = "modded:";
+ 
+     private static OptionalInt registeredDimension(String name) {
+@@ -51,7 +55,7 @@ public final class Names {
+         return OptionalInt.empty();
+     }
+ 
+-    /** What a dimension is called on screen: the stored value without this mod's own {@code modded:} prefix. */
++    /** What a dimension is called on screen: the stored value without the old {@code modded:} prefix. */
+     public static String dimensionLabel(String stored) {
+         return stored != null && stored.startsWith(MODDED_PREFIX) ? stored.substring(MODDED_PREFIX.length()) : String.valueOf(stored);
+     }
+@@ -61,7 +65,7 @@ public final class Names {
+         for (net.minecraft.world.DimensionType type : net.minecraft.world.DimensionType.values()) {
+             String name = type.getName();
+             if (!name.equals("overworld") && !name.equals("the_nether") && !name.equals("the_end")) {
+-                out.add(MODDED_PREFIX + name);
++                out.add(name);
+             }
+         }
+         return out;
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java b/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java
+index 456d4b5..8789e50 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java
+@@ -35,6 +35,12 @@ public final class BookEditor {
+     public static final Set<String> TASK_TYPES = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom", "biome", "structure", "observation", "stat", "fluid",
+             "gamestage", "interaction", "forge_energy");
+ 
++    /**
++     * A stored dimension: a resource location, a dimension number, or the bare name of a 1.12.2 dimension type
++     * (twilight_forest), which has no namespace to put in front.
++     */
++    private static final String DIMENSION_VALUE = "[a-z0-9_.-]+:[a-z0-9_./-]+|-?[0-9]+|[A-Za-z0-9_.-]+";
++
+     public static final List<String> INTERACTION_TYPES = List.of("block", "block_tag", "block_state", "entity_type", "entity_type_tag");
+ 
+     public static final Set<String> REWARD_TYPES = Set.of("item", "xp", "xp_levels", "command", "toast", "advancement", "custom", "gamestage");
+@@ -1703,7 +1709,7 @@ public final class BookEditor {
+                     p = p.with(key, v);
+                 }
+                 case "dimension" -> {
+-                    if (!t.type().equals("location") || !value.strip().matches("[a-z0-9_.-]+:[a-z0-9_./-]+|-?[0-9]+")) {
++                    if (!t.type().equals("location") || !value.strip().matches(DIMENSION_VALUE)) {
+                         return Result.INVALID;
+                     }
+                     p = p.with(key, value.strip());
+@@ -1781,7 +1787,7 @@ public final class BookEditor {
+                 case "target" -> {
+                     String pk = targetKey(t.type());
+                     String v = value.strip();
+-                    if (pk == null || !v.matches("[a-z0-9_.-]+:[a-z0-9_./-]+")) {
++                    if (pk == null || !v.matches("dimension".equals(pk) ? DIMENSION_VALUE : "[a-z0-9_.-]+:[a-z0-9_./-]+")) {
+                         return Result.INVALID;
+                     }
+                     p = p.with(pk, v);
+diff --git a/reflibquests/src/test/java/com/levviata/reflibquests/io/SmallPartsTest.java b/reflibquests/src/test/java/com/levviata/reflibquests/io/SmallPartsTest.java
+index 4fd094b..7213e38 100644
+--- a/reflibquests/src/test/java/com/levviata/reflibquests/io/SmallPartsTest.java
++++ b/reflibquests/src/test/java/com/levviata/reflibquests/io/SmallPartsTest.java
+@@ -48,6 +48,9 @@ class SmallPartsTest {
+         assertEquals(1, Names.dimensionId("the_end").getAsInt());
+         assertEquals(7, Names.dimensionId("7").getAsInt());
+         assertTrue(Names.dimensionId("modded:thing").isEmpty());
++        assertEquals("thing", Names.dimensionLabel("modded:thing"), "the old prefix is not shown");
++        assertEquals("thing", Names.dimensionLabel("thing"));
++        assertEquals("minecraft:the_end", Names.dimensionLabel("minecraft:the_end"));
+     }
+ 
+     @Test
+diff --git a/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java b/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java
+index 60671b4..8d46116 100644
+--- a/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java
++++ b/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java
+@@ -611,6 +611,13 @@ class BookEditorTest {
+         assertEquals(INVALID, ed.setTaskProp(task, "to_observe", "minecraft:cow"), "only observation tasks");
+         String loc = ed.addTask(q.id, "location", DataNode.Compound.empty());
+         assertEquals(OK, ed.setTaskProp(loc, "dimension", "minecraft:the_nether"));
++        assertEquals(OK, ed.setTaskProp(loc, "dimension", "twilight_forest"), "bare name of a modded dimension type");
++        assertEquals("twilight_forest", book.task(loc).params().getString("dimension", ""));
++        assertEquals(INVALID, ed.setTaskProp(loc, "dimension", "two words"));
++        String dimTask = ed.addTask(q.id, "dimension", DataNode.Compound.empty().with("dimension", "minecraft:overworld"));
++        assertEquals(OK, ed.setTaskProp(dimTask, "target", "twilight_forest"));
++        assertEquals(OK, ed.setTaskProp(dimTask, "target", "minecraft:the_nether"));
++        assertEquals(INVALID, ed.setTaskProp(adv, "target", "twilight_forest"), "other targets still need a namespace");
+         assertEquals(OK, ed.setTaskProp(loc, "ignore_dimension", "true"));
+         assertEquals(true, book.task(loc).params().getBool("ignore_dimension", false));
+         String reward = ed.addReward(q.id, "xp", DataNode.Compound.empty().with("xp", 5));
+-- 
+2.43.0
+

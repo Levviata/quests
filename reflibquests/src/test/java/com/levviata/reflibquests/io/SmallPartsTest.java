@@ -48,6 +48,9 @@ class SmallPartsTest {
         assertEquals(1, Names.dimensionId("the_end").getAsInt());
         assertEquals(7, Names.dimensionId("7").getAsInt());
         assertTrue(Names.dimensionId("modded:thing").isEmpty());
+        assertEquals("thing", Names.dimensionLabel("modded:thing"), "the old prefix is not shown");
+        assertEquals("thing", Names.dimensionLabel("thing"));
+        assertEquals("minecraft:the_end", Names.dimensionLabel("minecraft:the_end"));
     }
 
     @Test

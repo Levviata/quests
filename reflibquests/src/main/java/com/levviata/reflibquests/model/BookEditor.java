@@ -35,6 +35,12 @@ public final class BookEditor {
     public static final Set<String> TASK_TYPES = Set.of("item", "checkmark", "xp", "kill", "advancement", "dimension", "location", "custom", "biome", "structure", "observation", "stat", "fluid",
             "gamestage", "interaction", "forge_energy");
 
+    /**
+     * A stored dimension: a resource location, a dimension number, or the bare name of a 1.12.2 dimension type
+     * (twilight_forest), which has no namespace to put in front.
+     */
+    private static final String DIMENSION_VALUE = "[a-z0-9_.-]+:[a-z0-9_./-]+|-?[0-9]+|[A-Za-z0-9_.-]+";
+
     public static final List<String> INTERACTION_TYPES = List.of("block", "block_tag", "block_state", "entity_type", "entity_type_tag");
 
     public static final Set<String> REWARD_TYPES = Set.of("item", "xp", "xp_levels", "command", "toast", "advancement", "custom", "gamestage");
@@ -1703,7 +1709,7 @@ public final class BookEditor {
                     p = p.with(key, v);
                 }
                 case "dimension" -> {
-                    if (!t.type().equals("location") || !value.strip().matches("[a-z0-9_.-]+:[a-z0-9_./-]+|-?[0-9]+")) {
+                    if (!t.type().equals("location") || !value.strip().matches(DIMENSION_VALUE)) {
                         return Result.INVALID;
                     }
                     p = p.with(key, value.strip());
@@ -1799,7 +1805,7 @@ public final class BookEditor {
                 case "target" -> {
                     String pk = targetKey(t.type());
                     String v = value.strip();
-                    if (pk == null || !v.matches("[a-z0-9_.-]+:[a-z0-9_./-]+")) {
+                    if (pk == null || !v.matches("dimension".equals(pk) ? DIMENSION_VALUE : "[a-z0-9_.-]+:[a-z0-9_./-]+")) {
                         return Result.INVALID;
                     }
                     p = p.with(pk, v);

@@ -38,6 +38,10 @@ public final class Names {
         }
     }
 
+    /**
+     * Older versions of this mod stored a modded dimension as {@code modded:name}. That prefix is no longer written, but
+     * values that have it are still understood and shown without it.
+     */
     public static final String MODDED_PREFIX = "modded:";
 
     private static OptionalInt registeredDimension(String name) {
@@ -51,7 +55,7 @@ public final class Names {
         return OptionalInt.empty();
     }
 
-    /** What a dimension is called on screen: the stored value without this mod's own {@code modded:} prefix. */
+    /** What a dimension is called on screen: the stored value without the old {@code modded:} prefix. */
     public static String dimensionLabel(String stored) {
         return stored != null && stored.startsWith(MODDED_PREFIX) ? stored.substring(MODDED_PREFIX.length()) : String.valueOf(stored);
     }
@@ -61,7 +65,7 @@ public final class Names {
         for (net.minecraft.world.DimensionType type : net.minecraft.world.DimensionType.values()) {
             String name = type.getName();
             if (!name.equals("overworld") && !name.equals("the_nether") && !name.equals("the_end")) {
-                out.add(MODDED_PREFIX + name);
+                out.add(name);
             }
         }
         return out;

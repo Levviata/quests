@@ -611,6 +611,13 @@ class BookEditorTest {
         assertEquals(INVALID, ed.setTaskProp(task, "to_observe", "minecraft:cow"), "only observation tasks");
         String loc = ed.addTask(q.id, "location", DataNode.Compound.empty());
         assertEquals(OK, ed.setTaskProp(loc, "dimension", "minecraft:the_nether"));
+        assertEquals(OK, ed.setTaskProp(loc, "dimension", "twilight_forest"), "bare name of a modded dimension type");
+        assertEquals("twilight_forest", book.task(loc).params().getString("dimension", ""));
+        assertEquals(INVALID, ed.setTaskProp(loc, "dimension", "two words"));
+        String dimTask = ed.addTask(q.id, "dimension", DataNode.Compound.empty().with("dimension", "minecraft:overworld"));
+        assertEquals(OK, ed.setTaskProp(dimTask, "target", "twilight_forest"));
+        assertEquals(OK, ed.setTaskProp(dimTask, "target", "minecraft:the_nether"));
+        assertEquals(INVALID, ed.setTaskProp(adv, "target", "twilight_forest"), "other targets still need a namespace");
         assertEquals(OK, ed.setTaskProp(loc, "ignore_dimension", "true"));
         assertEquals(true, book.task(loc).params().getBool("ignore_dimension", false));
         String reward = ed.addReward(q.id, "xp", DataNode.Compound.empty().with("xp", 5));
