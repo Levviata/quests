@@ -667,6 +667,21 @@ class BookEditorTest {
         assertEquals(500, book.task(fe).maxProgress());
         assertEquals(OK, ed.setTaskValue(fe, 750));
         assertEquals(750, book.task(fe).maxProgress());
+
+        assertEquals(1000, book.task(fe).maxInput(), "FTB Quests' default Max Input Rate");
+        assertFalse(book.task(fe).drainMax(), "Submit All Energy is off by default");
+        assertEquals(OK, ed.setTaskProp(fe, "max_input", "250"));
+        assertEquals(250, book.task(fe).maxInput());
+        assertEquals(OK, ed.setTaskProp(fe, "max_input", "1000"));
+        assertFalse(book.task(fe).params().has("max_input"), "the default isn't stored");
+        assertEquals(INVALID, ed.setTaskProp(fe, "max_input", "0"));
+        assertEquals(INVALID, ed.setTaskProp(fe, "max_input", "lots"));
+        assertEquals(OK, ed.setTaskProp(fe, "drain_max", "true"));
+        assertTrue(book.task(fe).drainMax());
+        assertEquals(OK, ed.setTaskProp(fe, "drain_max", "false"));
+        assertFalse(book.task(fe).params().has("drain_max"));
+        assertEquals(INVALID, ed.setTaskProp(act, "max_input", "10"), "only Forge Energy tasks");
+        assertEquals(INVALID, ed.setTaskProp(act, "drain_max", "true"), "only Forge Energy tasks");
     }
 
     @Test

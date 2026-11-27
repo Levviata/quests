@@ -187,8 +187,17 @@ final class TaskRewardScreen extends SettingsScreen {
                 .tip("Icon. None keeps the automatic one.").defaults("None"), p.getCompound("icon"));
         text("Tags", () -> tags, v -> tags = v).tip("Tags, separated by commas.");
         if (!amount.isEmpty()) {
-            number(task != null && (task.type().equals("item") || task.type().equals("kill")) ? "Count" : task != null && task.type().equals("stat") ? "Value" : "Amount", true, () -> amount,
+            number(task != null && (task.type().equals("item") || task.type().equals("kill")) ? "Count" : task != null && task.type().equals("stat") ? "Value"
+                    : task != null && task.type().equals("forge_energy") ? "FE / RF" : "Amount", true, () -> amount,
                     v -> amount = String.valueOf(Math.max(1L, Long.parseLong(v)))).tip("How many are needed (or given).");
+        }
+        if (task != null && task.type().equals("forge_energy")) {
+            extra.put("max_input", String.valueOf(task.maxInput()));
+            initialExtra.put("max_input", extra.get("max_input"));
+            number("Max Input Rate", true, () -> extra.get("max_input"), v -> extra.put("max_input", String.valueOf(Math.max(1L, Long.parseLong(v)))))
+                    .tip("Most FE taken per hand-in. Ignored when Submit All Energy is on.");
+            flag("Submit All Energy", "drain_max", List.of("False", "True"), yesNo(p, "drain_max"),
+                    "One hand-in drains as much as the batteries can give (up to what the task still needs), instead of a single Max Input Rate chunk.");
         }
         String tk = task == null ? null : com.levviata.reflibquests.model.BookEditor.targetKey(task.type());
         if (task != null && task.type().equals("kill")) {

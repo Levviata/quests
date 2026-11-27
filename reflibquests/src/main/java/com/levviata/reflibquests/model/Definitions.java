@@ -96,6 +96,16 @@ public final class Definitions {
         public boolean optionalTask() {
             return params.getBool("optional_task", false);
         }
+
+        /** Forge Energy: most FE taken per hand-in (FTB Quests' "Max Input Rate", default 1000). */
+        public long maxInput() {
+            return Math.max(1L, params.getLong("max_input", 1000L));
+        }
+
+        /** Forge Energy: a hand-in drains as much as the battery can give instead of one Max Input Rate chunk. */
+        public boolean drainMax() {
+            return params.getBool("drain_max", false);
+        }
     }
 
     public record Reward(String id, String type, DataNode.Compound params) {

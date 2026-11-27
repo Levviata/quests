@@ -362,6 +362,44 @@ public final class TaskTracker {
         }
     }
 
+    /** Hard stop for the drain loop, so a battery that always answers never freezes the server thread. */
+    private static final int DRAIN_LOOP_LIMIT = 1_000_000;
+
+    private static final class Battery {
+        final net.minecraftforge.energy.IEnergyStorage storage;
+        final int max;
+        final int stored;
+
+        Battery(net.minecraftforge.energy.IEnergyStorage storage) {
+            this.storage = storage;
+            this.max = storage.getMaxEnergyStored();
+            this.stored = storage.getEnergyStored();
+        }
+    }
+
+    /**
+     * Batteries in the order they get drained: biggest max capacity first, and among equally big ones the fullest.
+     */
+    private static java.util.List<Battery> batteriesByPriority(EntityPlayerMP player) {
+        java.util.List<Battery> found = new java.util.ArrayList<>();
+        for (int i = 0; i < player.inventory.mainInventory.size(); i++) {
+            ItemStack stack = player.inventory.mainInventory.get(i);
+            if (stack.isEmpty() || stack.getCount() != 1) {
+                continue;
+            }
+            net.minecraftforge.energy.IEnergyStorage storage = stack.getCapability(net.minecraftforge.energy.CapabilityEnergy.ENERGY, null);
+            if (storage == null || !storage.canExtract()) {
+                continue;
+            }
+            Battery candidate = new Battery(storage);
+            if (candidate.stored > 0) {
+                found.add(candidate);
+            }
+        }
+        found.sort((x, y) -> x.max != y.max ? Integer.compare(y.max, x.max) : Integer.compare(y.stored, x.stored));
+        return found;
+    }
+
     private String submitEnergy(EntityPlayerMP player, Task t) {
         TeamProgress team = quests.progressOf(player);
         Quest q = quests.book().questOfTask(t.id());
@@ -372,18 +410,33 @@ public final class TaskTracker {
             return "That quest isn't available yet.";
         }
         long need = t.maxProgress() - team.taskProgress(t.id());
+        java.util.List<Battery> batteries = batteriesByPriority(player);
+        if (batteries.isEmpty()) {
+            return "You aren't carrying an item with stored energy.";
+        }
+        boolean drainAll = t.drainMax();
+        // Without Submit All Energy a hand-in is one Max Input Rate chunk in total, however many batteries it takes.
+        long goal = drainAll ? need : Math.min(need, t.maxInput());
         long taken = 0;
-        for (int i = 0; i < player.inventory.mainInventory.size() && taken < need; i++) {
-            ItemStack stack = player.inventory.mainInventory.get(i);
-            if (stack.getCount() != 1) {
-                continue;
+        for (Battery battery : batteries) {
+            if (taken >= goal) {
+                break;
             }
-            net.minecraftforge.energy.IEnergyStorage storage = stack.getCapability(net.minecraftforge.energy.CapabilityEnergy.ENERGY, null);
-            if (storage != null && storage.canExtract()) {
-                taken += storage.extractEnergy((int) Math.min(Integer.MAX_VALUE, need - taken), false);
+            if (drainAll) {
+                // One extractEnergy call is capped by the battery's own transfer rate, so keep pulling
+                // from this battery until it is dry or the task is covered, then move on to the next one.
+                for (int n = 0; n < DRAIN_LOOP_LIMIT && taken < goal; n++) {
+                    int got = battery.storage.extractEnergy((int) Math.min(Integer.MAX_VALUE, goal - taken), false);
+                    if (got <= 0) {
+                        break;
+                    }
+                    taken += got;
+                }
+            } else {
+                taken += battery.storage.extractEnergy((int) Math.min(Integer.MAX_VALUE, goal - taken), false);
             }
         }
-        if (taken == 0) {
+        if (taken <= 0) {
             return "You aren't carrying an item with stored energy.";
         }
         quests.addTaskProgress(player, t, taken);

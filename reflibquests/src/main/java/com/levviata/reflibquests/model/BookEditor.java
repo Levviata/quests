@@ -1721,6 +1721,24 @@ public final class BookEditor {
                     }
                     p = v.isEmpty() ? p.without(key) : p.with(key, v);
                 }
+                case "max_input" -> {
+                    long rate;
+                    try {
+                        rate = Long.parseLong(value.strip());
+                    } catch (NumberFormatException ex) {
+                        return Result.INVALID;
+                    }
+                    if (!t.type().equals("forge_energy") || rate < 1 || rate > MAX_VALUE) {
+                        return Result.INVALID;
+                    }
+                    p = rate == 1000L ? p.without(key) : p.with(key, rate > Integer.MAX_VALUE ? (DataNode) new DataNode.Lng(rate) : new DataNode.Int((int) rate));
+                }
+                case "drain_max" -> {
+                    if (!t.type().equals("forge_energy") || !value.equals("true") && !value.equals("false")) {
+                        return Result.INVALID;
+                    }
+                    p = value.equals("true") ? p.with(key, true) : p.without(key);
+                }
                 case "optional_task" -> {
                     if (!value.equals("true") && !value.equals("false")) {
                         return Result.INVALID;

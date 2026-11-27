@@ -103,7 +103,7 @@ final class QuestText {
             case "interaction":
                 return "Interaction: " + t.params().getString("to_interact", "minecraft:air");
             case "forge_energy":
-                return "Forge Energy: \u00a72" + t.maxProgress() + " FE";
+                return energy(t.maxProgress()) + " FE";
             case "advancement": {
                 String adv = t.params().getString("advancement", "");
                 String last = adv.contains("/") ? adv.substring(adv.lastIndexOf('/') + 1) : adv.contains(":") ? adv.substring(adv.indexOf(':') + 1) : adv;
@@ -258,6 +258,30 @@ final class QuestText {
         return egg;
     }
 
+    /** Thousands-grouped number like FTB Quests shows it (5.000 in es, 5,000 in en). */
+    static String energy(long value) {
+        return new java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols.getInstance()).format(value);
+    }
+
+    /**
+     * Flat red redstone-block tile FTB Quests uses for Forge Energy. Never registered: it only carries the sprite
+     * through the same flat-icon path fluids use (quest slots, search, chapter icons, toasts).
+     */
+    static final net.minecraftforge.fluids.Fluid ENERGY_ICON = new net.minecraftforge.fluids.Fluid("reflibquests_energy_icon",
+            new net.minecraft.util.ResourceLocation("minecraft", "blocks/redstone_block"), new net.minecraft.util.ResourceLocation("minecraft", "blocks/redstone_block"));
+
+    /** Flat sprite a task is drawn with instead of an item, or null: fluid tasks use their fluid, Forge Energy the red tile. */
+    @Nullable
+    static net.minecraftforge.fluids.Fluid flatIconOf(Task t) {
+        if (t.type().equals("fluid")) {
+            return fluidOf(t);
+        }
+        if (t.type().equals("forge_energy") && t.params().getCompound("icon").entries().isEmpty()) {
+            return ENERGY_ICON;
+        }
+        return null;
+    }
+
     @Nullable
     static net.minecraftforge.fluids.Fluid fluidOf(Task t) {
         DataNode own = t.params().get("icon");
@@ -353,7 +377,7 @@ final class QuestText {
         }
         for (Task t : q.tasks) {
             if (taskIcon(t) != null) {
-                return t.type().equals("fluid") ? fluidOf(t) : null;
+                return flatIconOf(t);
             }
         }
         return null;
@@ -422,7 +446,7 @@ final class QuestText {
             case "interaction":
                 return "Interact with " + shortName(p.getString("to_interact", "minecraft:air"));
             case "forge_energy":
-                return "Forge Energy: " + t.maxProgress() + " FE";
+                return energy(t.maxProgress()) + " FE";
             default:
                 return t.type() + " (not supported yet)";
         }

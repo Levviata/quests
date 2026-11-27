@@ -2322,7 +2322,7 @@ final class QuestBookWidget extends Widget {
 
         Task first = q.tasks.get((int) ((System.currentTimeMillis() / 2000) % q.tasks.size()));
         ItemStack named = QuestText.taskIcon(first);
-        net.minecraftforge.fluids.Fluid fluid = first.type().equals("fluid") ? QuestText.fluidOf(first) : null;
+        net.minecraftforge.fluids.Fluid fluid = QuestText.flatIconOf(first);
         if (fluid != null && QuestArt.fluid(fluid.getStill(), x, y, size, fluid.getColor())) {
             return;
         }
@@ -2365,15 +2365,19 @@ final class QuestBookWidget extends Widget {
     }
 
     private void drawTaskIcon(FontRenderer fr, Task t, boolean done, int x, int y) {
-        net.minecraftforge.fluids.Fluid fluid = t.type().equals("fluid") ? QuestText.fluidOf(t) : null;
+        net.minecraftforge.fluids.Fluid fluid = QuestText.flatIconOf(t);
         net.minecraft.util.ResourceLocation fluidStill = fluid == null ? null : fluid.getStill();
         ItemStack named = t.type().equals("item") || t.type().equals("checkmark") ? null : QuestText.taskIcon(t);
         if (fluidStill != null) {
             if (!QuestArt.fluid(fluidStill, x + 1, y + 1, 16, fluid.getColor())) {
                 ImageCatalog.draw(mc(), fluidStill.getNamespace() + ":textures/" + fluidStill.getPath() + ".png", x + 1, y + 1, 16, fluid.getColor());
             }
-            long mb = t.params().get("fluid") instanceof DataNode.Compound fc ? fc.getLong("amount", 1000) : 1000;
-            countText(fr, mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB", x + 1, y + 1);
+            if (t.type().equals("forge_energy")) {
+                countText(fr, QuestText.energy(t.maxProgress()), x + 1, y + 1);
+            } else {
+                long mb = t.params().get("fluid") instanceof DataNode.Compound fc ? fc.getLong("amount", 1000) : 1000;
+                countText(fr, mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB", x + 1, y + 1);
+            }
         } else if (named != null) {
             drawItem(named, x + 1, y + 1, 1f);
             if (t.type().equals("kill") && t.maxProgress() > 1) {
@@ -2839,7 +2843,10 @@ final class QuestBookWidget extends Widget {
                     act = () -> QuestNet.submit(t.id());
                 }
             } else if (t.type().equals("forge_energy")) {
-                tip.append("§fForge Energy: §2").append(t.maxProgress()).append(" FE");
+                long feGot = Math.min(p.taskProgress(t.id()), t.maxProgress());
+                tip.append("§f").append(QuestText.energy(t.maxProgress())).append(" FE");
+                tip.append("\n§a").append(QuestText.energy(feGot)).append(" / ").append(QuestText.energy(t.maxProgress()))
+                        .append(" [").append(t.maxProgress() == 0 ? 0 : feGot * 100 / t.maxProgress()).append("%]");
                 if (!done && canWork) {
                     tip.append("\n\n§e§nClick to hand in");
                     act = () -> QuestNet.submit(t.id());
@@ -2859,7 +2866,7 @@ final class QuestBookWidget extends Widget {
             if (t.type().equals("item") && t.params().getBool("task_screen_only", false)) {
                 tip.append("\n\n§e§nThe only way to hand in items is a Task Screen!");
             }
-            if (t.maxProgress() > 1 && !t.type().equals("item") && !t.type().equals("fluid") && !t.type().equals("xp")) {
+            if (t.maxProgress() > 1 && !t.type().equals("item") && !t.type().equals("fluid") && !t.type().equals("xp") && !t.type().equals("forge_energy")) {
                 tip.append("\n§7").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
             }
             final String taskId = t.id();
@@ -3817,7 +3824,7 @@ final class QuestBookWidget extends Widget {
             typeItem("Fluid", "task:tank", () -> mc().displayGuiScreen(SelectorScreen.fluids(mc().currentScreen, true,
                     (name, amount, nbt) -> add.accept(args("type", "fluid", "params", args("fluid", fluidSpec(name, amount, nbt))))))),
             typeItem("Interaction", "item:diamond_pickaxe", () -> add.accept(args("type", "interaction"))),
-            typeItem("Forge Energy", "item:redstone_block", () -> askNumber("Forge Energy", 1,
+            typeItem("Forge Energy", "sprite:energy", () -> askNumber("Forge Energy", 1,
                     n -> add.accept(args("type", "forge_energy", "params", args("value", n))))),
         };
     }
@@ -3915,6 +3922,8 @@ final class QuestBookWidget extends Widget {
                     if (menuItem != null) {
                         drawItem(new ItemStack(menuItem), tx, y + 1, 0.75f);
                     }
+                } else if (iconName.equals("sprite:energy")) {
+                    QuestArt.fluid(QuestText.ENERGY_ICON.getStill(), tx + 1, y + 3, 10, iconColor);
                 } else if (iconName.startsWith("task:")) {
                     if (iconName.equals("task:tank")) {
                         QuestArt.fluid(net.minecraftforge.fluids.FluidRegistry.WATER.getStill(), tx + 1, y + 3, 10, iconColor);

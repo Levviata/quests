@@ -1,0 +1,328 @@
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/client/QuestBookWidget.java b/reflibquests/src/main/java/com/levviata/reflibquests/client/QuestBookWidget.java
+index 51db719..250f23f 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/client/QuestBookWidget.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/client/QuestBookWidget.java
+@@ -2322,7 +2322,7 @@ final class QuestBookWidget extends Widget {
+ 
+         Task first = q.tasks.get((int) ((System.currentTimeMillis() / 2000) % q.tasks.size()));
+         ItemStack named = QuestText.taskIcon(first);
+-        net.minecraftforge.fluids.Fluid fluid = first.type().equals("fluid") ? QuestText.fluidOf(first) : null;
++        net.minecraftforge.fluids.Fluid fluid = QuestText.flatIconOf(first);
+         if (fluid != null && QuestArt.fluid(fluid.getStill(), x, y, size, fluid.getColor())) {
+             return;
+         }
+@@ -2365,15 +2365,19 @@ final class QuestBookWidget extends Widget {
+     }
+ 
+     private void drawTaskIcon(FontRenderer fr, Task t, boolean done, int x, int y) {
+-        net.minecraftforge.fluids.Fluid fluid = t.type().equals("fluid") ? QuestText.fluidOf(t) : null;
++        net.minecraftforge.fluids.Fluid fluid = QuestText.flatIconOf(t);
+         net.minecraft.util.ResourceLocation fluidStill = fluid == null ? null : fluid.getStill();
+         ItemStack named = t.type().equals("item") || t.type().equals("checkmark") ? null : QuestText.taskIcon(t);
+         if (fluidStill != null) {
+             if (!QuestArt.fluid(fluidStill, x + 1, y + 1, 16, fluid.getColor())) {
+                 ImageCatalog.draw(mc(), fluidStill.getNamespace() + ":textures/" + fluidStill.getPath() + ".png", x + 1, y + 1, 16, fluid.getColor());
+             }
+-            long mb = t.params().get("fluid") instanceof DataNode.Compound fc ? fc.getLong("amount", 1000) : 1000;
+-            countText(fr, mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB", x + 1, y + 1);
++            if (t.type().equals("forge_energy")) {
++                countText(fr, QuestText.energy(t.maxProgress()), x + 1, y + 1);
++            } else {
++                long mb = t.params().get("fluid") instanceof DataNode.Compound fc ? fc.getLong("amount", 1000) : 1000;
++                countText(fr, mb % 1000 == 0 ? mb / 1000 + " B" : mb + " mB", x + 1, y + 1);
++            }
+         } else if (named != null) {
+             drawItem(named, x + 1, y + 1, 1f);
+             if (t.type().equals("kill") && t.maxProgress() > 1) {
+@@ -2839,7 +2843,10 @@ final class QuestBookWidget extends Widget {
+                     act = () -> QuestNet.submit(t.id());
+                 }
+             } else if (t.type().equals("forge_energy")) {
+-                tip.append("§fForge Energy: §2").append(t.maxProgress()).append(" FE");
++                long feGot = Math.min(p.taskProgress(t.id()), t.maxProgress());
++                tip.append("§f").append(QuestText.energy(t.maxProgress())).append(" FE");
++                tip.append("\n§a").append(QuestText.energy(feGot)).append(" / ").append(QuestText.energy(t.maxProgress()))
++                        .append(" [").append(t.maxProgress() == 0 ? 0 : feGot * 100 / t.maxProgress()).append("%]");
+                 if (!done && canWork) {
+                     tip.append("\n\n§e§nClick to hand in");
+                     act = () -> QuestNet.submit(t.id());
+@@ -2859,7 +2866,7 @@ final class QuestBookWidget extends Widget {
+             if (t.type().equals("item") && t.params().getBool("task_screen_only", false)) {
+                 tip.append("\n\n§e§nThe only way to hand in items is a Task Screen!");
+             }
+-            if (t.maxProgress() > 1 && !t.type().equals("item") && !t.type().equals("fluid") && !t.type().equals("xp")) {
++            if (t.maxProgress() > 1 && !t.type().equals("item") && !t.type().equals("fluid") && !t.type().equals("xp") && !t.type().equals("forge_energy")) {
+                 tip.append("\n§7").append(Math.min(p.taskProgress(t.id()), t.maxProgress())).append(" / ").append(t.maxProgress());
+             }
+             final String taskId = t.id();
+@@ -3817,7 +3824,7 @@ final class QuestBookWidget extends Widget {
+             typeItem("Fluid", "task:tank", () -> mc().displayGuiScreen(SelectorScreen.fluids(mc().currentScreen, true,
+                     (name, amount, nbt) -> add.accept(args("type", "fluid", "params", args("fluid", fluidSpec(name, amount, nbt))))))),
+             typeItem("Interaction", "item:diamond_pickaxe", () -> add.accept(args("type", "interaction"))),
+-            typeItem("Forge Energy", "item:redstone_block", () -> askNumber("Forge Energy", 1,
++            typeItem("Forge Energy", "sprite:energy", () -> askNumber("Forge Energy", 1,
+                     n -> add.accept(args("type", "forge_energy", "params", args("value", n))))),
+         };
+     }
+@@ -3915,6 +3922,8 @@ final class QuestBookWidget extends Widget {
+                     if (menuItem != null) {
+                         drawItem(new ItemStack(menuItem), tx, y + 1, 0.75f);
+                     }
++                } else if (iconName.equals("sprite:energy")) {
++                    QuestArt.fluid(QuestText.ENERGY_ICON.getStill(), tx + 1, y + 3, 10, iconColor);
+                 } else if (iconName.startsWith("task:")) {
+                     if (iconName.equals("task:tank")) {
+                         QuestArt.fluid(net.minecraftforge.fluids.FluidRegistry.WATER.getStill(), tx + 1, y + 3, 10, iconColor);
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/client/QuestText.java b/reflibquests/src/main/java/com/levviata/reflibquests/client/QuestText.java
+index 45b893a..498c5ad 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/client/QuestText.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/client/QuestText.java
+@@ -103,7 +103,7 @@ final class QuestText {
+             case "interaction":
+                 return "Interaction: " + t.params().getString("to_interact", "minecraft:air");
+             case "forge_energy":
+-                return "Forge Energy: \u00a72" + t.maxProgress() + " FE";
++                return energy(t.maxProgress()) + " FE";
+             case "advancement": {
+                 String adv = t.params().getString("advancement", "");
+                 String last = adv.contains("/") ? adv.substring(adv.lastIndexOf('/') + 1) : adv.contains(":") ? adv.substring(adv.indexOf(':') + 1) : adv;
+@@ -258,6 +258,30 @@ final class QuestText {
+         return egg;
+     }
+ 
++    /** Thousands-grouped number like FTB Quests shows it (5.000 in es, 5,000 in en). */
++    static String energy(long value) {
++        return new java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols.getInstance()).format(value);
++    }
++
++    /**
++     * Flat red redstone-block tile FTB Quests uses for Forge Energy. Never registered: it only carries the sprite
++     * through the same flat-icon path fluids use (quest slots, search, chapter icons, toasts).
++     */
++    static final net.minecraftforge.fluids.Fluid ENERGY_ICON = new net.minecraftforge.fluids.Fluid("reflibquests_energy_icon",
++            new net.minecraft.util.ResourceLocation("minecraft", "blocks/redstone_block"), new net.minecraft.util.ResourceLocation("minecraft", "blocks/redstone_block"));
++
++    /** Flat sprite a task is drawn with instead of an item, or null: fluid tasks use their fluid, Forge Energy the red tile. */
++    @Nullable
++    static net.minecraftforge.fluids.Fluid flatIconOf(Task t) {
++        if (t.type().equals("fluid")) {
++            return fluidOf(t);
++        }
++        if (t.type().equals("forge_energy") && t.params().getCompound("icon").entries().isEmpty()) {
++            return ENERGY_ICON;
++        }
++        return null;
++    }
++
+     @Nullable
+     static net.minecraftforge.fluids.Fluid fluidOf(Task t) {
+         DataNode own = t.params().get("icon");
+@@ -353,7 +377,7 @@ final class QuestText {
+         }
+         for (Task t : q.tasks) {
+             if (taskIcon(t) != null) {
+-                return t.type().equals("fluid") ? fluidOf(t) : null;
++                return flatIconOf(t);
+             }
+         }
+         return null;
+@@ -422,7 +446,7 @@ final class QuestText {
+             case "interaction":
+                 return "Interact with " + shortName(p.getString("to_interact", "minecraft:air"));
+             case "forge_energy":
+-                return "Forge Energy: " + t.maxProgress() + " FE";
++                return energy(t.maxProgress()) + " FE";
+             default:
+                 return t.type() + " (not supported yet)";
+         }
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/client/TaskRewardScreen.java b/reflibquests/src/main/java/com/levviata/reflibquests/client/TaskRewardScreen.java
+index e251a7e..564a09b 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/client/TaskRewardScreen.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/client/TaskRewardScreen.java
+@@ -187,9 +187,18 @@ final class TaskRewardScreen extends SettingsScreen {
+                 .tip("Icon. None keeps the automatic one.").defaults("None"), p.getCompound("icon"));
+         text("Tags", () -> tags, v -> tags = v).tip("Tags, separated by commas.");
+         if (!amount.isEmpty()) {
+-            number(task != null && (task.type().equals("item") || task.type().equals("kill")) ? "Count" : task != null && task.type().equals("stat") ? "Value" : "Amount", true, () -> amount,
++            number(task != null && (task.type().equals("item") || task.type().equals("kill")) ? "Count" : task != null && task.type().equals("stat") ? "Value"
++                    : task != null && task.type().equals("forge_energy") ? "FE / RF" : "Amount", true, () -> amount,
+                     v -> amount = String.valueOf(Math.max(1L, Long.parseLong(v)))).tip("How many are needed (or given).");
+         }
++        if (task != null && task.type().equals("forge_energy")) {
++            extra.put("max_input", String.valueOf(task.maxInput()));
++            initialExtra.put("max_input", extra.get("max_input"));
++            number("Max Input Rate", true, () -> extra.get("max_input"), v -> extra.put("max_input", String.valueOf(Math.max(1L, Long.parseLong(v)))))
++                    .tip("Most FE taken per hand-in. Ignored when Submit All Energy is on.");
++            flag("Submit All Energy", "drain_max", List.of("False", "True"), yesNo(p, "drain_max"),
++                    "One hand-in drains as much as the batteries can give (up to what the task still needs), instead of a single Max Input Rate chunk.");
++        }
+         String tk = task == null ? null : com.levviata.reflibquests.model.BookEditor.targetKey(task.type());
+         if (task != null && task.type().equals("kill")) {
+ 
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/game/TaskTracker.java b/reflibquests/src/main/java/com/levviata/reflibquests/game/TaskTracker.java
+index dc12f78..08bdfa3 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/game/TaskTracker.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/game/TaskTracker.java
+@@ -362,6 +362,44 @@ public final class TaskTracker {
+         }
+     }
+ 
++    /** Hard stop for the drain loop, so a battery that always answers never freezes the server thread. */
++    private static final int DRAIN_LOOP_LIMIT = 1_000_000;
++
++    private static final class Battery {
++        final net.minecraftforge.energy.IEnergyStorage storage;
++        final int max;
++        final int stored;
++
++        Battery(net.minecraftforge.energy.IEnergyStorage storage) {
++            this.storage = storage;
++            this.max = storage.getMaxEnergyStored();
++            this.stored = storage.getEnergyStored();
++        }
++    }
++
++    /**
++     * Batteries in the order they get drained: biggest max capacity first, and among equally big ones the fullest.
++     */
++    private static java.util.List<Battery> batteriesByPriority(EntityPlayerMP player) {
++        java.util.List<Battery> found = new java.util.ArrayList<>();
++        for (int i = 0; i < player.inventory.mainInventory.size(); i++) {
++            ItemStack stack = player.inventory.mainInventory.get(i);
++            if (stack.isEmpty() || stack.getCount() != 1) {
++                continue;
++            }
++            net.minecraftforge.energy.IEnergyStorage storage = stack.getCapability(net.minecraftforge.energy.CapabilityEnergy.ENERGY, null);
++            if (storage == null || !storage.canExtract()) {
++                continue;
++            }
++            Battery candidate = new Battery(storage);
++            if (candidate.stored > 0) {
++                found.add(candidate);
++            }
++        }
++        found.sort((x, y) -> x.max != y.max ? Integer.compare(y.max, x.max) : Integer.compare(y.stored, x.stored));
++        return found;
++    }
++
+     private String submitEnergy(EntityPlayerMP player, Task t) {
+         TeamProgress team = quests.progressOf(player);
+         Quest q = quests.book().questOfTask(t.id());
+@@ -372,18 +410,33 @@ public final class TaskTracker {
+             return "That quest isn't available yet.";
+         }
+         long need = t.maxProgress() - team.taskProgress(t.id());
++        java.util.List<Battery> batteries = batteriesByPriority(player);
++        if (batteries.isEmpty()) {
++            return "You aren't carrying an item with stored energy.";
++        }
++        boolean drainAll = t.drainMax();
++        // Without Submit All Energy a hand-in is one Max Input Rate chunk in total, however many batteries it takes.
++        long goal = drainAll ? need : Math.min(need, t.maxInput());
+         long taken = 0;
+-        for (int i = 0; i < player.inventory.mainInventory.size() && taken < need; i++) {
+-            ItemStack stack = player.inventory.mainInventory.get(i);
+-            if (stack.getCount() != 1) {
+-                continue;
++        for (Battery battery : batteries) {
++            if (taken >= goal) {
++                break;
+             }
+-            net.minecraftforge.energy.IEnergyStorage storage = stack.getCapability(net.minecraftforge.energy.CapabilityEnergy.ENERGY, null);
+-            if (storage != null && storage.canExtract()) {
+-                taken += storage.extractEnergy((int) Math.min(Integer.MAX_VALUE, need - taken), false);
++            if (drainAll) {
++                // One extractEnergy call is capped by the battery's own transfer rate, so keep pulling
++                // from this battery until it is dry or the task is covered, then move on to the next one.
++                for (int n = 0; n < DRAIN_LOOP_LIMIT && taken < goal; n++) {
++                    int got = battery.storage.extractEnergy((int) Math.min(Integer.MAX_VALUE, goal - taken), false);
++                    if (got <= 0) {
++                        break;
++                    }
++                    taken += got;
++                }
++            } else {
++                taken += battery.storage.extractEnergy((int) Math.min(Integer.MAX_VALUE, goal - taken), false);
+             }
+         }
+-        if (taken == 0) {
++        if (taken <= 0) {
+             return "You aren't carrying an item with stored energy.";
+         }
+         quests.addTaskProgress(player, t, taken);
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java b/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java
+index 7af4556..9b1b354 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java
+@@ -1721,6 +1721,24 @@ public final class BookEditor {
+                     }
+                     p = v.isEmpty() ? p.without(key) : p.with(key, v);
+                 }
++                case "max_input" -> {
++                    long rate;
++                    try {
++                        rate = Long.parseLong(value.strip());
++                    } catch (NumberFormatException ex) {
++                        return Result.INVALID;
++                    }
++                    if (!t.type().equals("forge_energy") || rate < 1 || rate > MAX_VALUE) {
++                        return Result.INVALID;
++                    }
++                    p = rate == 1000L ? p.without(key) : p.with(key, rate > Integer.MAX_VALUE ? (DataNode) new DataNode.Lng(rate) : new DataNode.Int((int) rate));
++                }
++                case "drain_max" -> {
++                    if (!t.type().equals("forge_energy") || !value.equals("true") && !value.equals("false")) {
++                        return Result.INVALID;
++                    }
++                    p = value.equals("true") ? p.with(key, true) : p.without(key);
++                }
+                 case "optional_task" -> {
+                     if (!value.equals("true") && !value.equals("false")) {
+                         return Result.INVALID;
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/model/Definitions.java b/reflibquests/src/main/java/com/levviata/reflibquests/model/Definitions.java
+index 7811659..d0c16dc 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/model/Definitions.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/model/Definitions.java
+@@ -96,6 +96,16 @@ public final class Definitions {
+         public boolean optionalTask() {
+             return params.getBool("optional_task", false);
+         }
++
++        /** Forge Energy: most FE taken per hand-in (FTB Quests' "Max Input Rate", default 1000). */
++        public long maxInput() {
++            return Math.max(1L, params.getLong("max_input", 1000L));
++        }
++
++        /** Forge Energy: a hand-in drains as much as the battery can give instead of one Max Input Rate chunk. */
++        public boolean drainMax() {
++            return params.getBool("drain_max", false);
++        }
+     }
+ 
+     public record Reward(String id, String type, DataNode.Compound params) {
+diff --git a/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java b/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java
+index 77b3f70..74363ba 100644
+--- a/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java
++++ b/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java
+@@ -667,6 +667,21 @@ class BookEditorTest {
+         assertEquals(500, book.task(fe).maxProgress());
+         assertEquals(OK, ed.setTaskValue(fe, 750));
+         assertEquals(750, book.task(fe).maxProgress());
++
++        assertEquals(1000, book.task(fe).maxInput(), "FTB Quests' default Max Input Rate");
++        assertFalse(book.task(fe).drainMax(), "Submit All Energy is off by default");
++        assertEquals(OK, ed.setTaskProp(fe, "max_input", "250"));
++        assertEquals(250, book.task(fe).maxInput());
++        assertEquals(OK, ed.setTaskProp(fe, "max_input", "1000"));
++        assertFalse(book.task(fe).params().has("max_input"), "the default isn't stored");
++        assertEquals(INVALID, ed.setTaskProp(fe, "max_input", "0"));
++        assertEquals(INVALID, ed.setTaskProp(fe, "max_input", "lots"));
++        assertEquals(OK, ed.setTaskProp(fe, "drain_max", "true"));
++        assertTrue(book.task(fe).drainMax());
++        assertEquals(OK, ed.setTaskProp(fe, "drain_max", "false"));
++        assertFalse(book.task(fe).params().has("drain_max"));
++        assertEquals(INVALID, ed.setTaskProp(act, "max_input", "10"), "only Forge Energy tasks");
++        assertEquals(INVALID, ed.setTaskProp(act, "drain_max", "true"), "only Forge Energy tasks");
+     }
+ 
+     @Test
