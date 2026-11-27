@@ -68,6 +68,14 @@ abstract class SettingsScreen extends GuiScreen {
 
         boolean swatch;
 
+        /** A second stored value that changes together with this row's (like a Match row's type); undo and redo restore it too. */
+        Supplier<String> aux;
+
+        java.util.function.Consumer<String> auxSet;
+
+        /** Set just before a pick is applied; becomes the companion's new value in the same undo step. */
+        String pendingAux;
+
         Entry(Kind kind, String label) {
             this.kind = kind;
             this.label = label;
@@ -119,6 +127,12 @@ abstract class SettingsScreen extends GuiScreen {
             return this;
         }
 
+        Entry companion(Supplier<String> get, java.util.function.Consumer<String> set) {
+            this.aux = get;
+            this.auxSet = set;
+            return this;
+        }
+
         Entry withSwatch() {
             this.swatch = true;
             return this;
@@ -147,7 +161,7 @@ abstract class SettingsScreen extends GuiScreen {
     private Rect fieldRect;
     private final List<Object[]> hit = new ArrayList<>();
     private final List<Object[]> hoverRows = new ArrayList<>();
-    private record Change(Entry entry, String before, String after) {}
+    private record Change(Entry entry, String before, String after, String auxBefore, String auxAfter) {}
     private final java.util.ArrayDeque<Change> undoStack = new java.util.ArrayDeque<>();
     private final java.util.ArrayDeque<Change> redoStack = new java.util.ArrayDeque<>();
 
@@ -604,10 +618,16 @@ abstract class SettingsScreen extends GuiScreen {
 
     private void change(Entry e, String value) {
         String before = e.get.get();
+        String auxBefore = e.aux == null ? null : e.aux.get();
+        if (e.pendingAux != null && e.auxSet != null) {
+            e.auxSet.accept(e.pendingAux);
+        }
+        e.pendingAux = null;
         e.set.accept(value);
         String after = e.get.get();
-        if (!after.equals(before)) {
-            undoStack.push(new Change(e, before, after));
+        String auxAfter = e.aux == null ? null : e.aux.get();
+        if (!after.equals(before) || auxBefore != null && !auxBefore.equals(auxAfter)) {
+            undoStack.push(new Change(e, before, after, auxBefore, auxAfter));
             redoStack.clear();
         }
     }
@@ -618,6 +638,9 @@ abstract class SettingsScreen extends GuiScreen {
         }
         Change c = undoStack.pop();
         c.entry().set.accept(c.before());
+        if (c.auxBefore() != null && c.entry().auxSet != null) {
+            c.entry().auxSet.accept(c.auxBefore());
+        }
         redoStack.push(c);
     }
 
@@ -627,6 +650,9 @@ abstract class SettingsScreen extends GuiScreen {
         }
         Change c = redoStack.pop();
         c.entry().set.accept(c.after());
+        if (c.auxAfter() != null && c.entry().auxSet != null) {
+            c.entry().auxSet.accept(c.auxAfter());
+        }
         undoStack.push(c);
     }
 

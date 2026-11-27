@@ -661,8 +661,16 @@ public final class QuestServer {
                     inertTasks.add(q.id + "/" + t.id() + ": biome '" + t.params().getString("biome", "?") + "' does not exist in 1.12.2");
                 } else if (t.type().equals("structure") && TaskTracker.structureName(t.params().getString("structure", "")).isEmpty()) {
                     inertTasks.add(q.id + "/" + t.id() + ": structure '" + t.params().getString("structure", "?") + "' is not known in 1.12.2");
-                } else if (t.type().equals("observation") && !t.params().getString("observation_type", "block").equals("block")) {
-                    inertTasks.add(q.id + "/" + t.id() + ": only blocks can be observed so far");
+                } else if (t.type().equals("interaction") && t.params().getString("interaction_type", "block").endsWith("_tag")) {
+                    inertTasks.add(q.id + "/" + t.id() + ": 1.12.2 has no "
+                            + (t.params().getString("interaction_type", "block").startsWith("entity") ? "entity" : "block")
+                            + " tags, so '" + t.params().getString("to_interact", "?") + "' can never match");
+                } else if (t.type().equals("interaction") && registryMissing(t.params().getString("interaction_type", "block").startsWith("entity"),
+                        t.params().getString("to_interact", ""), true)) {
+                    inertTasks.add(q.id + "/" + t.id() + ": '" + t.params().getString("to_interact", "?") + "' does not exist in 1.12.2");
+                } else if (t.type().equals("observation") && registryMissing(t.params().getString("observation_type", "block").equals("entity"),
+                        t.params().getString("to_observe", ""), false)) {
+                    inertTasks.add(q.id + "/" + t.id() + ": '" + t.params().getString("to_observe", "?") + "' does not exist in 1.12.2");
                 } else if (t.type().equals("item") && ItemSet.isFilter(t.params().get("item"))) {
 
                     if (ItemSet.resolveAll(t.params().get("item"), idMap).isEmpty()) {
@@ -676,6 +684,21 @@ public final class QuestServer {
         if (!inertTasks.isEmpty() && inertTasks.size() != before) {
             ReflibQuestsMod.LOGGER.warn("{} task(s) cannot progress; first: {}", inertTasks.size(), inertTasks.get(0));
         }
+    }
+
+    /** True when a block or entity name is not registered; {@code minecraft:air} counts as present for interactions (any block). */
+    private boolean registryMissing(boolean entity, String name, boolean airIsAny) {
+        int bracket = name.indexOf('[');
+        String bare = (bracket < 0 ? name : name.substring(0, bracket)).strip();
+        if (bare.isEmpty()) {
+            return false;
+        }
+        if (entity) {
+            return !net.minecraftforge.fml.common.registry.ForgeRegistries.ENTITIES.containsKey(
+                    new net.minecraft.util.ResourceLocation(idMap.entity(bare)));
+        }
+        return !(airIsAny && bare.equals("minecraft:air"))
+                && !net.minecraftforge.fml.common.registry.ForgeRegistries.BLOCKS.containsKey(new net.minecraft.util.ResourceLocation(bare));
     }
 
     private static String describe(@Nullable DataNode n) {

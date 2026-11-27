@@ -219,22 +219,18 @@ final class TaskRewardScreen extends SettingsScreen {
             Entry targetRow = dimensionTask ? choice("Dimension", dimensions, () -> target, v -> target = v)
                     : text(task.type().equals("kill") ? "Entity Type" : task.type().equals("biome") ? "Biome"
                     : task.type().equals("structure") ? "Structure" : "Advancement", () -> target, v -> target = v);
-            targetRow.tip(dimensionTask ? "Dimension to visit. Click to cycle through every registered dimension."
+            targetRow.tip(dimensionTask ? "Dimension to visit. Click to choose one from the list."
                     : "Registry name, like minecraft:plains.");
+            if (dimensionTask) {
+                targetRow.plain = true;
+                targetRow.formatted(com.levviata.reflibquests.io.Names::dimensionLabel);
+                targetRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
+                        DimensionSelectorScreen.create(net.minecraft.client.Minecraft.getMinecraft().currentScreen, target, done));
+            }
             if (task.type().equals("kill")) {
 
-                targetRow.pick = done -> {
-                    List<ListPickerScreen.Option> options = new java.util.ArrayList<>();
-                    for (net.minecraftforge.fml.common.registry.EntityEntry entry : net.minecraftforge.fml.common.registry.ForgeRegistries.ENTITIES) {
-                        net.minecraft.util.ResourceLocation key = entry.getRegistryName();
-                        if (key != null) {
-                            options.add(new ListPickerScreen.Option(net.minecraft.client.resources.I18n.format("entity." + entry.getName() + ".name") + " [" + key + "]", key.toString()));
-                        }
-                    }
-                    options.sort(java.util.Comparator.comparing(ListPickerScreen.Option::label));
-                    net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
-                            new ListPickerScreen(net.minecraft.client.Minecraft.getMinecraft().currentScreen, "Select Entity Type", options, done));
-                };
+                targetRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
+                        RegistrySelectorScreen.entity(net.minecraft.client.Minecraft.getMinecraft().currentScreen, target, done));
             }
         }
         if (task != null && task.type().equals("kill")) {
@@ -313,9 +309,18 @@ final class TaskRewardScreen extends SettingsScreen {
             extra.put("to_interact", p.getString("to_interact", "minecraft:air"));
             extra.put("interaction_type", p.getString("interaction_type", "block"));
             initialExtra.putAll(extra);
-            text("Match", () -> extra.get("to_interact"), v -> extra.put("to_interact", v)).tip("Registry name, like minecraft:chest.");
-            choice("Type", com.levviata.reflibquests.model.BookEditor.INTERACTION_TYPES, () -> extra.get("interaction_type"), v -> extra.put("interaction_type", v))
-                    .tip("What gets right-clicked. 1.12.2 has no tags or block states: a tag matches nothing, a state counts as its block.");
+            Entry matchRow = text("Match", () -> extra.get("to_interact"), v -> extra.put("to_interact", v))
+                    .tip("What gets right-clicked. Click to choose; the List Mode button of the selector switches between blocks and entities. "
+                            + "minecraft:air as a block matches any block.");
+            matchRow.plain = true;
+            matchRow.formatted(v -> interactionLabel(extra.get("interaction_type")) + ": " + v);
+            matchRow.companion(() -> extra.get("interaction_type"), v -> extra.put("interaction_type", v));
+            matchRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
+                    RegistrySelectorScreen.match(net.minecraft.client.Minecraft.getMinecraft().currentScreen,
+                            extra.get("interaction_type"), extra.get("to_interact"), (type, id) -> {
+                                matchRow.pendingAux = type;
+                                done.accept(id);
+                            }));
         }
         if (task != null && task.type().equals("advancement")) {
             extra.put("criterion", p.getString("criterion", ""));
@@ -325,18 +330,33 @@ final class TaskRewardScreen extends SettingsScreen {
         if (task != null && task.type().equals("observation")) {
             extra.put("timer", String.valueOf(p.getInt("timer", 0)));
             extra.put("observation_type", p.getString("observation_type", "block"));
+            extra.put("to_observe", p.getString("to_observe", "minecraft:stone"));
             initialExtra.put("timer", extra.get("timer"));
             initialExtra.put("observation_type", extra.get("observation_type"));
+            initialExtra.put("to_observe", extra.get("to_observe"));
             text("Timer", () -> extra.get("timer"), v -> extra.put("timer", v)).tip("Ticks you have to look at it. 1.12.2 counts a single look.");
-            choice("Type", List.of("block", "entity"), () -> extra.get("observation_type"), v -> extra.put("observation_type", v))
-                    .tip("What to look at. Only blocks work in 1.12.2.");
+            Entry observeRow = text("Match", () -> extra.get("to_observe"), v -> extra.put("to_observe", v))
+                    .tip("What to look at. Click to choose; the List Mode button of the selector switches between blocks and entities.");
+            observeRow.plain = true;
+            observeRow.formatted(v -> ("entity".equals(extra.get("observation_type")) ? "Entity" : "Block") + ": " + v);
+            observeRow.companion(() -> extra.get("observation_type"), v -> extra.put("observation_type", v));
+            observeRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
+                    RegistrySelectorScreen.match(net.minecraft.client.Minecraft.getMinecraft().currentScreen,
+                            "entity".equals(extra.get("observation_type")) ? "entity_type" : "block", extra.get("to_observe"), (type, id) -> {
+                                observeRow.pendingAux = type.equals("entity_type") ? "entity" : "block";
+                                done.accept(id);
+                            }));
         }
         if (task != null && task.type().equals("location")) {
             extra.put("dimension", p.getString("dimension", "minecraft:overworld"));
             extra.put("ignore_dimension", p.getBool("ignore_dimension", false) ? "True" : "False");
             initialExtra.put("dimension", extra.get("dimension"));
             initialExtra.put("ignore_dimension", extra.get("ignore_dimension"));
-            text("Dimension", () -> extra.get("dimension"), v -> extra.put("dimension", v)).tip("Dimension the box is in.");
+            Entry locationDimension = text("Dimension", () -> extra.get("dimension"), v -> extra.put("dimension", v)).tip("Dimension the box is in. Click to choose one from the list.");
+            locationDimension.plain = true;
+            locationDimension.formatted(com.levviata.reflibquests.io.Names::dimensionLabel);
+            locationDimension.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
+                    DimensionSelectorScreen.create(net.minecraft.client.Minecraft.getMinecraft().currentScreen, extra.get("dimension"), done));
             choice("Ignore Dimension", List.of("False", "True"), () -> extra.get("ignore_dimension"), v -> extra.put("ignore_dimension", v))
                     .tip("Box works in any dimension.");
         }
@@ -476,6 +496,24 @@ final class TaskRewardScreen extends SettingsScreen {
             }
         }
         return stack;
+    }
+
+    private static String interactionLabel(String type) {
+        if (type == null) {
+            return "Block";
+        }
+        switch (type) {
+            case "entity_type":
+                return "Entity";
+            case "entity_type_tag":
+                return "Entity tag";
+            case "block_tag":
+                return "Block tag";
+            case "block_state":
+                return "Block state";
+            default:
+                return "Block";
+        }
     }
 
     private static long parseLong(String s, long fallback) {

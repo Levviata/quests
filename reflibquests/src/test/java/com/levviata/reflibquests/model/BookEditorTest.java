@@ -605,6 +605,10 @@ class BookEditorTest {
         assertEquals(INVALID, ed.setTaskProp(obs, "timer", "-1"));
         assertEquals(OK, ed.setTaskProp(obs, "observation_type", "entity"));
         assertEquals(INVALID, ed.setTaskProp(obs, "observation_type", "sky"));
+        assertEquals(OK, ed.setTaskProp(obs, "to_observe", "minecraft:cow"));
+        assertEquals("minecraft:cow", book.task(obs).params().getString("to_observe", ""));
+        assertEquals(INVALID, ed.setTaskProp(obs, "to_observe", " "), "empty target");
+        assertEquals(INVALID, ed.setTaskProp(task, "to_observe", "minecraft:cow"), "only observation tasks");
         String loc = ed.addTask(q.id, "location", DataNode.Compound.empty());
         assertEquals(OK, ed.setTaskProp(loc, "dimension", "minecraft:the_nether"));
         assertEquals(OK, ed.setTaskProp(loc, "ignore_dimension", "true"));

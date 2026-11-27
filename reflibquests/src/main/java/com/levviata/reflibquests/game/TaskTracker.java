@@ -126,12 +126,11 @@ public final class TaskTracker {
                 }
                 case "observation": {
 
-                    net.minecraft.util.math.RayTraceResult hit = player.rayTrace(6.0, 1.0f);
-                    if (hit != null && hit.typeOfHit == net.minecraft.util.math.RayTraceResult.Type.BLOCK) {
-                        net.minecraft.util.ResourceLocation seen = player.world.getBlockState(hit.getBlockPos()).getBlock().getRegistryName();
-                        if (seen != null && seen.toString().equals(t.params().getString("to_observe", ""))) {
-                            quests.setTaskProgress(player, t, 1);
-                        }
+                    String wantedLook = t.params().getString("to_observe", "");
+                    boolean lookEntity = t.params().getString("observation_type", "block").equals("entity");
+                    String seen = lookedAt(player, lookEntity);
+                    if (!seen.isEmpty() && seen.equals(lookEntity ? quests.idMap().entity(wantedLook) : wantedLook)) {
+                        quests.setTaskProgress(player, t, 1);
                     }
                     break;
                 }
@@ -342,6 +341,42 @@ public final class TaskTracker {
                 && player.posZ >= min[2] && player.posZ < max[2];
     }
 
+    /**
+     * Registry name of the block, or of the nearest entity when {@code entity} is set, the player is looking at within
+     * 6 blocks. An entity behind a block does not count. Empty when there is none.
+     */
+    private static String lookedAt(EntityPlayerMP player, boolean entity) {
+        net.minecraft.util.math.RayTraceResult hit = player.rayTrace(6.0, 1.0f);
+        boolean blockHit = hit != null && hit.typeOfHit == net.minecraft.util.math.RayTraceResult.Type.BLOCK;
+        if (!entity) {
+            if (!blockHit) {
+                return "";
+            }
+            net.minecraft.util.ResourceLocation seen = player.world.getBlockState(hit.getBlockPos()).getBlock().getRegistryName();
+            return seen == null ? "" : seen.toString();
+        }
+        net.minecraft.util.math.Vec3d eye = player.getPositionEyes(1.0f);
+        net.minecraft.util.math.Vec3d look = player.getLook(1.0f);
+        net.minecraft.util.math.Vec3d end = eye.add(look.x * 6.0, look.y * 6.0, look.z * 6.0);
+        double nearest = blockHit ? eye.distanceTo(hit.hitVec) : 6.0;
+        net.minecraft.entity.Entity best = null;
+        for (net.minecraft.entity.Entity e : player.world.getEntitiesWithinAABBExcludingEntity(player,
+                player.getEntityBoundingBox().expand(look.x * 6.0, look.y * 6.0, look.z * 6.0).grow(1.0))) {
+            if (!e.canBeCollidedWith()) {
+                continue;
+            }
+            net.minecraft.util.math.AxisAlignedBB box = e.getEntityBoundingBox().grow(e.getCollisionBorderSize());
+            net.minecraft.util.math.RayTraceResult r = box.calculateIntercept(eye, end);
+            double d = box.contains(eye) ? 0.0 : r == null ? -1.0 : eye.distanceTo(r.hitVec);
+            if (d >= 0.0 && d < nearest) {
+                best = e;
+                nearest = d;
+            }
+        }
+        ResourceLocation key = best == null ? null : EntityList.getKey(best);
+        return key == null ? "" : key.toString();
+    }
+
     public void onInteract(EntityPlayerMP player, boolean entity, String name) {
         TeamProgress team = quests.progressOf(player);
         for (Entry e : new ArrayList<>(entries)) {
@@ -356,7 +391,7 @@ public final class TaskTracker {
             }
             int bracket = match.indexOf('[');
             String wanted = bracket >= 0 ? match.substring(0, bracket) : match;
-            if (wanted.equals(name) || !entity && wanted.equals("minecraft:air")) {
+            if ((entity ? quests.idMap().entity(wanted) : wanted).equals(name) || !entity && wanted.equals("minecraft:air")) {
                 quests.setTaskProgress(player, e.task(), 1);
             }
         }

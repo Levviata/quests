@@ -1,0 +1,292 @@
+From f9ff3f103a7fd897ab8b4663cc980c33d799632d Mon Sep 17 00:00:00 2001
+From: claude <claude@example.invalid>
+Date: Fri, 27 Nov 2026 20:33:25 +0000
+Subject: [PATCH 3/3] Fix undo of Match rows, make Observation editable and
+ entity-capable, flag inert interaction tasks, map entity ids through idMap
+
+---
+ .../reflibquests/client/SettingsScreen.java   | 32 ++++++++++--
+ .../reflibquests/client/TaskRewardScreen.java | 18 +++++--
+ .../reflibquests/game/QuestServer.java        | 27 +++++++++-
+ .../reflibquests/game/TaskTracker.java        | 49 ++++++++++++++++---
+ .../reflibquests/model/BookEditor.java        |  7 +++
+ .../reflibquests/model/BookEditorTest.java    |  4 ++
+ 6 files changed, 122 insertions(+), 15 deletions(-)
+
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/client/SettingsScreen.java b/reflibquests/src/main/java/com/levviata/reflibquests/client/SettingsScreen.java
+index 1f72403..020e8cb 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/client/SettingsScreen.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/client/SettingsScreen.java
+@@ -68,6 +68,14 @@ abstract class SettingsScreen extends GuiScreen {
+ 
+         boolean swatch;
+ 
++        /** A second stored value that changes together with this row's (like a Match row's type); undo and redo restore it too. */
++        Supplier<String> aux;
++
++        java.util.function.Consumer<String> auxSet;
++
++        /** Set just before a pick is applied; becomes the companion's new value in the same undo step. */
++        String pendingAux;
++
+         Entry(Kind kind, String label) {
+             this.kind = kind;
+             this.label = label;
+@@ -119,6 +127,12 @@ abstract class SettingsScreen extends GuiScreen {
+             return this;
+         }
+ 
++        Entry companion(Supplier<String> get, java.util.function.Consumer<String> set) {
++            this.aux = get;
++            this.auxSet = set;
++            return this;
++        }
++
+         Entry withSwatch() {
+             this.swatch = true;
+             return this;
+@@ -147,7 +161,7 @@ abstract class SettingsScreen extends GuiScreen {
+     private Rect fieldRect;
+     private final List<Object[]> hit = new ArrayList<>();
+     private final List<Object[]> hoverRows = new ArrayList<>();
+-    private record Change(Entry entry, String before, String after) {}
++    private record Change(Entry entry, String before, String after, String auxBefore, String auxAfter) {}
+     private final java.util.ArrayDeque<Change> undoStack = new java.util.ArrayDeque<>();
+     private final java.util.ArrayDeque<Change> redoStack = new java.util.ArrayDeque<>();
+ 
+@@ -604,10 +618,16 @@ abstract class SettingsScreen extends GuiScreen {
+ 
+     private void change(Entry e, String value) {
+         String before = e.get.get();
++        String auxBefore = e.aux == null ? null : e.aux.get();
++        if (e.pendingAux != null && e.auxSet != null) {
++            e.auxSet.accept(e.pendingAux);
++        }
++        e.pendingAux = null;
+         e.set.accept(value);
+         String after = e.get.get();
+-        if (!after.equals(before)) {
+-            undoStack.push(new Change(e, before, after));
++        String auxAfter = e.aux == null ? null : e.aux.get();
++        if (!after.equals(before) || auxBefore != null && !auxBefore.equals(auxAfter)) {
++            undoStack.push(new Change(e, before, after, auxBefore, auxAfter));
+             redoStack.clear();
+         }
+     }
+@@ -618,6 +638,9 @@ abstract class SettingsScreen extends GuiScreen {
+         }
+         Change c = undoStack.pop();
+         c.entry().set.accept(c.before());
++        if (c.auxBefore() != null && c.entry().auxSet != null) {
++            c.entry().auxSet.accept(c.auxBefore());
++        }
+         redoStack.push(c);
+     }
+ 
+@@ -627,6 +650,9 @@ abstract class SettingsScreen extends GuiScreen {
+         }
+         Change c = redoStack.pop();
+         c.entry().set.accept(c.after());
++        if (c.auxAfter() != null && c.entry().auxSet != null) {
++            c.entry().auxSet.accept(c.auxAfter());
++        }
+         undoStack.push(c);
+     }
+ 
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/client/TaskRewardScreen.java b/reflibquests/src/main/java/com/levviata/reflibquests/client/TaskRewardScreen.java
+index 58a0759..eee2002 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/client/TaskRewardScreen.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/client/TaskRewardScreen.java
+@@ -305,10 +305,11 @@ final class TaskRewardScreen extends SettingsScreen {
+                             + "minecraft:air as a block matches any block.");
+             matchRow.plain = true;
+             matchRow.formatted(v -> interactionLabel(extra.get("interaction_type")) + ": " + v);
++            matchRow.companion(() -> extra.get("interaction_type"), v -> extra.put("interaction_type", v));
+             matchRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
+                     RegistrySelectorScreen.match(net.minecraft.client.Minecraft.getMinecraft().currentScreen,
+                             extra.get("interaction_type"), extra.get("to_interact"), (type, id) -> {
+-                                extra.put("interaction_type", type);
++                                matchRow.pendingAux = type;
+                                 done.accept(id);
+                             }));
+         }
+@@ -320,11 +321,22 @@ final class TaskRewardScreen extends SettingsScreen {
+         if (task != null && task.type().equals("observation")) {
+             extra.put("timer", String.valueOf(p.getInt("timer", 0)));
+             extra.put("observation_type", p.getString("observation_type", "block"));
++            extra.put("to_observe", p.getString("to_observe", "minecraft:stone"));
+             initialExtra.put("timer", extra.get("timer"));
+             initialExtra.put("observation_type", extra.get("observation_type"));
++            initialExtra.put("to_observe", extra.get("to_observe"));
+             text("Timer", () -> extra.get("timer"), v -> extra.put("timer", v)).tip("Ticks you have to look at it. 1.12.2 counts a single look.");
+-            choice("Type", List.of("block", "entity"), () -> extra.get("observation_type"), v -> extra.put("observation_type", v))
+-                    .tip("What to look at. Only blocks work in 1.12.2.");
++            Entry observeRow = text("Match", () -> extra.get("to_observe"), v -> extra.put("to_observe", v))
++                    .tip("What to look at. Click to choose; the List Mode button of the selector switches between blocks and entities.");
++            observeRow.plain = true;
++            observeRow.formatted(v -> ("entity".equals(extra.get("observation_type")) ? "Entity" : "Block") + ": " + v);
++            observeRow.companion(() -> extra.get("observation_type"), v -> extra.put("observation_type", v));
++            observeRow.pick = done -> net.minecraft.client.Minecraft.getMinecraft().displayGuiScreen(
++                    RegistrySelectorScreen.match(net.minecraft.client.Minecraft.getMinecraft().currentScreen,
++                            "entity".equals(extra.get("observation_type")) ? "entity_type" : "block", extra.get("to_observe"), (type, id) -> {
++                                observeRow.pendingAux = type.equals("entity_type") ? "entity" : "block";
++                                done.accept(id);
++                            }));
+         }
+         if (task != null && task.type().equals("location")) {
+             extra.put("dimension", p.getString("dimension", "minecraft:overworld"));
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/game/QuestServer.java b/reflibquests/src/main/java/com/levviata/reflibquests/game/QuestServer.java
+index 4680dc9..8cf5d83 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/game/QuestServer.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/game/QuestServer.java
+@@ -661,8 +661,16 @@ public final class QuestServer {
+                     inertTasks.add(q.id + "/" + t.id() + ": biome '" + t.params().getString("biome", "?") + "' does not exist in 1.12.2");
+                 } else if (t.type().equals("structure") && TaskTracker.structureName(t.params().getString("structure", "")).isEmpty()) {
+                     inertTasks.add(q.id + "/" + t.id() + ": structure '" + t.params().getString("structure", "?") + "' is not known in 1.12.2");
+-                } else if (t.type().equals("observation") && !t.params().getString("observation_type", "block").equals("block")) {
+-                    inertTasks.add(q.id + "/" + t.id() + ": only blocks can be observed so far");
++                } else if (t.type().equals("interaction") && t.params().getString("interaction_type", "block").endsWith("_tag")) {
++                    inertTasks.add(q.id + "/" + t.id() + ": 1.12.2 has no "
++                            + (t.params().getString("interaction_type", "block").startsWith("entity") ? "entity" : "block")
++                            + " tags, so '" + t.params().getString("to_interact", "?") + "' can never match");
++                } else if (t.type().equals("interaction") && registryMissing(t.params().getString("interaction_type", "block").startsWith("entity"),
++                        t.params().getString("to_interact", ""), true)) {
++                    inertTasks.add(q.id + "/" + t.id() + ": '" + t.params().getString("to_interact", "?") + "' does not exist in 1.12.2");
++                } else if (t.type().equals("observation") && registryMissing(t.params().getString("observation_type", "block").equals("entity"),
++                        t.params().getString("to_observe", ""), false)) {
++                    inertTasks.add(q.id + "/" + t.id() + ": '" + t.params().getString("to_observe", "?") + "' does not exist in 1.12.2");
+                 } else if (t.type().equals("item") && ItemSet.isFilter(t.params().get("item"))) {
+ 
+                     if (ItemSet.resolveAll(t.params().get("item"), idMap).isEmpty()) {
+@@ -678,6 +686,21 @@ public final class QuestServer {
+         }
+     }
+ 
++    /** True when a block or entity name is not registered; {@code minecraft:air} counts as present for interactions (any block). */
++    private boolean registryMissing(boolean entity, String name, boolean airIsAny) {
++        int bracket = name.indexOf('[');
++        String bare = (bracket < 0 ? name : name.substring(0, bracket)).strip();
++        if (bare.isEmpty()) {
++            return false;
++        }
++        if (entity) {
++            return !net.minecraftforge.fml.common.registry.ForgeRegistries.ENTITIES.containsKey(
++                    new net.minecraft.util.ResourceLocation(idMap.entity(bare)));
++        }
++        return !(airIsAny && bare.equals("minecraft:air"))
++                && !net.minecraftforge.fml.common.registry.ForgeRegistries.BLOCKS.containsKey(new net.minecraft.util.ResourceLocation(bare));
++    }
++
+     private static String describe(@Nullable DataNode n) {
+         if (n instanceof DataNode.Compound c) {
+             return c.getString("id", "?");
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/game/TaskTracker.java b/reflibquests/src/main/java/com/levviata/reflibquests/game/TaskTracker.java
+index dc12f78..e228bd9 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/game/TaskTracker.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/game/TaskTracker.java
+@@ -126,12 +126,11 @@ public final class TaskTracker {
+                 }
+                 case "observation": {
+ 
+-                    net.minecraft.util.math.RayTraceResult hit = player.rayTrace(6.0, 1.0f);
+-                    if (hit != null && hit.typeOfHit == net.minecraft.util.math.RayTraceResult.Type.BLOCK) {
+-                        net.minecraft.util.ResourceLocation seen = player.world.getBlockState(hit.getBlockPos()).getBlock().getRegistryName();
+-                        if (seen != null && seen.toString().equals(t.params().getString("to_observe", ""))) {
+-                            quests.setTaskProgress(player, t, 1);
+-                        }
++                    String wantedLook = t.params().getString("to_observe", "");
++                    boolean lookEntity = t.params().getString("observation_type", "block").equals("entity");
++                    String seen = lookedAt(player, lookEntity);
++                    if (!seen.isEmpty() && seen.equals(lookEntity ? quests.idMap().entity(wantedLook) : wantedLook)) {
++                        quests.setTaskProgress(player, t, 1);
+                     }
+                     break;
+                 }
+@@ -342,6 +341,42 @@ public final class TaskTracker {
+                 && player.posZ >= min[2] && player.posZ < max[2];
+     }
+ 
++    /**
++     * Registry name of the block, or of the nearest entity when {@code entity} is set, the player is looking at within
++     * 6 blocks. An entity behind a block does not count. Empty when there is none.
++     */
++    private static String lookedAt(EntityPlayerMP player, boolean entity) {
++        net.minecraft.util.math.RayTraceResult hit = player.rayTrace(6.0, 1.0f);
++        boolean blockHit = hit != null && hit.typeOfHit == net.minecraft.util.math.RayTraceResult.Type.BLOCK;
++        if (!entity) {
++            if (!blockHit) {
++                return "";
++            }
++            net.minecraft.util.ResourceLocation seen = player.world.getBlockState(hit.getBlockPos()).getBlock().getRegistryName();
++            return seen == null ? "" : seen.toString();
++        }
++        net.minecraft.util.math.Vec3d eye = player.getPositionEyes(1.0f);
++        net.minecraft.util.math.Vec3d look = player.getLook(1.0f);
++        net.minecraft.util.math.Vec3d end = eye.add(look.x * 6.0, look.y * 6.0, look.z * 6.0);
++        double nearest = blockHit ? eye.distanceTo(hit.hitVec) : 6.0;
++        net.minecraft.entity.Entity best = null;
++        for (net.minecraft.entity.Entity e : player.world.getEntitiesWithinAABBExcludingEntity(player,
++                player.getEntityBoundingBox().expand(look.x * 6.0, look.y * 6.0, look.z * 6.0).grow(1.0))) {
++            if (!e.canBeCollidedWith()) {
++                continue;
++            }
++            net.minecraft.util.math.AxisAlignedBB box = e.getEntityBoundingBox().grow(e.getCollisionBorderSize());
++            net.minecraft.util.math.RayTraceResult r = box.calculateIntercept(eye, end);
++            double d = box.contains(eye) ? 0.0 : r == null ? -1.0 : eye.distanceTo(r.hitVec);
++            if (d >= 0.0 && d < nearest) {
++                best = e;
++                nearest = d;
++            }
++        }
++        ResourceLocation key = best == null ? null : EntityList.getKey(best);
++        return key == null ? "" : key.toString();
++    }
++
+     public void onInteract(EntityPlayerMP player, boolean entity, String name) {
+         TeamProgress team = quests.progressOf(player);
+         for (Entry e : new ArrayList<>(entries)) {
+@@ -356,7 +391,7 @@ public final class TaskTracker {
+             }
+             int bracket = match.indexOf('[');
+             String wanted = bracket >= 0 ? match.substring(0, bracket) : match;
+-            if (wanted.equals(name) || !entity && wanted.equals("minecraft:air")) {
++            if ((entity ? quests.idMap().entity(wanted) : wanted).equals(name) || !entity && wanted.equals("minecraft:air")) {
+                 quests.setTaskProgress(player, e.task(), 1);
+             }
+         }
+diff --git a/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java b/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java
+index 7af4556..456d4b5 100644
+--- a/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java
++++ b/reflibquests/src/main/java/com/levviata/reflibquests/model/BookEditor.java
+@@ -1695,6 +1695,13 @@ public final class BookEditor {
+                     }
+                     p = p.with(key, value);
+                 }
++                case "to_observe" -> {
++                    String v = value.strip();
++                    if (!t.type().equals("observation") || v.isEmpty() || v.length() > 200) {
++                        return Result.INVALID;
++                    }
++                    p = p.with(key, v);
++                }
+                 case "dimension" -> {
+                     if (!t.type().equals("location") || !value.strip().matches("[a-z0-9_.-]+:[a-z0-9_./-]+|-?[0-9]+")) {
+                         return Result.INVALID;
+diff --git a/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java b/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java
+index 77b3f70..60671b4 100644
+--- a/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java
++++ b/reflibquests/src/test/java/com/levviata/reflibquests/model/BookEditorTest.java
+@@ -605,6 +605,10 @@ class BookEditorTest {
+         assertEquals(INVALID, ed.setTaskProp(obs, "timer", "-1"));
+         assertEquals(OK, ed.setTaskProp(obs, "observation_type", "entity"));
+         assertEquals(INVALID, ed.setTaskProp(obs, "observation_type", "sky"));
++        assertEquals(OK, ed.setTaskProp(obs, "to_observe", "minecraft:cow"));
++        assertEquals("minecraft:cow", book.task(obs).params().getString("to_observe", ""));
++        assertEquals(INVALID, ed.setTaskProp(obs, "to_observe", " "), "empty target");
++        assertEquals(INVALID, ed.setTaskProp(task, "to_observe", "minecraft:cow"), "only observation tasks");
+         String loc = ed.addTask(q.id, "location", DataNode.Compound.empty());
+         assertEquals(OK, ed.setTaskProp(loc, "dimension", "minecraft:the_nether"));
+         assertEquals(OK, ed.setTaskProp(loc, "ignore_dimension", "true"));
+-- 
+2.43.0
+

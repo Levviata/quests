@@ -1695,6 +1695,13 @@ public final class BookEditor {
                     }
                     p = p.with(key, value);
                 }
+                case "to_observe" -> {
+                    String v = value.strip();
+                    if (!t.type().equals("observation") || v.isEmpty() || v.length() > 200) {
+                        return Result.INVALID;
+                    }
+                    p = p.with(key, v);
+                }
                 case "dimension" -> {
                     if (!t.type().equals("location") || !value.strip().matches("[a-z0-9_.-]+:[a-z0-9_./-]+|-?[0-9]+")) {
                         return Result.INVALID;

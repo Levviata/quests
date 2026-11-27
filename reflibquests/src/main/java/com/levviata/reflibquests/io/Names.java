@@ -51,6 +51,11 @@ public final class Names {
         return OptionalInt.empty();
     }
 
+    /** What a dimension is called on screen: the stored value without this mod's own {@code modded:} prefix. */
+    public static String dimensionLabel(String stored) {
+        return stored != null && stored.startsWith(MODDED_PREFIX) ? stored.substring(MODDED_PREFIX.length()) : String.valueOf(stored);
+    }
+
     public static java.util.List<String> dimensionNames() {
         java.util.List<String> out = new java.util.ArrayList<>(java.util.List.of("minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"));
         for (net.minecraft.world.DimensionType type : net.minecraft.world.DimensionType.values()) {
