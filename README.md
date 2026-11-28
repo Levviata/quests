@@ -6,7 +6,7 @@ features and usability are ok, includes item and image selectors, configuration 
 
 Is it better than Better quests and 1.12.2 ftb quests? probably. does anyone care? no
 
-assets are supplied by, you guessed it, FTB quest's latest version. Put their jar inside .minecraft/reflib-supplied (or something like that. I believe a folder under "reflib-" is created, put it in that), otherwise you won't get the full picture yet, visually at least.
+assets are supplied by FTB Quest and Library both latest version. Put their jar inside .minecraft/reflib-supplied, otherwise you won't get the full picture, visually at least.
 
 ### disclaimer
 no code, assets, or anything else proprietary and copyrighted by FTB is shipped. You supply their assets under .minecraft/reflib-supplied, and they grabbed by our code. Remove the jar and their assets are not available, simple right.
