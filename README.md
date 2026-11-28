@@ -6,6 +6,8 @@ features and usability are ok, includes item and image selectors, configuration 
 
 Is it better than Better quests and 1.12.2 ftb quests? probably. does anyone care? no
 
+To use, build reflibquests and reflibteams. How? I dont know yet
+
 assets are supplied by FTB Quest and Library both latest version. Put their jar inside .minecraft/reflib-supplied, otherwise you won't get the full picture, visually at least.
 
 ### disclaimer
